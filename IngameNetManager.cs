@@ -148,13 +148,17 @@ namespace RavenM
                 if (controller.Targets.AiControlled)
                     continue;
 
-                Vector3 vector = Camera.current.WorldToScreenPoint(actor.transform.position + new Vector3(0, 2f, 0));
+                if (FpsActorController.instance == null)
+                    continue;
+
+                Vector3 vector = FpsActorController.instance.GetActiveCamera().WorldToScreenPoint(actor.CenterPosition() + new Vector3(0, 1f, 0));
+                
                 if (vector.z < 0f)
                 {
-                    vector *= -1f;
+                    continue;
                 }
 
-                GUI.Box(new Rect(vector.x - 20f, Screen.height - vector.y, 110f, 20f), actor.name);
+                GUI.Box(new Rect(vector.x - 50f, Screen.height - vector.y, 110f, 20f), actor.name);
             }
         }
 
