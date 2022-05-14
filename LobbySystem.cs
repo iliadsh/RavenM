@@ -9,6 +9,14 @@ namespace RavenM
     [HarmonyPatch(typeof(InstantActionMaps), nameof(InstantActionMaps.StartGame))]
     public class OnStartPatch
     {
+        static bool Prefix()
+        {
+            if (LobbySystem.instance.InLobby && !LobbySystem.instance.IsLobbyOwner && !LobbySystem.instance.ReadyToPlay)
+                return false;
+
+            return true;
+        }
+
         static void Postfix(InstantActionMaps __instance)
         {
             if (!LobbySystem.instance.LobbyDataReady)
@@ -25,14 +33,6 @@ namespace RavenM
     [HarmonyPatch(typeof(GameManager), "StartGame")]
     public class FinalizeStartPatch
     {
-        static bool Prefix()
-        {
-            if (LobbySystem.instance.InLobby && !LobbySystem.instance.IsLobbyOwner && LobbySystem.instance.ReadyToPlay)
-                return false;
-
-            return true;
-        }
-
         static void Postfix()
         {
             if (!LobbySystem.instance.LobbyDataReady)
@@ -155,6 +155,7 @@ namespace RavenM
 
             if (len == 1)
             {
+                ReadyToPlay = true;
                 //No initial bots! Many errors otherwise!
                 InstantActionMaps.instance.botNumberField.text = "0";
                 InstantActionMaps.instance.StartGame();

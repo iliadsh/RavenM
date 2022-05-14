@@ -106,6 +106,8 @@ namespace RavenM
         private void Start()
         {
             SteamNetworkingUtils.InitRelayNetworkAccess();
+
+            Callback<SteamNetConnectionStatusChangedCallback_t>.Create(OnConnectionStatus);
         }
 
         private void Update()
@@ -192,8 +194,6 @@ namespace RavenM
 
             ResetState();
 
-            Callback<SteamNetConnectionStatusChangedCallback_t>.Create(OnConnectionStatus);
-
             ServerSOcket = SteamNetworkingSockets.CreateListenSocketP2P(0, 0, null);
 
             PollGroup = SteamNetworkingSockets.CreatePollGroup();
@@ -245,8 +245,6 @@ namespace RavenM
             Plugin.logger.LogInfo("Starting client.");
 
             ResetState();
-
-            Callback<SteamNetConnectionStatusChangedCallback_t>.Create(OnConnectionStatus);
 
             IsClient = true;
 
