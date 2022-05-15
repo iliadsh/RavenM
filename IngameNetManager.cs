@@ -98,9 +98,20 @@ namespace RavenM
 
         public bool IsClient = false;
 
+        public Texture2D MarkerTexture = new Texture2D(2, 2);
+
+        public Vector3 MarkerPosition = Vector3.zero;
+
         private void Awake()
         {
             instance = this;
+
+            using var markerResource = Assembly.GetExecutingAssembly().GetManifestResourceStream("RavenM.assets.marker.png");
+            using var resourceMemory = new MemoryStream();
+            markerResource.CopyTo(resourceMemory);
+            var imageBytes = resourceMemory.ToArray();
+
+            MarkerTexture.LoadImage(imageBytes);
         }
 
         private void Start()
@@ -112,6 +123,25 @@ namespace RavenM
 
         private void Update()
         {
+            // AKA Tilde Key.
+            if (Input.GetKeyDown(KeyCode.BackQuote) 
+                && GameManager.instance != null && GameManager.IsIngame() 
+                && !ActorManager.instance.player.dead 
+                && ActorManager.instance.player.activeWeapon != null)
+            {
+                Physics.Raycast(ActorManager.instance.player.activeWeapon.transform.position, ActorManager.instance.player.activeWeapon.transform.forward, out RaycastHit hit, Mathf.Infinity, Physics.AllLayers);
+
+                if (hit.point != null)
+                {
+                    Plugin.logger.LogInfo($"Placing marker at: {hit.point}");
+
+                    if ((hit.point - MarkerPosition).magnitude > 10)
+                        MarkerPosition = hit.point;
+                    else
+                        MarkerPosition = Vector3.zero;
+                }          
+            }
+
             _ticker2 += Time.deltaTime;
 
             if (_ticker2 > 1)
@@ -129,6 +159,20 @@ namespace RavenM
             }
         }
 
+        private void DrawMarker(Vector3 worldPos)
+        {
+            if (worldPos != Vector3.zero)
+            {
+                Vector3 vector = FpsActorController.instance.GetActiveCamera().WorldToScreenPoint(worldPos);
+
+                if (vector.z > 0.5f)
+                {
+                    GUI.DrawTexture(new Rect(vector.x - 15f, Screen.height - vector.y, 30f, 30f), MarkerTexture);
+                }
+            }
+            
+        }
+
         private void OnGUI()
         {
             if (!IsClient)
@@ -139,6 +183,8 @@ namespace RavenM
 
             SteamNetworkingSockets.GetQuickConnectionStatus(C2SConnection, out SteamNetworkingQuickConnectionStatus pStats);
             GUI.Label(new Rect(10, 80, 200, 40), $"Ping: {pStats.m_nPing} ms");
+
+            DrawMarker(MarkerPosition);
 
             foreach (var kv in ClientActors)
             {
@@ -155,6 +201,8 @@ namespace RavenM
 
                 if (FpsActorController.instance == null)
                     continue;
+
+                DrawMarker(controller.Targets.MarkerPosition);
 
                 Vector3 vector = FpsActorController.instance.GetActiveCamera().WorldToScreenPoint(actor.CenterPosition() + new Vector3(0, 1f, 0));
                 
@@ -189,6 +237,8 @@ namespace RavenM
             IsHost = false;
 
             IsClient = false;
+
+            MarkerPosition = Vector3.zero;
         }
 
         public void StartAsServer()
@@ -774,6 +824,7 @@ namespace RavenM
                     Team = actor.team,
                     Dead = actor.dead,
                     AiControlled = actor.aiControlled,
+                    MarkerPosition = actor.aiControlled ? Vector3.zero : MarkerPosition,
                 };
 
                 bulkActorUpdate.Updates.Add(net_actor);

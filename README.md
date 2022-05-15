@@ -15,8 +15,10 @@ There are several dependencies on game assemblies located in `Ravenfield/ravenfi
 - netstandard.dll
 - UnityEngine.dll
 - UnityEngine.CoreModule.dll
+- UnityEngine.ImageConversionModule.dll
 - UnityEngine.IMGUIModule.dll
 - UnityEngine.InputLegacyModule.dll
+- UnityEngine.PhysicsModule.dll
 - UnityEngine.UI.dll
 - UnityEngine.UIModule.dll
 
