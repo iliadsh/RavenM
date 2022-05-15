@@ -118,6 +118,9 @@ namespace RavenM
 
         [ProtoMember(36)]
         public bool AiControlled;
+
+        [ProtoMember(37)]
+        public Vector3 MarkerPosition;
     }
 
     [ProtoContract]

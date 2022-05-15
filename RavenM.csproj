@@ -10,6 +10,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="assets\marker.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="assets\marker.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
     <PackageReference Include="BepInEx.Core" Version="5.*" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*" />
@@ -37,11 +45,17 @@
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>libs\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>libs\UnityEngine.ImageConversionModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.IMGUIModule">
       <HintPath>libs\UnityEngine.IMGUIModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
       <HintPath>libs\UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>libs\UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>libs\UnityEngine.UI.dll</HintPath>

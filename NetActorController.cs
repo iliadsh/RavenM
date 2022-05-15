@@ -23,6 +23,25 @@ namespace RavenM
     }
 
     /// <summary>
+    /// Part two of stopping AI coroutines from firing. This should stop all any
+    /// any AI interaction if not the host.
+    /// </summary>
+    [HarmonyPatch(typeof(ActorManager), "UpdateAI")]
+    public class NoUpdateAIPatch
+    {
+        static bool Prefix()
+        {
+            if (!IngameNetManager.instance.IsClient)
+                return true;
+
+            if (!IngameNetManager.instance.IsHost)
+                return false;
+
+            return true;
+        }
+    }
+
+    /// <summary>
     /// An ActorController for Actors controlled by a remote client. Nothing fancy, just copying
     /// the method results of the actual ActorController on the other end.
     /// </summary>
