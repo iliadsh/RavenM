@@ -135,9 +135,10 @@ namespace RavenM
                 if (OwnerID == new CSteamID(pCallback.m_ulSteamIDUserChanged))
                 {
                     SteamMatchmaking.LeaveLobby(ActualLobbyID);
-                    LobbyDataReady = false;
                     InLobby = false;
                     ReadyToPlay = true;
+                    // Keep the lobby data as available, so that we can still join the match
+                    // connection if needed.
                 }
             }
         }
@@ -246,6 +247,7 @@ namespace RavenM
                         SteamMatchmaking.CreateLobby(PrivateLobby ? ELobbyType.k_ELobbyTypeFriendsOnly : ELobbyType.k_ELobbyTypePublic, 20);
                         InLobby = true;
                         IsLobbyOwner = true;
+                        LobbyDataReady = false;
                     }
                 }
                 else if (GUIStack.Peek() == "Join")
@@ -261,12 +263,13 @@ namespace RavenM
                             SteamMatchmaking.JoinLobby(lobbyId);
                             InLobby = true;
                             IsLobbyOwner = false;
+                            LobbyDataReady = false;
                         }
                     }
                 }
             }
 
-            if (LobbyDataReady)
+            if (InLobby && LobbyDataReady)
             {
                 int len = SteamMatchmaking.GetNumLobbyMembers(ActualLobbyID);
 
