@@ -623,6 +623,16 @@ namespace RavenM
                                     if (seat.IsDriverSeat())
                                         OwnedVehicles.Remove(enterSeatPacket.VehicleId);
 
+                                    // TODO: Is it possible to switch into vehicles without getting out first?
+                                    if (actor.IsSeated())
+                                    {
+                                        // Same as if the actor fully left the seat.
+                                        if (actor.seat.IsDriverSeat() && IsHost)
+                                            OwnedVehicles.Add(actor.seat.vehicle.GetComponent<GuidComponent>().guid);
+
+                                        typeof(Actor).GetMethod("LeaveSeatForSwap", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(actor, new object[] { });
+                                    }
+
                                     actor.EnterSeat(seat, true);
                                 }
                                 break;

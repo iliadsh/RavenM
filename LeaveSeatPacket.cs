@@ -5,6 +5,27 @@ using Steamworks;
 
 namespace RavenM
 {
+    /// <summary>
+    /// When swapping seats we don't need to trigger a Leave packet.
+    /// </summary>
+    [HarmonyPatch(typeof(Actor), "LeaveSeatForSwap")]
+    public class LeaveSwapPatch
+    {
+        static bool Prefix(Actor __instance)
+        {
+            if (!IngameNetManager.instance.IsClient)
+                return true;
+
+            var vehicleId = __instance.seat.vehicle.GetComponent<GuidComponent>().guid;
+
+            // Give up control if we temporarily required it.
+            if (!IngameNetManager.instance.IsHost && __instance.seat.IsDriverSeat())
+                IngameNetManager.instance.OwnedVehicles.Remove(vehicleId);
+
+            return true;
+        }
+    }
+
     [HarmonyPatch(typeof(Actor), nameof(Actor.LeaveSeat))]
     public class LeaveSetPatch
     {

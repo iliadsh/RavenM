@@ -51,9 +51,14 @@ namespace RavenM
             // to glitch out with its colliders and such.
             if ((actor.transform.position - Targets.Position).magnitude > 0.005)
             {
-                var new_pos = Vector3.Lerp(actor.transform.position, Targets.Position, 10f * Time.deltaTime);
+                // Let the vehicle move the actor in this case, otherwise there is
+                // a very noticible de-sync between actor and vehicle.
+                if (!actor.IsSeated())
+                {
+                    var new_pos = Vector3.Lerp(actor.transform.position, Targets.Position, 10f * Time.deltaTime);
 
-                actor.SetPositionAndRotation(new_pos, actor.transform.rotation);
+                    actor.SetPositionAndRotation(new_pos, actor.transform.rotation);
+                }
             }
 
             ActualState.FacingDirection = Vector3.Slerp(ActualState.FacingDirection, Targets.FacingDirection, 5f * Time.deltaTime);
