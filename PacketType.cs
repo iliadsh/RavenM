@@ -12,5 +12,6 @@
         Death,
         EnterSeat,
         LeaveSeat,
+        GameStateUpdate,
     }
 }

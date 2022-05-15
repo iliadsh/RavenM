@@ -660,6 +660,25 @@ namespace RavenM
                                     actor.LeaveSeat(false);
                                 }
                                 break;
+                            case PacketType.GameStateUpdate:
+                                {
+                                    switch (GameModeBase.instance.gameModeType)
+                                    {
+                                        case GameModeType.Battalion:
+                                            var leaveSeatPacket = Serializer.Deserialize<BattleStatePacket>(dataStream);
+
+                                            var battleObj = FindObjectOfType<BattleMode>();
+
+                                            typeof(BattleMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(battleObj, leaveSeatPacket.RemainingBattalions);
+                                            typeof(BattleMode).GetField("tickets", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(battleObj, leaveSeatPacket.Tickets);
+
+                                            break;
+                                        default:
+                                            Plugin.logger.LogError("Got game mode update for unsupported type?");
+                                            break;
+                                    }
+                                }
+                                break;
                         }
                     }
 
@@ -703,9 +722,44 @@ namespace RavenM
 
             LastTick = 0;
 
+            SendGameState();
+
             SendActorStates();
 
             SendVehicleStates();
+        }
+
+        public void SendGameState()
+        {
+            if (!IsHost)
+                return;
+
+            byte[] data = null;
+
+            switch (GameModeBase.instance.gameModeType)
+            {
+                case GameModeType.Battalion:
+                    {
+                        var battleObj = FindObjectOfType<BattleMode>();
+
+                        var gamePacket = new BattleStatePacket
+                        {
+                            RemainingBattalions = (int[])typeof(BattleMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(battleObj),
+                            Tickets = (int[])typeof(BattleMode).GetField("tickets", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(battleObj)
+                        };
+
+                        using MemoryStream memoryStream = new MemoryStream();
+
+                        Serializer.Serialize(memoryStream, gamePacket);
+                        data = memoryStream.ToArray();
+                    }
+                    break;
+            }
+
+            if (data == null)
+                return;
+
+            SendPacketToServer(data, PacketType.GameStateUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
         }
 
         public void SendActorStates()
