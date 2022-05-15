@@ -5,6 +5,21 @@ using Steamworks;
 
 namespace RavenM
 {
+    [HarmonyPatch(typeof(AiActorController), nameof(AiActorController.CreateRougeSquad))]
+    public class RogueSquadPatch
+    {
+        static bool Prefix(AiActorController __instance)
+        {
+            if (!IngameNetManager.instance.IsClient)
+                return true;
+
+            if (!IngameNetManager.instance.OwnedActors.Contains(__instance.actor.GetComponent<GuidComponent>().guid))
+                return false;
+
+            return true;
+        }
+    }
+
     [HarmonyPatch(typeof(Actor), nameof(Actor.EnterSeat))]
     public class EnterSeatPatch
     {
