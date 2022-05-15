@@ -137,6 +137,9 @@ namespace RavenM
             GUI.Label(new Rect(10, 30, 200, 40), $"Inbound: {_pps} PPS");
             GUI.Label(new Rect(10, 50, 200, 40), $"Outbound: {_ppsOut} PPS -- {_bytesOut} Bytes");
 
+            SteamNetworkingSockets.GetQuickConnectionStatus(C2SConnection, out SteamNetworkingQuickConnectionStatus pStats);
+            GUI.Label(new Rect(10, 80, 200, 40), $"Ping: {pStats.m_nPing} ms");
+
             foreach (var kv in ClientActors)
             {
                 var id = kv.Key;

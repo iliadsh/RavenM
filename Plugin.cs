@@ -1,6 +1,7 @@
 ﻿using BepInEx;
 using HarmonyLib;
 using Steamworks;
+using System.Reflection;
 using UnityEngine;
 
 namespace RavenM
@@ -51,6 +52,11 @@ namespace RavenM
             ProtoBuf.Meta.RuntimeTypeModel.Default.Add(typeof(Vector3), false).Add("x", "y", "z");
             ProtoBuf.Meta.RuntimeTypeModel.Default.Add(typeof(Vector4), false).Add("x", "y", "z", "w");
             ProtoBuf.Meta.RuntimeTypeModel.Default.Add(typeof(Quaternion), false).Add("x", "y", "z", "w");
+        }
+
+        private void OnGUI()
+        {
+            GUI.Label(new Rect(10, Screen.height - 20, 400, 40), $"RavenM ID: {Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId}");
         }
 
         void Update()
