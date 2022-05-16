@@ -43,6 +43,12 @@ namespace RavenM
 
         [ProtoMember(5)]
         public int Team;
+
+        [ProtoMember(6)]
+        public float Health;
+
+        [ProtoMember(7)]
+        public bool Dead;
     }
 
     [ProtoContract]
