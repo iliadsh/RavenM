@@ -34,6 +34,10 @@ namespace RavenM
             if (!IngameNetManager.instance.IsClient)
                 return true;
 
+            // Vehicle destroyed?
+            if (__instance.seat.vehicle == null)
+                return true;
+
             var vehicleId = __instance.seat.vehicle.GetComponent<GuidComponent>().guid;
 
             // Give up control if we temporarily required it.
