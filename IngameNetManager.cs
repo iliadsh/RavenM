@@ -891,7 +891,12 @@ namespace RavenM
                     CarInput = actor.seat != null ? actor.controller.CarInput() : Vector2.zero,
                     Countermeasures = actor.dead ? false : actor.controller.Countermeasures(),
                     Crouch = actor.dead ? false : actor.controller.Crouch(),
-                    FacingDirection = actor.dead ? Vector3.zero : actor.controller.FacingDirection(),
+                    // Dirty conditional, but it is needed to properly update the
+                    // turret direction when the user is a player.
+                    FacingDirection = actor.dead ? Vector3.zero : 
+                        (!actor.aiControlled && actor.seat != null && actor.seat.activeWeapon != null) ? 
+                            actor.seat.activeWeapon.CurrentMuzzle().forward :
+                            actor.controller.FacingDirection(),
                     Fire = actor.dead ? false : actor.controller.Fire(),
                     HelicopterInput = actor.seat != null ? actor.controller.HelicopterInput() : Vector4.zero,
                     HoldingSprint = actor.dead ? false : actor.controller.HoldingSprint(),
