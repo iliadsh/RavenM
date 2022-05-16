@@ -573,6 +573,9 @@ namespace RavenM
 
                                         if (vehicle == null)
                                         {
+                                            if (vehiclePacket.Dead)
+                                                continue;
+
                                             Plugin.logger.LogError($"Vehicle with id {vehiclePacket.Id} has somehow dissapeared. Skipping this update for now.");
                                             ClientVehicles.Remove(vehiclePacket.Id);
                                             continue;
@@ -581,6 +584,16 @@ namespace RavenM
                                         vehicle.transform.position = Vector3.Lerp(vehicle.transform.position, vehiclePacket.Position, 5f * Time.deltaTime);
 
                                         vehicle.transform.rotation = Quaternion.Slerp(vehicle.transform.rotation, vehiclePacket.Rotation, 5f * Time.deltaTime);
+
+                                        vehicle.health = vehiclePacket.Health;
+
+                                        if (vehiclePacket.Dead)
+                                            if (!vehicle.dead)
+                                                vehicle.Die(new DamageInfo());
+                                        else if (vehicle.health <= 0)
+                                            vehicle.Damage(new DamageInfo());
+                                        else if (vehicle.health > 0 && vehicle.burning)
+                                            typeof(Vehicle).GetMethod("StopBurning", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(vehicle, new object[] { });
                                     }
                                 }
                                 break;
@@ -956,7 +969,7 @@ namespace RavenM
             {
                 Vehicle vehicle = ClientVehicles[owned_vehicle];
 
-                if (vehicle == null || vehicle.dead)
+                if (vehicle == null)
                     continue;
 
                 // TODO: These are mounted weapons, such as AA, TOW, and MG.
@@ -971,6 +984,8 @@ namespace RavenM
                     Rotation = vehicle.transform.rotation,
                     Type = vehicle.spawner.typeToSpawn,
                     Team = vehicle.spawner.GetOwner(),
+                    Health = vehicle.health,
+                    Dead = vehicle.dead,
                 };
 
                 bulkVehicleUpdate.Updates.Add(net_vehicle);
