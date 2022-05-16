@@ -410,6 +410,18 @@ namespace RavenM
 
                         SteamNetworkingSockets.SetConnectionPollGroup(pCallback.m_hConn, PollGroup);
 
+                        // Unsafe just for the ptr to int.
+                        // We are increasing the send buffer size for each connection.
+                        unsafe
+                        {
+                            int _2mb = 2097152;
+
+                            SteamNetworkingUtils.SetConfigValue(ESteamNetworkingConfigValue.k_ESteamNetworkingConfig_SendBufferSize,
+                                ESteamNetworkingConfigScope.k_ESteamNetworkingConfig_Connection,
+                                (IntPtr)pCallback.m_hConn.m_HSteamNetConnection, ESteamNetworkingConfigDataType.k_ESteamNetworkingConfig_Int32,
+                                (IntPtr)(&_2mb));
+                        }
+
                         Plugin.logger.LogInfo("Accepted the connection");
                         break;
 
@@ -715,13 +727,33 @@ namespace RavenM
                                     switch (GameModeBase.instance.gameModeType)
                                     {
                                         case GameModeType.Battalion:
-                                            var leaveSeatPacket = Serializer.Deserialize<BattleStatePacket>(dataStream);
+                                            {
+                                                var gameUpdatePacket = Serializer.Deserialize<BattleStatePacket>(dataStream);
 
-                                            var battleObj = FindObjectOfType<BattleMode>();
+                                                var battleObj = FindObjectOfType<BattleMode>();
 
-                                            typeof(BattleMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(battleObj, leaveSeatPacket.RemainingBattalions);
-                                            typeof(BattleMode).GetField("tickets", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(battleObj, leaveSeatPacket.Tickets);
+                                                var currentBattalions = (int[])typeof(BattleMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(battleObj);
 
+                                                for (int i = 0; i < 2; i++)
+                                                {
+                                                    if (currentBattalions[i] > gameUpdatePacket.RemainingBattalions[i])
+                                                        typeof(BattleMode).GetMethod("OnNoTicketsRemaining", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(battleObj, new object[] { i });
+                                                }
+
+                                                typeof(BattleMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(battleObj, gameUpdatePacket.RemainingBattalions);
+                                                typeof(BattleMode).GetField("tickets", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(battleObj, gameUpdatePacket.Tickets);
+                                                
+                                                for (int i = 0; i < 2; i++)
+                                                {
+                                                    typeof(BattleMode).GetMethod("UpdateTicketLabel", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(battleObj, new object[] { i });
+                                                }
+
+                                                for (int i = 0; i < gameUpdatePacket.SpawnPointOwners.Length; i++)
+                                                {
+                                                    if (ActorManager.instance.spawnPoints[i].owner != gameUpdatePacket.SpawnPointOwners[i])
+                                                        ActorManager.instance.spawnPoints[i].SetOwner(gameUpdatePacket.SpawnPointOwners[i]);
+                                                }
+                                            }
                                             break;
                                         default:
                                             Plugin.logger.LogError("Got game mode update for unsupported type?");
@@ -795,8 +827,14 @@ namespace RavenM
                         var gamePacket = new BattleStatePacket
                         {
                             RemainingBattalions = (int[])typeof(BattleMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(battleObj),
-                            Tickets = (int[])typeof(BattleMode).GetField("tickets", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(battleObj)
+                            Tickets = (int[])typeof(BattleMode).GetField("tickets", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(battleObj),
+                            SpawnPointOwners = new int[ActorManager.instance.spawnPoints.Length],
                         };
+
+                        for (int i = 0; i < ActorManager.instance.spawnPoints.Length; i++)
+                        {
+                            gamePacket.SpawnPointOwners[i] = ActorManager.instance.spawnPoints[i].owner;
+                        }
 
                         using MemoryStream memoryStream = new MemoryStream();
 
