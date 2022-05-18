@@ -57,7 +57,7 @@ namespace RavenM
     {
         static bool Prefix()
         {
-            if (LobbySystem.instance.InLobby)
+            if (LobbySystem.instance.InLobby && (int)typeof(MainMenu).GetField("page", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(MainMenu.instance) == MainMenu.PAGE_INSTANT_ACTION)
                 return false;
 
             return true;

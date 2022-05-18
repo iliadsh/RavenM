@@ -18,6 +18,8 @@ namespace RavenM
     {
         static bool Prefix(ModManager __instance)
         {
+            __instance.noWorkshopMods = true;
+            __instance.builtInMutators.Clear();
             __instance.noContentMods = true;
             return true;
         }
