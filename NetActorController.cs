@@ -270,7 +270,7 @@ namespace RavenM
 
         public override bool HasSpottedTarget()
         {
-            return false;
+            return true;
         }
 
         public override Vector4 HelicopterInput()
