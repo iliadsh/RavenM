@@ -758,7 +758,8 @@ namespace RavenM
                                                 
                                                 for (int i = 0; i < 2; i++)
                                                 {
-                                                    typeof(BattleMode).GetMethod("UpdateTicketLabel", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(battleObj, new object[] { i });
+                                                    if (gameUpdatePacket.RemainingBattalions[i] != 0)
+                                                        typeof(BattleMode).GetMethod("UpdateTicketLabel", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(battleObj, new object[] { i });
                                                 }
 
                                                 for (int i = 0; i < gameUpdatePacket.SpawnPointOwners.Length; i++)
