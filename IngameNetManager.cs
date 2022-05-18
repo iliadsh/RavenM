@@ -809,6 +809,7 @@ namespace RavenM
                         {
                             Plugin.logger.LogError($"Failure {res}");
                             ServerConnections.RemoveAt(i);
+                            SteamNetworkingSockets.CloseConnection(connection, 0, null, false);
                         }
                     }
 
