@@ -80,6 +80,8 @@ namespace RavenM
 
         public Dictionary<int, Vehicle> ClientVehicles = new Dictionary<int, Vehicle>();
 
+        public HashSet<int> RemoteDeadVehicles = new HashSet<int>();
+
         public HSteamNetConnection C2SConnection;
 
         /// Server owned
@@ -588,8 +590,11 @@ namespace RavenM
                                         vehicle.health = vehiclePacket.Health;
 
                                         if (vehiclePacket.Dead)
+                                        {
+                                            RemoteDeadVehicles.Add(vehiclePacket.Id);
                                             if (!vehicle.dead)
                                                 vehicle.Die(new DamageInfo());
+                                        }
                                         else if (vehicle.health <= 0)
                                             vehicle.Damage(new DamageInfo());
                                         else if (vehicle.health > 0 && vehicle.burning)
