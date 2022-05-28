@@ -26,7 +26,7 @@ namespace RavenM
             SteamNetworkingSockets.CloseConnection(IngameNetManager.instance.C2SConnection, 0, string.Empty, false);
 
             if (IngameNetManager.instance.IsHost)
-                SteamNetworkingSockets.CloseListenSocket(IngameNetManager.instance.ServerSOcket);
+                SteamNetworkingSockets.CloseListenSocket(IngameNetManager.instance.ServerSocket);
 
             IngameNetManager.instance.ResetState();
         }
@@ -85,7 +85,7 @@ namespace RavenM
         public HSteamNetConnection C2SConnection;
 
         /// Server owned
-        public HSteamListenSocket ServerSOcket;
+        public HSteamListenSocket ServerSocket;
 
         public HSteamNetPollGroup PollGroup;
 
@@ -249,7 +249,7 @@ namespace RavenM
 
             ResetState();
 
-            ServerSOcket = SteamNetworkingSockets.CreateListenSocketP2P(0, 0, null);
+            ServerSocket = SteamNetworkingSockets.CreateListenSocketP2P(0, 0, null);
 
             PollGroup = SteamNetworkingSockets.CreatePollGroup();
 
@@ -269,13 +269,13 @@ namespace RavenM
             foreach (var vehicle in FindObjectsOfType<Vehicle>())
             {
                 // Ground Mounted Weapons. TODO
-                if (vehicle.spawner == null)
-                {
-                    Plugin.logger.LogInfo($"Removing \"vehicle\" with name {vehicle.name}");
-                    ActorManager.DropVehicle(vehicle);
-                    typeof(Vehicle).GetMethod("Cleanup", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(vehicle, new object[] { });
-                    continue;
-                }
+                //if (vehicle.spawner == null)
+                //{
+                //    Plugin.logger.LogInfo($"Removing \"vehicle\" with name {vehicle.name}");
+                //    ActorManager.DropVehicle(vehicle);
+                //    typeof(Vehicle).GetMethod("Cleanup", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(vehicle, new object[] { });
+                //    continue;
+                //}
 
                 int id = RandomGen.Next(0, int.MaxValue);
 
@@ -328,6 +328,7 @@ namespace RavenM
             {
                 ActorManager.DropVehicle(vehicle);
                 typeof(Vehicle).GetMethod("Cleanup", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(vehicle, new object[] { });
+                vehicle.gameObject.SetActive(false);
             }
 
             foreach (var vehicle_spawner in FindObjectsOfType<VehicleSpawner>())
@@ -560,17 +561,30 @@ namespace RavenM
                                         }
                                         else
                                         {
-                                            Plugin.logger.LogInfo($"New vehicle registered with ID {vehiclePacket.Id} type {vehiclePacket.Type}");
+                                            if (!vehiclePacket.IsTurret)
+                                            {
+                                                Plugin.logger.LogInfo($"New vehicle registered with ID {vehiclePacket.Id} type {vehiclePacket.Type}");
+                                                vehicle = VehicleSpawner.SpawnVehicleAt(vehiclePacket.Position, vehiclePacket.Rotation, vehiclePacket.Team, vehiclePacket.Type);
 
-                                            vehicle = VehicleSpawner.SpawnVehicleAt(vehiclePacket.Position, vehiclePacket.Rotation, vehiclePacket.Team, vehiclePacket.Type);
+                                                var fakeSpawner = vehicle.gameObject.AddComponent<VehicleSpawner>();
+                                                fakeSpawner.typeToSpawn = vehiclePacket.Type;
+                                                vehicle.spawner = fakeSpawner;
 
-                                            var fakeSpawner = vehicle.gameObject.AddComponent<VehicleSpawner>();
-                                            fakeSpawner.typeToSpawn = vehiclePacket.Type;
-                                            vehicle.spawner = fakeSpawner;
+                                                vehicle.gameObject.AddComponent<GuidComponent>().guid = vehiclePacket.Id;
 
-                                            vehicle.gameObject.AddComponent<GuidComponent>().guid = vehiclePacket.Id;
+                                                ClientVehicles[vehiclePacket.Id] = vehicle;
+                                            }
+                                            else
+                                            {
+                                                Plugin.logger.LogInfo($"New turret with ID {vehiclePacket.Id} and type {vehiclePacket.TurretType}");
+                                                vehicle = TurretSpawner.SpawnTurretAt(vehiclePacket.Position, vehiclePacket.Rotation, vehiclePacket.Team, vehiclePacket.TurretType);
 
-                                            ClientVehicles[vehiclePacket.Id] = vehicle;
+                                                vehicle.isTurret = true;
+
+                                                vehicle.gameObject.AddComponent<GuidComponent>().guid = vehiclePacket.Id;
+
+                                                ClientVehicles[vehiclePacket.Id] = vehicle;
+                                            }
                                         }
 
                                         if (vehicle == null)
@@ -829,6 +843,8 @@ namespace RavenM
             SendActorStates();
 
             SendVehicleStates();
+
+            SendTurretStates();
         }
 
         public void SendGameState()
@@ -979,8 +995,7 @@ namespace RavenM
                 if (vehicle == null)
                     continue;
 
-                // TODO: These are mounted weapons, such as AA, TOW, and MG.
-                //       I'm not sure how to send them over without a spawner.
+                // This pass is for normal vehicles, i.e. not turrets.
                 if (vehicle.spawner == null)
                     continue;
 
@@ -993,6 +1008,8 @@ namespace RavenM
                     Team = vehicle.spawner.GetOwner(),
                     Health = vehicle.health,
                     Dead = vehicle.dead,
+                    IsTurret = false,
+                    TurretType = 0,
                 };
 
                 bulkVehicleUpdate.Updates.Add(net_vehicle);
@@ -1004,6 +1021,53 @@ namespace RavenM
             using MemoryStream memoryStream = new MemoryStream();
 
             Serializer.Serialize(memoryStream, bulkVehicleUpdate);
+            byte[] data = memoryStream.ToArray();
+
+            SendPacketToServer(data, PacketType.VehicleUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
+        }
+
+        public void SendTurretStates()
+        {
+            // Turret updates use the same packets as regular vehicle updates.
+            var bulkTurretUpdate = new BulkVehicleUpdate
+            {
+                Updates = new List<VehiclePacket>(),
+            };
+
+            foreach (var turret_spawner in FindObjectsOfType<TurretSpawner>())
+            {
+                Vehicle vehicle = turret_spawner.GetActiveTurret();
+
+                if (vehicle == null)
+                    continue;
+
+                var turret_id = vehicle.GetComponent<GuidComponent>().guid;
+
+                if (!OwnedVehicles.Contains(turret_id))
+                    continue;
+
+                var net_turret = new VehiclePacket
+                {
+                    Id = turret_id,
+                    Position = vehicle.transform.position,
+                    Rotation = vehicle.transform.rotation,
+                    Type = 0,
+                    Team = turret_spawner.spawnedTurret[0] != null ? 0 : 1,
+                    Health = vehicle.health,
+                    Dead = vehicle.dead,
+                    IsTurret = true,
+                    TurretType = turret_spawner.typeToSpawn,
+                };
+
+                bulkTurretUpdate.Updates.Add(net_turret);
+            }
+
+            if (bulkTurretUpdate.Updates.Count == 0)
+                return;
+
+            using MemoryStream memoryStream = new MemoryStream();
+
+            Serializer.Serialize(memoryStream, bulkTurretUpdate);
             byte[] data = memoryStream.ToArray();
 
             SendPacketToServer(data, PacketType.VehicleUpdate, Constants.k_nSteamNetworkingSend_Unreliable);

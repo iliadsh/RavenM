@@ -79,6 +79,12 @@ namespace RavenM
 
         [ProtoMember(7)]
         public bool Dead;
+
+        [ProtoMember(8)]
+        public bool IsTurret;
+
+        [ProtoMember(9)]
+        public TurretSpawner.TurretSpawnType TurretType;
     }
 
     [ProtoContract]
