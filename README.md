@@ -49,4 +49,4 @@ Go to the `Instant Action` menu and press `M`. Press `Join` and paste the `Lobby
 
 Have fun!
 
-![How do you do](https://i.imgur.com/ikWNbOo.png)
+![Vehicles are more fun with friends](https://i.imgur.com/UnaFuwD.png)
