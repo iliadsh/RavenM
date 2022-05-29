@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
@@ -53,6 +54,23 @@ namespace RavenM
             }
 
             return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(FpsActorController), "Update")]
+    public class NoSlowmoPatch
+    {
+        // We patch the target slow motion speed with the normal execution speed (1.0f)
+        // which results in slow-mo being a no-op.
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            foreach (var instruction in instructions)
+            {
+                if (instruction.opcode == OpCodes.Ldc_R4 && (float)instruction.operand == 0.2f)
+                    instruction.operand = 1.0f;
+
+                yield return instruction;
+            }
         }
     }
 
