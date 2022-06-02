@@ -74,6 +74,29 @@ namespace RavenM
         }
     }
 
+    [HarmonyPatch(typeof(Mortar), "GetTargetPosition")]
+    public class MortarTargetPatch
+    {
+        // Patch the first conditional jump to an unconditional one. This will skip the
+        // block which assumes the Actor is a bot and has an Actor target.
+        // FIXME: This means the bots will have garbage aim with the mortar.
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            bool first = true;
+
+            foreach (var instruction in instructions)
+            {
+                if (first && instruction.opcode == OpCodes.Brtrue)
+                {
+                    instruction.opcode = OpCodes.Brfalse;
+                    first = false;
+                }
+
+                yield return instruction;
+            }
+        }
+    }
+
     public class IngameNetManager : MonoBehaviour
     {
         public static IngameNetManager instance;
@@ -284,17 +307,8 @@ namespace RavenM
                 OwnedActors.Add(id);
             }
 
-            foreach (var vehicle in FindObjectsOfType<Vehicle>())
+            foreach (var vehicle in FindObjectsOfType<Vehicle>(includeInactive: true))
             {
-                // Ground Mounted Weapons. TODO
-                //if (vehicle.spawner == null)
-                //{
-                //    Plugin.logger.LogInfo($"Removing \"vehicle\" with name {vehicle.name}");
-                //    ActorManager.DropVehicle(vehicle);
-                //    typeof(Vehicle).GetMethod("Cleanup", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(vehicle, new object[] { });
-                //    continue;
-                //}
-
                 int id = RandomGen.Next(0, int.MaxValue);
 
                 vehicle.gameObject.AddComponent<GuidComponent>().guid = id;
@@ -342,7 +356,7 @@ namespace RavenM
                 OwnedActors.Add(id);
             }
 
-            foreach (var vehicle in FindObjectsOfType<Vehicle>())
+            foreach (var vehicle in FindObjectsOfType<Vehicle>(includeInactive: true))
             {
                 ActorManager.DropVehicle(vehicle);
                 typeof(Vehicle).GetMethod("Cleanup", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(vehicle, new object[] { });
@@ -352,6 +366,11 @@ namespace RavenM
             foreach (var vehicle_spawner in FindObjectsOfType<VehicleSpawner>())
             {
                 Destroy(vehicle_spawner);
+            }
+
+            foreach (var spawn in ActorManager.instance.spawnPoints)
+            {
+                spawn.turretSpawners.Clear();
             }
 
             var iden = new SteamNetworkingIdentity
@@ -614,6 +633,8 @@ namespace RavenM
                                             ClientVehicles.Remove(vehiclePacket.Id);
                                             continue;
                                         }
+
+                                        vehicle.gameObject.SetActive(vehiclePacket.Active);
 
                                         vehicle.transform.position = Vector3.Lerp(vehicle.transform.position, vehiclePacket.Position, 5f * Time.deltaTime);
 
@@ -938,38 +959,41 @@ namespace RavenM
                     Name = actor.name,
                     Position = actor.Position(),
                     Lean = actor.dead ? 0f : actor.controller.Lean(),
-                    Aiming = actor.dead ? false : actor.controller.Aiming(),
+                    Aiming = !actor.dead && actor.controller.Aiming(),
                     AimInput = actor.dead ? Vector2.zero : actor.controller.AimInput(),
                     AirplaneInput = actor.seat != null ? actor.controller.AirplaneInput() : Vector4.zero,
                     BoatInput = actor.seat != null ? actor.controller.BoatInput() : Vector2.zero,
                     CarInput = actor.seat != null ? actor.controller.CarInput() : Vector2.zero,
-                    Countermeasures = actor.dead ? false : actor.controller.Countermeasures(),
-                    Crouch = actor.dead ? false : actor.controller.Crouch(),
+                    Countermeasures = !actor.dead && actor.controller.Countermeasures(),
+                    Crouch = !actor.dead && actor.controller.Crouch(),
                     // Dirty conditional, but it is needed to properly update the
                     // turret direction when the user is a player.
+                    //
+                    // ...Mortars actually use the player's facing direction.
+                    // Because why not.
                     FacingDirection = actor.dead ? Vector3.zero : 
-                        (!actor.aiControlled && actor.seat != null && actor.seat.activeWeapon != null) ? 
+                        (!actor.aiControlled && actor.seat != null && actor.seat.activeWeapon != null && actor.seat.activeWeapon.GetType() != typeof(Mortar)) ? 
                             actor.seat.activeWeapon.CurrentMuzzle().forward :
                             actor.controller.FacingDirection(),
-                    Fire = actor.dead ? false : actor.controller.Fire(),
+                    Fire = !actor.dead && actor.controller.Fire(),
                     HelicopterInput = actor.seat != null ? actor.controller.HelicopterInput() : Vector4.zero,
-                    HoldingSprint = actor.dead ? false : actor.controller.HoldingSprint(),
-                    IdlePose = actor.dead ? false : actor.controller.IdlePose(),
-                    IsAirborne = actor.dead ? false : actor.controller.IsAirborne(),
-                    IsAlert = actor.dead ? false : actor.controller.IsAlert(),
-                    IsMoving = actor.dead ? false : actor.controller.IsMoving(),
-                    IsOnPlayerSquad = actor.dead ? false : actor.controller.IsOnPlayerSquad(),
-                    IsReadyToPickUpPassengers = actor.dead ? false : actor.controller.IsReadyToPickUpPassengers(),
-                    IsSprinting = actor.dead ? false : actor.controller.IsSprinting(),
-                    IsTakingFire = actor.dead ? false : actor.controller.IsTakingFire(),
-                    Jump = actor.dead ? false : actor.controller.Jump(),
+                    HoldingSprint = !actor.dead && actor.controller.HoldingSprint(),
+                    IdlePose = !actor.dead && actor.controller.IdlePose(),
+                    IsAirborne = !actor.dead && actor.controller.IsAirborne(),
+                    IsAlert = !actor.dead && actor.controller.IsAlert(),
+                    IsMoving = !actor.dead && actor.controller.IsMoving(),
+                    IsOnPlayerSquad = !actor.dead && actor.controller.IsOnPlayerSquad(),
+                    IsReadyToPickUpPassengers = !actor.dead && actor.controller.IsReadyToPickUpPassengers(),
+                    IsSprinting = !actor.dead && actor.controller.IsSprinting(),
+                    IsTakingFire = !actor.dead && actor.controller.IsTakingFire(),
+                    Jump = !actor.dead && actor.controller.Jump(),
                     LadderInput = actor.dead ? 0f : actor.controller.LadderInput(),
-                    OnGround = actor.dead ? false : actor.controller.OnGround(),
+                    OnGround = !actor.dead && actor.controller.OnGround(),
                     ParachuteInput = actor.dead ? Vector2.zero : actor.controller.ParachuteInput(),
-                    ProjectToGround = actor.dead ? false : actor.controller.ProjectToGround(),
-                    Prone = actor.dead ? false : actor.controller.Prone(),
+                    ProjectToGround = !actor.dead && actor.controller.ProjectToGround(),
+                    Prone = !actor.dead && actor.controller.Prone(),
                     RangeInput = actor.dead ? 0f : actor.controller.RangeInput(),
-                    Reload = actor.dead ? false : actor.controller.Reload(),
+                    Reload = !actor.dead && actor.controller.Reload(),
                     Velocity = actor.dead ? Vector3.zero : actor.controller.Velocity(),
                     ActiveWeapon = actor.activeWeapon != null ? actor.activeWeapon.name : string.Empty,
                     Team = actor.team,
@@ -1028,6 +1052,7 @@ namespace RavenM
                     Dead = vehicle.dead,
                     IsTurret = false,
                     TurretType = 0,
+                    Active = vehicle.gameObject.activeSelf,
                 };
 
                 bulkVehicleUpdate.Updates.Add(net_vehicle);
@@ -1054,30 +1079,34 @@ namespace RavenM
 
             foreach (var turret_spawner in FindObjectsOfType<TurretSpawner>())
             {
-                Vehicle vehicle = turret_spawner.GetActiveTurret();
-
-                if (vehicle == null)
-                    continue;
-
-                var turret_id = vehicle.GetComponent<GuidComponent>().guid;
-
-                if (!OwnedVehicles.Contains(turret_id))
-                    continue;
-
-                var net_turret = new VehiclePacket
+                for (int i = 0; i < 2; i++)
                 {
-                    Id = turret_id,
-                    Position = vehicle.transform.position,
-                    Rotation = vehicle.transform.rotation,
-                    Type = 0,
-                    Team = turret_spawner.spawnedTurret[0] != null ? 0 : 1,
-                    Health = vehicle.health,
-                    Dead = vehicle.dead,
-                    IsTurret = true,
-                    TurretType = turret_spawner.typeToSpawn,
-                };
+                    Vehicle vehicle = turret_spawner.spawnedTurret[i];
 
-                bulkTurretUpdate.Updates.Add(net_turret);
+                    if (vehicle == null)
+                        continue;
+
+                    var turret_id = vehicle.GetComponent<GuidComponent>().guid;
+
+                    if (!OwnedVehicles.Contains(turret_id))
+                        continue;
+
+                    var net_turret = new VehiclePacket
+                    {
+                        Id = turret_id,
+                        Position = vehicle.transform.position,
+                        Rotation = vehicle.transform.rotation,
+                        Type = 0,
+                        Team = turret_spawner.spawnedTurret[0] != null ? 0 : 1,
+                        Health = vehicle.health,
+                        Dead = vehicle.dead,
+                        IsTurret = true,
+                        TurretType = turret_spawner.typeToSpawn,
+                        Active = vehicle.gameObject.activeSelf,
+                    };
+
+                    bulkTurretUpdate.Updates.Add(net_turret);
+                }
             }
 
             if (bulkTurretUpdate.Updates.Count == 0)

@@ -85,6 +85,9 @@ namespace RavenM
 
         [ProtoMember(9)]
         public TurretSpawner.TurretSpawnType TurretType;
+
+        [ProtoMember(10)]
+        public bool Active;
     }
 
     [ProtoContract]
