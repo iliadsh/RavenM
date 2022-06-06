@@ -22,12 +22,19 @@ namespace RavenM
             if (!IngameNetManager.instance.IsHost && __instance.seat.IsDriverSeat())
                 IngameNetManager.instance.OwnedVehicles.Remove(vehicleId);
 
+            var actorId = __instance.GetComponent<GuidComponent>().guid;
+
+            if (!IngameNetManager.instance.OwnedActors.Contains(actorId) && IngameNetManager.instance.IsHost && __instance.seat.IsDriverSeat())
+            {
+                IngameNetManager.instance.OwnedVehicles.Add(vehicleId);
+                __instance.seat.vehicle.isInvulnerable = false;
+            }
             return true;
         }
     }
 
     [HarmonyPatch(typeof(Actor), nameof(Actor.LeaveSeat))]
-    public class LeaveSetPatch
+    public class LeaveSeatPatch
     {
         static bool Prefix(Actor __instance)
         {
@@ -44,6 +51,13 @@ namespace RavenM
             if (!IngameNetManager.instance.IsHost && __instance.seat.IsDriverSeat())
                 IngameNetManager.instance.OwnedVehicles.Remove(vehicleId);
 
+            var actorId = __instance.GetComponent<GuidComponent>().guid;
+
+            if (!IngameNetManager.instance.OwnedActors.Contains(actorId) && IngameNetManager.instance.IsHost && __instance.seat.IsDriverSeat())
+            {
+                IngameNetManager.instance.OwnedVehicles.Add(vehicleId);
+                __instance.seat.vehicle.isInvulnerable = false;
+            }
             return true;
         }
 

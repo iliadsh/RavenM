@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using HarmonyLib;
+using System;
 
 namespace RavenM
 {
@@ -47,8 +48,9 @@ namespace RavenM
     /// </summary>
     public class NetActorController : AiActorController
     {
-        public ActorPacket ActualState;
+        public Vector3 ActualRotation;
         public ActorPacket Targets;
+        public int Flags;
 
         public Transform FakeWeaponParent;
         public WeaponManager.LoadoutSet FakeLoadout;
@@ -59,10 +61,10 @@ namespace RavenM
         {
             if (respawn_action.TrueDone())
             {
-                if (Targets.Dead && !actor.dead)
+                if ((Flags & (int)ActorStateFlags.Dead) != 0 && !actor.dead)
                     actor.KillSilently();
 
-                if (!Targets.Dead && actor.dead)
+                if (!((Flags & (int)ActorStateFlags.Dead) != 0) && actor.dead)
                     actor.SpawnAt(Targets.Position, Quaternion.identity);
             }
 
@@ -74,41 +76,52 @@ namespace RavenM
                 // a very noticible de-sync between actor and vehicle.
                 if (!actor.IsSeated())
                 {
-                    var new_pos = Vector3.Lerp(actor.transform.position, Targets.Position, 10f * Time.deltaTime);
+                    // Fully teleport the actor if they are far away from the target.
+                    var new_pos = (actor.transform.position - Targets.Position).magnitude > 5 
+                                    ? Targets.Position 
+                                    : Vector3.Lerp(actor.transform.position, Targets.Position, 10f * Time.deltaTime);
 
                     actor.SetPositionAndRotation(new_pos, actor.transform.rotation);
                 }
             }
 
-            ActualState.FacingDirection = Vector3.Slerp(ActualState.FacingDirection, Targets.FacingDirection, 5f * Time.deltaTime);
+            ActualRotation = Vector3.Slerp(ActualRotation, Targets.FacingDirection, 5f * Time.deltaTime);
 
             // Ugly, but I'm tired of exceptions. 
-            if (actor.seat == null && actor.activeWeapon != null && actor.activeWeapon.GetType() != typeof(MountedWeapon) && Targets.ActiveWeapon != string.Empty && actor.activeWeapon.name != Targets.ActiveWeapon)
+            if (actor.seat == null && actor.activeWeapon != null && actor.activeWeapon.GetType() != typeof(MountedWeapon) && Targets.ActiveWeaponHash != 0 && actor.activeWeapon.name.GetHashCode() != Targets.ActiveWeaponHash)
             {
-                var weaponWithName = WeaponManager.GetWeaponEntryByName(Targets.ActiveWeapon);
+                var weaponWithName = GetWeaponEntryByHash(Targets.ActiveWeaponHash);
 
                 // ? Perhaps MountedWeapons are sometimes sent?
                 if (weaponWithName != null)
                 {
-                    Plugin.logger.LogInfo($"Changing weapon to: {Targets.ActiveWeapon}. current weapon: {actor.activeWeapon.name}");
+                    Plugin.logger.LogInfo($"Changing weapon to: {weaponWithName.name}. current weapon: {actor.activeWeapon.name}");
                     actor.EquipNewWeaponEntry(weaponWithName, actor.activeWeapon.slot, true);
                 }
             }
         }
 
+        private static WeaponManager.WeaponEntry GetWeaponEntryByHash(int hash)
+        {
+            foreach (var entry in WeaponManager.instance.allWeapons)
+                if (entry.name.GetHashCode() == hash)
+                    return entry;
+            return null;
+        }
+
         public override bool Aiming()
         {
-            return Targets.Aiming;
+            return (Flags & (int)ActorStateFlags.Aiming) != 0;
         }
 
         public override Vector2 AimInput()
         {
-            return Targets.AimInput;
+            return Vector2.zero;
         }
 
         public override Vector4 AirplaneInput()
         {
-            return Targets.AirplaneInput;
+            return Targets.AirplaneInput ?? Vector4.zero;
         }
 
         public override void ApplyRecoil(Vector3 impulse)
@@ -117,12 +130,12 @@ namespace RavenM
 
         public override Vector2 BoatInput()
         {
-            return Targets.BoatInput;
+            return Targets.BoatInput ?? Vector2.zero;
         }
 
         public override Vector2 CarInput()
         {
-            return Targets.CarInput;
+            return Targets.CarInput ?? Vector2.zero;
         }
 
         public override void ChangeAimFieldOfView(float fov)
@@ -140,12 +153,12 @@ namespace RavenM
 
         public override bool Countermeasures()
         {
-            return Targets.Countermeasures;
+            return (Flags & (int)ActorStateFlags.Countermeasures) != 0;
         }
 
         public override bool Crouch()
         {
-            return Targets.Crouch;
+            return (Flags & (int)ActorStateFlags.Crouch) != 0;
         }
 
         public override bool CurrentWaypoint(out Vector3 waypoint)
@@ -156,7 +169,7 @@ namespace RavenM
 
         public override bool DeployParachute()
         {
-            return true;
+            return (Flags & (int)ActorStateFlags.DeployParachute) != 0;
         }
 
         public override void Die(Actor killer)
@@ -203,7 +216,7 @@ namespace RavenM
 
         public override Vector3 FacingDirection()
         {
-            return ActualState.FacingDirection;
+            return ActualRotation;
         }
 
         public override void FillDriverSeat()
@@ -232,7 +245,7 @@ namespace RavenM
 
         public override bool Fire()
         {
-            return Targets.Fire;
+            return (Flags & (int)ActorStateFlags.Fire) != 0;
         }
 
         public override void ForceChangeStance(Actor.Stance stance)
@@ -275,12 +288,12 @@ namespace RavenM
 
         public override Vector4 HelicopterInput()
         {
-            return Targets.HelicopterInput;
+            return Targets.HelicopterInput ?? Vector4.zero;
         }
 
         public override bool HoldingSprint()
         {
-            return Targets.HoldingSprint;
+            return (Flags & (int)ActorStateFlags.HoldingSprint) != 0;
         }
 
         public override void HolsteredActiveWeapon()
@@ -289,17 +302,17 @@ namespace RavenM
 
         public override bool IdlePose()
         {
-            return Targets.IdlePose;
+            return (Flags & (int)ActorStateFlags.IdlePose) != 0;
         }
 
         public override bool IsAirborne()
         {
-            return Targets.IsAirborne;
+            return (Flags & (int)ActorStateFlags.IsAirborne) != 0;
         }
 
         public override bool IsAlert()
         {
-            return Targets.IsAlert;
+            return (Flags & (int)ActorStateFlags.IsAlert) != 0;
         }
 
         public override bool IsGroupedUp()
@@ -314,7 +327,7 @@ namespace RavenM
 
         public override bool IsMoving()
         {
-            return Targets.IsMoving;
+            return (Flags & (int)ActorStateFlags.IsMoving) != 0;
         }
 
         public override bool IsOnPlayerSquad()
@@ -324,12 +337,12 @@ namespace RavenM
 
         public override bool IsReadyToPickUpPassengers()
         {
-            return Targets.IsReadyToPickUpPassengers;
+            return (Flags & (int)ActorStateFlags.IsReadyToPickUpPassengers) != 0;
         }
 
         public override bool IsSprinting()
         {
-            return Targets.IsSprinting;
+            return (Flags & (int)ActorStateFlags.IsSprinting) != 0;
         }
 
         public override bool IsTakingFire()
@@ -339,7 +352,7 @@ namespace RavenM
 
         public override bool Jump()
         {
-            return Targets.Jump;
+            return (Flags & (int)ActorStateFlags.Jump) != 0;
         }
 
         public override float LadderInput()
@@ -387,7 +400,7 @@ namespace RavenM
 
         public override bool OnGround()
         {
-            return Targets.OnGround;
+            return (Flags & (int)ActorStateFlags.OnGround) != 0;
         }
 
         public override void OnVehicleWasDamaged(Actor source, float damage)
@@ -411,12 +424,12 @@ namespace RavenM
 
         public override bool ProjectToGround()
         {
-            return Targets.ProjectToGround;
+            return respawn_action.TrueDone() && (Flags & (int)ActorStateFlags.ProjectToGround) != 0;
         }
 
         public override bool Prone()
         {
-            return Targets.Prone;
+            return (Flags & (int)ActorStateFlags.Prone) != 0;
         }
 
         public override float RangeInput()
@@ -430,7 +443,7 @@ namespace RavenM
 
         public override bool Reload()
         {
-            return Targets.Reload;
+            return (Flags & (int)ActorStateFlags.Reload) != 0;
         }
 
         public override SpawnPoint SelectedSpawnPoint()

@@ -49,8 +49,11 @@ namespace RavenM
 
             // Take control if we need it.
             if (!IngameNetManager.instance.IsHost && seat.IsDriverSeat())
+            {
                 IngameNetManager.instance.OwnedVehicles.Add(targetVehicleId);
-
+                vehicle.isInvulnerable = false;
+            }
+                
             using MemoryStream memoryStream = new MemoryStream();
             var enterPacket = new EnterSeatPacket
             {

@@ -109,9 +109,13 @@ namespace RavenM
         public int _bytesOut = 0;
         public int _totalBytesOut = 0;
 
+        private int _botIdGen = 0;
+
         public Guid OwnGUID = Guid.NewGuid();
 
-        public float LastTick = 0;
+        public TimedAction MainSendTick = new TimedAction(1.0f / 10);
+
+        public Dictionary<int, int> ActorStateCache = new Dictionary<int, int>();
 
         public HashSet<int> OwnedActors = new HashSet<int>();
 
@@ -122,6 +126,8 @@ namespace RavenM
         public Dictionary<int, Vehicle> ClientVehicles = new Dictionary<int, Vehicle>();
 
         public HashSet<int> RemoteDeadVehicles = new HashSet<int>();
+
+        public Dictionary<int, VehiclePacket> TargetVehicleStates = new Dictionary<int, VehiclePacket>();
 
         public HSteamNetConnection C2SConnection;
 
@@ -185,6 +191,29 @@ namespace RavenM
                 }          
             }
 
+            SendActorFlags();
+
+            foreach (var kv in TargetVehicleStates)
+            {
+                int id = kv.Key;
+                var vehiclePacket = kv.Value;
+
+                if (!ClientVehicles.ContainsKey(id))
+                    continue;
+
+                if (OwnedVehicles.Contains(id))
+                    continue;
+
+                var vehicle = ClientVehicles[id];
+
+                if (vehicle == null)
+                    continue;
+
+                vehicle.transform.position = Vector3.Lerp(vehicle.transform.position, vehiclePacket.Position, 5f * Time.deltaTime);
+
+                vehicle.transform.rotation = Quaternion.Slerp(vehicle.transform.rotation, vehiclePacket.Rotation, 5f * Time.deltaTime);
+            }
+
             _ticker2 += Time.deltaTime;
 
             if (_ticker2 > 1)
@@ -239,13 +268,13 @@ namespace RavenM
 
                 var controller = actor.controller as NetActorController;
 
-                if (controller.Targets.AiControlled)
+                if ((controller.Flags & (int)ActorStateFlags.AiControlled) != 0)
                     continue;
 
                 if (FpsActorController.instance == null)
                     continue;
 
-                DrawMarker(controller.Targets.MarkerPosition);
+                DrawMarker(controller.Targets.MarkerPosition ?? Vector3.zero);
 
                 Vector3 vector = FpsActorController.instance.GetActiveCamera().WorldToScreenPoint(actor.CenterPosition() + new Vector3(0, 1f, 0));
                 
@@ -268,12 +297,16 @@ namespace RavenM
             _bytesOut = 0;
             _totalBytesOut = 0;
 
-            LastTick = 0;
+            _botIdGen = 0;
 
+            MainSendTick.Start();
+
+            ActorStateCache.Clear();
             OwnedActors.Clear();
             ClientActors.Clear();
             OwnedVehicles.Clear();
             ClientVehicles.Clear();
+            TargetVehicleStates.Clear();
 
             ServerConnections.Clear();
 
@@ -299,7 +332,8 @@ namespace RavenM
 
             foreach (var actor in FindObjectsOfType<Actor>())
             {
-                int id = RandomGen.Next(0, int.MaxValue);
+                // Smaller integers do better with ProtoBuf's integer compression.
+                int id = actor.aiControlled ? _botIdGen++ : RandomGen.Next(13337, int.MaxValue);
 
                 actor.gameObject.AddComponent<GuidComponent>().guid = id;
 
@@ -402,12 +436,19 @@ namespace RavenM
         {
             _totalOut++;
 
+            using MemoryStream compressOut = new MemoryStream();
+            using (DeflateStream deflateStream = new DeflateStream(compressOut, CompressionLevel.Optimal))
+            {
+                deflateStream.Write(data, 0, data.Length);
+            }
+            byte[] compressed = compressOut.ToArray();
+
             using MemoryStream packetStream = new MemoryStream();
             Packet packet = new Packet
             {
                 Id = type,
                 sender = OwnGUID,
-                data = data
+                data = compressed
             };
 
             Serializer.Serialize(packetStream, packet);
@@ -523,15 +564,14 @@ namespace RavenM
                     {
                         _total++;
 
-                        using MemoryStream dataStream = new MemoryStream(packet.data);
+                        using MemoryStream compressedStream = new MemoryStream(packet.data);
+                        using DeflateStream dataStream = new DeflateStream(compressedStream, CompressionMode.Decompress);
 
                         switch (packet.Id)
                         {
                             case PacketType.ActorUpdate:
                                 {
-                                    using DeflateStream compressedStream = new DeflateStream(dataStream, CompressionMode.Decompress);
-
-                                    var bulkActorPacket = Serializer.Deserialize<BulkActorUpdate>(compressedStream);
+                                    var bulkActorPacket = Serializer.Deserialize<BulkActorUpdate>(dataStream);
 
                                     foreach (ActorPacket actor_packet in bulkActorPacket.Updates)
                                     {
@@ -563,7 +603,7 @@ namespace RavenM
                                             net_controller.actor = actor;
                                             net_controller.FakeWeaponParent = weapon_parent;
                                             net_controller.FakeLoadout = loadout;
-                                            net_controller.ActualState = actor_packet;
+                                            net_controller.ActualRotation = actor_packet.FacingDirection;
 
                                             actor.controller = net_controller;
 
@@ -575,6 +615,29 @@ namespace RavenM
                                         var controller = actor.controller as NetActorController;
 
                                         controller.Targets = actor_packet;
+                                    }
+                                }
+                                break;
+                            case PacketType.ActorFlags:
+                                {
+                                    var bulkFlagPacket = Serializer.Deserialize<BulkFlagsUpdate>(dataStream);
+
+                                    if (bulkFlagPacket.Updates == null)
+                                        break;
+
+                                    foreach (ActorFlagsPacket flagPacket in bulkFlagPacket.Updates)
+                                    {
+                                        if (OwnedActors.Contains(flagPacket.Id))
+                                            continue;
+
+                                        if (!ClientActors.ContainsKey(flagPacket.Id))
+                                            continue;
+
+                                        Actor actor = ClientActors[flagPacket.Id];
+
+                                        var controller = actor.controller as NetActorController;
+
+                                        controller.Flags = flagPacket.StateVector;
                                     }
                                 }
                                 break;
@@ -622,6 +685,8 @@ namespace RavenM
 
                                                 ClientVehicles[vehiclePacket.Id] = vehicle;
                                             }
+
+                                            vehicle.isInvulnerable = true;
                                         }
 
                                         if (vehicle == null)
@@ -636,11 +701,11 @@ namespace RavenM
 
                                         vehicle.gameObject.SetActive(vehiclePacket.Active);
 
-                                        vehicle.transform.position = Vector3.Lerp(vehicle.transform.position, vehiclePacket.Position, 5f * Time.deltaTime);
-
-                                        vehicle.transform.rotation = Quaternion.Slerp(vehicle.transform.rotation, vehiclePacket.Rotation, 5f * Time.deltaTime);
+                                        TargetVehicleStates[vehiclePacket.Id] = vehiclePacket;
 
                                         vehicle.health = vehiclePacket.Health;
+
+                                        vehicle.isInvulnerable = false;
 
                                         if (vehiclePacket.Dead)
                                         {
@@ -652,6 +717,8 @@ namespace RavenM
                                             vehicle.Damage(new DamageInfo());
                                         else if (vehicle.health > 0 && vehicle.burning)
                                             typeof(Vehicle).GetMethod("StopBurning", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(vehicle, new object[] { });
+
+                                        vehicle.isInvulnerable = true;
                                     }
                                 }
                                 break;
@@ -751,11 +818,6 @@ namespace RavenM
 
                                     var seat = vehicle.seats[enterSeatPacket.SeatId];
 
-                                    // If an Actor that we do not own wants to take control of a vehicle,
-                                    // then let's give up ownership temporarily.
-                                    if (seat.IsDriverSeat())
-                                        OwnedVehicles.Remove(enterSeatPacket.VehicleId);
-
                                     // TODO: Is it possible to switch into vehicles without getting out first?
                                     if (actor.IsSeated())
                                     {
@@ -767,6 +829,11 @@ namespace RavenM
                                     }
 
                                     actor.EnterSeat(seat, true);
+
+                                    // If an Actor that we do not own wants to take control of a vehicle,
+                                    // then let's give up ownership temporarily.
+                                    if (seat.IsDriverSeat())
+                                        OwnedVehicles.Remove(enterSeatPacket.VehicleId);
                                 }
                                 break;
                             case PacketType.LeaveSeat:
@@ -788,7 +855,10 @@ namespace RavenM
                                     // On the converse, if a foreign Actor releases control, then let's
                                     // take it back if we are the host.
                                     if (actor.seat.IsDriverSeat() && IsHost)
+                                    {
                                         OwnedVehicles.Add(actor.seat.vehicle.GetComponent<GuidComponent>().guid);
+                                        actor.seat.vehicle.isInvulnerable = false;
+                                    }   
 
                                     actor.LeaveSeat(false);
                                 }
@@ -856,6 +926,9 @@ namespace RavenM
                     {
                         var connection = ServerConnections[i];
 
+                        if (connection == msg.m_conn)
+                            continue;
+
                         var res = SteamNetworkingSockets.SendMessageToConnection(connection, msg.m_pData, (uint)msg.m_cbSize, Constants.k_nSteamNetworkingSend_Reliable, out long msg_num);
 
                         if (res != EResult.k_EResultOK)
@@ -870,20 +943,18 @@ namespace RavenM
                 }
             }
 
-            LastTick += Time.deltaTime;
+            if (MainSendTick.TrueDone())
+            {
+                MainSendTick.Start();
 
-            if (LastTick < 1.0 / 20)
-                return;
+                SendGameState();
 
-            LastTick = 0;
+                SendActorStates();
 
-            SendGameState();
+                SendVehicleStates();
 
-            SendActorStates();
-
-            SendVehicleStates();
-
-            SendTurretStates();
+                SendTurretStates();
+            }
         }
 
         public void SendGameState()
@@ -925,6 +996,73 @@ namespace RavenM
             SendPacketToServer(data, PacketType.GameStateUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
         }
 
+        public void SendActorFlags()
+        {
+            var bulkActorUpdate = new BulkFlagsUpdate
+            {
+                Updates = new List<ActorFlagsPacket>(),
+            };
+
+            foreach (var actor in FindObjectsOfType<Actor>())
+            {
+                var guid = actor.GetComponent<GuidComponent>();
+
+                if (guid == null)
+                    continue;
+
+                if (!OwnedActors.Contains(guid.guid))
+                    continue;
+
+                var owned_actor = guid.guid;
+
+                int flags = 0;
+                if (!actor.dead && actor.controller.Aiming()) flags |= (int)ActorStateFlags.Aiming;
+                if (!actor.dead && actor.controller.Countermeasures()) flags |= (int)ActorStateFlags.Countermeasures;
+                if (!actor.dead && actor.controller.Crouch()) flags |= (int)ActorStateFlags.Crouch;
+                if (!actor.dead && actor.controller.Fire()) flags |= (int)ActorStateFlags.Fire;
+                if (!actor.dead && actor.controller.HoldingSprint()) flags |= (int)ActorStateFlags.HoldingSprint;
+                if (!actor.dead && actor.controller.IdlePose()) flags |= (int)ActorStateFlags.IdlePose;
+                if (!actor.dead && actor.controller.IsAirborne()) flags |= (int)ActorStateFlags.IsAirborne;
+                if (!actor.dead && actor.controller.IsAlert()) flags |= (int)ActorStateFlags.IsAlert;
+                if (!actor.dead && actor.controller.IsMoving()) flags |= (int)ActorStateFlags.IsMoving;
+                if (actor.controller.IsOnPlayerSquad()) flags |= (int)ActorStateFlags.IsOnPlayerSquad;
+                if (!actor.dead && actor.controller.IsReadyToPickUpPassengers()) flags |= (int)ActorStateFlags.IsReadyToPickUpPassengers;
+                if (!actor.dead && actor.controller.IsSprinting()) flags |= (int)ActorStateFlags.IsSprinting;
+                if (!actor.dead && actor.controller.IsTakingFire()) flags |= (int)ActorStateFlags.IsTakingFire;
+                if (!actor.dead && actor.controller.Jump()) flags |= (int)ActorStateFlags.Jump;
+                if (!actor.dead && actor.controller.OnGround()) flags |= (int)ActorStateFlags.OnGround;
+                if (!actor.dead && actor.controller.ProjectToGround()) flags |= (int)ActorStateFlags.ProjectToGround;
+                if (!actor.dead && actor.controller.Prone()) flags |= (int)ActorStateFlags.Prone;
+                if (!actor.dead && actor.controller.Reload()) flags |= (int)ActorStateFlags.Reload;
+                if (actor.dead) flags |= (int)ActorStateFlags.Dead;
+                if (actor.aiControlled) flags |= (int)ActorStateFlags.AiControlled;
+                if (!actor.dead && actor.controller.DeployParachute()) flags |= (int)ActorStateFlags.DeployParachute;
+
+                if (ActorStateCache.TryGetValue(owned_actor, out int saved_flags) && saved_flags == flags)
+                    continue;
+
+                ActorFlagsPacket net_actor = new ActorFlagsPacket
+                {
+                    Id = owned_actor,
+                    StateVector = flags,
+                };
+
+                bulkActorUpdate.Updates.Add(net_actor);
+
+                ActorStateCache[owned_actor] = flags; 
+            }
+
+            if (bulkActorUpdate.Updates.Count == 0)
+                return;
+
+            using MemoryStream memoryStream = new MemoryStream();
+
+            Serializer.Serialize(memoryStream, bulkActorUpdate);
+            byte[] data = memoryStream.ToArray();
+
+            SendPacketToServer(data, PacketType.ActorFlags, Constants.k_nSteamNetworkingSend_Reliable);
+        }
+
         public void SendActorStates()
         {
             var bulkActorUpdate = new BulkActorUpdate
@@ -934,8 +1072,6 @@ namespace RavenM
 
             foreach (var actor in FindObjectsOfType<Actor>())
             {
-                //Actor actor = m_ClientActors[owned_actor];
-
                 var guid = actor.GetComponent<GuidComponent>();
 
                 if (guid == null)
@@ -959,47 +1095,25 @@ namespace RavenM
                     Name = actor.name,
                     Position = actor.Position(),
                     Lean = actor.dead ? 0f : actor.controller.Lean(),
-                    Aiming = !actor.dead && actor.controller.Aiming(),
-                    AimInput = actor.dead ? Vector2.zero : actor.controller.AimInput(),
-                    AirplaneInput = actor.seat != null ? actor.controller.AirplaneInput() : Vector4.zero,
-                    BoatInput = actor.seat != null ? actor.controller.BoatInput() : Vector2.zero,
-                    CarInput = actor.seat != null ? actor.controller.CarInput() : Vector2.zero,
-                    Countermeasures = !actor.dead && actor.controller.Countermeasures(),
-                    Crouch = !actor.dead && actor.controller.Crouch(),
+                    AirplaneInput = actor.seat != null ? (Vector4?)actor.controller.AirplaneInput() : null,
+                    BoatInput = actor.seat != null ? (Vector2?)actor.controller.BoatInput() : null,
+                    CarInput = actor.seat != null ? (Vector2?)actor.controller.CarInput() : null,
                     // Dirty conditional, but it is needed to properly update the
                     // turret direction when the user is a player.
                     //
                     // ...Mortars actually use the player's facing direction.
                     // Because why not.
-                    FacingDirection = actor.dead ? Vector3.zero : 
-                        (!actor.aiControlled && actor.seat != null && actor.seat.activeWeapon != null && actor.seat.activeWeapon.GetType() != typeof(Mortar)) ? 
-                            actor.seat.activeWeapon.CurrentMuzzle().forward :
-                            actor.controller.FacingDirection(),
-                    Fire = !actor.dead && actor.controller.Fire(),
-                    HelicopterInput = actor.seat != null ? actor.controller.HelicopterInput() : Vector4.zero,
-                    HoldingSprint = !actor.dead && actor.controller.HoldingSprint(),
-                    IdlePose = !actor.dead && actor.controller.IdlePose(),
-                    IsAirborne = !actor.dead && actor.controller.IsAirborne(),
-                    IsAlert = !actor.dead && actor.controller.IsAlert(),
-                    IsMoving = !actor.dead && actor.controller.IsMoving(),
-                    IsOnPlayerSquad = !actor.dead && actor.controller.IsOnPlayerSquad(),
-                    IsReadyToPickUpPassengers = !actor.dead && actor.controller.IsReadyToPickUpPassengers(),
-                    IsSprinting = !actor.dead && actor.controller.IsSprinting(),
-                    IsTakingFire = !actor.dead && actor.controller.IsTakingFire(),
-                    Jump = !actor.dead && actor.controller.Jump(),
+                    FacingDirection = (!actor.aiControlled && actor.seat != null && actor.seat.activeWeapon != null && actor.seat.activeWeapon.GetType() != typeof(Mortar)) ? 
+                                        actor.seat.activeWeapon.CurrentMuzzle().forward :
+                                        actor.controller.FacingDirection(),
+                    HelicopterInput = actor.seat != null ? (Vector4?)actor.controller.HelicopterInput() : null,
                     LadderInput = actor.dead ? 0f : actor.controller.LadderInput(),
-                    OnGround = !actor.dead && actor.controller.OnGround(),
                     ParachuteInput = actor.dead ? Vector2.zero : actor.controller.ParachuteInput(),
-                    ProjectToGround = !actor.dead && actor.controller.ProjectToGround(),
-                    Prone = !actor.dead && actor.controller.Prone(),
                     RangeInput = actor.dead ? 0f : actor.controller.RangeInput(),
-                    Reload = !actor.dead && actor.controller.Reload(),
                     Velocity = actor.dead ? Vector3.zero : actor.controller.Velocity(),
-                    ActiveWeapon = actor.activeWeapon != null ? actor.activeWeapon.name : string.Empty,
+                    ActiveWeaponHash = actor.activeWeapon != null ? actor.activeWeapon.name.GetHashCode() : 0,
                     Team = actor.team,
-                    Dead = actor.dead,
-                    AiControlled = actor.aiControlled,
-                    MarkerPosition = actor.aiControlled ? Vector3.zero : MarkerPosition,
+                    MarkerPosition = actor.aiControlled ? null : (Vector3?)MarkerPosition,
                 };
 
                 bulkActorUpdate.Updates.Add(net_actor);
@@ -1010,17 +1124,7 @@ namespace RavenM
             Serializer.Serialize(memoryStream, bulkActorUpdate);
             byte[] data = memoryStream.ToArray();
 
-            // Actor updates get pretty hefty memory wise, especially with 50+ bots,
-            // so we compress them. WARNING: Decompression can be quite slow, so don't
-            // compress stuff we don't need to compress.
-            using MemoryStream compressOut = new MemoryStream();
-            using (DeflateStream deflateStream = new DeflateStream(compressOut, CompressionLevel.Optimal))
-            {
-                deflateStream.Write(data, 0, data.Length);
-            }
-            byte[] compressed = compressOut.ToArray();
-
-            SendPacketToServer(compressed, PacketType.ActorUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
+            SendPacketToServer(data, PacketType.ActorUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
         }
 
         public void SendVehicleStates()

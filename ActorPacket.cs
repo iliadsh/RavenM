@@ -24,103 +24,75 @@ namespace RavenM
         public float Lean;
 
         [ProtoMember(5)]
-        public bool Aiming;
+        public Vector4? AirplaneInput;
 
         [ProtoMember(6)]
-        public Vector2 AimInput;
+        public Vector2? BoatInput;
 
         [ProtoMember(7)]
-        public Vector4 AirplaneInput;
+        public Vector2? CarInput;
 
         [ProtoMember(8)]
-        public Vector2 BoatInput;
-
-        [ProtoMember(9)]
-        public Vector2 CarInput;
-
-        [ProtoMember(10)]
-        public bool Countermeasures;
-
-        [ProtoMember(11)]
-        public bool Crouch;
-
-        [ProtoMember(12)]
         public Vector3 FacingDirection;
 
-        [ProtoMember(13)]
-        public bool Fire;
+        [ProtoMember(9)]
+        public Vector4? HelicopterInput;
 
-        [ProtoMember(14)]
-        public Vector4 HelicopterInput;
-
-        [ProtoMember(15)]
-        public bool HoldingSprint;
-
-        [ProtoMember(16)]
-        public bool IdlePose;
-
-        [ProtoMember(17)]
-        public bool IsAirborne;
-
-        [ProtoMember(18)]
-        public bool IsAlert;
-
-        [ProtoMember(19)]
-        public bool IsMoving;
-
-        [ProtoMember(20)]
-        public bool IsOnPlayerSquad;
-
-        [ProtoMember(21)]
-        public bool IsReadyToPickUpPassengers;
-
-        [ProtoMember(22)]
-        public bool IsSprinting;
-
-        [ProtoMember(23)]
-        public bool IsTakingFire;
-
-        [ProtoMember(24)]
-        public bool Jump;
-
-        [ProtoMember(25)]
+        [ProtoMember(10)]
         public float LadderInput;
 
-        [ProtoMember(26)]
-        public bool OnGround;
-
-        [ProtoMember(27)]
+        [ProtoMember(11)]
         public Vector2 ParachuteInput;
 
-        [ProtoMember(28)]
-        public bool ProjectToGround;
-
-        [ProtoMember(29)]
-        public bool Prone;
-
-        [ProtoMember(30)]
+        [ProtoMember(12)]
         public float RangeInput;
 
-        [ProtoMember(31)]
-        public bool Reload;
-
-        [ProtoMember(32)]
+        [ProtoMember(13)]
         public Vector3 Velocity;
 
-        [ProtoMember(33)]
-        public string ActiveWeapon;
+        [ProtoMember(14, DataFormat = DataFormat.FixedSize)]
+        public int ActiveWeaponHash;
 
-        [ProtoMember(34)]
+        [ProtoMember(15)]
         public int Team;
 
-        [ProtoMember(35)]
-        public bool Dead;
+        [ProtoMember(16)]
+        public Vector3? MarkerPosition;
+    }
 
-        [ProtoMember(36)]
-        public bool AiControlled;
+    public enum ActorStateFlags
+    {
+        AiControlled                = 1 << 0,
+        DeployParachute             = 1 << 1,
+        Fire                        = 1 << 2,
+        Aiming                      = 1 << 3,
+        IsMoving                    = 1 << 4,
+        IdlePose                    = 1 << 5,
+        OnGround                    = 1 << 6,
+        ProjectToGround             = 1 << 7,
+        IsAlert                     = 1 << 8,
+        HoldingSprint               = 1 << 9,
+        IsSprinting                 = 1 << 10,
+        Countermeasures             = 1 << 11,
+        Crouch                      = 1 << 12,
+        IsAirborne                  = 1 << 13,
+        IsOnPlayerSquad             = 1 << 14,
+        IsReadyToPickUpPassengers   = 1 << 15,
+        IsTakingFire                = 1 << 16,
+        Jump                        = 1 << 17,
+        Prone                       = 1 << 18,
+        Reload                      = 1 << 19,
+        Dead                        = 1 << 20,
+    }
 
-        [ProtoMember(37)]
-        public Vector3 MarkerPosition;
+    [ProtoContract]
+    public class ActorFlagsPacket
+    {
+        [ProtoMember(1)]
+        public int Id;
+
+        [ProtoMember(2)]
+        public int StateVector;
     }
 
     [ProtoContract]
@@ -128,5 +100,12 @@ namespace RavenM
     {
         [ProtoMember(1)]
         public List<ActorPacket> Updates;
+    }
+
+    [ProtoContract]
+    public class BulkFlagsUpdate
+    {
+        [ProtoMember(1)]
+        public List<ActorFlagsPacket> Updates;
     }
 }

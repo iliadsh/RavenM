@@ -7,6 +7,7 @@
     {
         Handshake,
         ActorUpdate,
+        ActorFlags,
         VehicleUpdate,
         Damage,
         Death,
