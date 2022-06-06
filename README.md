@@ -14,6 +14,7 @@ There are several dependencies on game assemblies located in `Ravenfield/ravenfi
 - Assembly-CSharp-firstpass.dll
 - netstandard.dll
 - UnityEngine.dll
+- UnityEngine.AudioModule.dll
 - UnityEngine.CoreModule.dll
 - UnityEngine.ImageConversionModule.dll
 - UnityEngine.IMGUIModule.dll

@@ -45,6 +45,13 @@ namespace RavenM
             if (!IngameNetManager.instance.IsClient)
                 return true;
 
+            // How???
+            if (__instance == null)
+            {
+                __result = false;
+                return false;
+            }
+
             var guid = __instance.GetComponent<GuidComponent>();
 
             if (guid != null && !IngameNetManager.instance.OwnedActors.Contains(guid.guid))
@@ -168,6 +175,13 @@ namespace RavenM
             SteamNetworkingUtils.InitRelayNetworkAccess();
 
             Callback<SteamNetConnectionStatusChangedCallback_t>.Create(OnConnectionStatus);
+        }
+
+        private void LateUpdate()
+        {
+            Time.timeScale = 1f;
+            Time.fixedDeltaTime = Time.timeScale / 60f;
+            GameManager.instance?.sfxMixer?.SetFloat("pitch", Time.timeScale);
         }
 
         private void Update()
