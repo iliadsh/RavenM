@@ -115,6 +115,7 @@ namespace RavenM
             if (IsLobbyOwner)
             {
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "owner", SteamUser.GetSteamID().ToString());
+                SteamMatchmaking.SetLobbyData(ActualLobbyID, "build_id", Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString());
             }
             else
             {
@@ -123,6 +124,15 @@ namespace RavenM
 
                 MainMenu.instance.OpenPageIndex(MainMenu.PAGE_INSTANT_ACTION);
                 ReadyToPlay = false;
+
+                if (Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString() != SteamMatchmaking.GetLobbyData(ActualLobbyID, "build_id"))
+                {
+                    Plugin.logger.LogInfo("Build ID mismatch! Leaving lobby.");
+                    SteamMatchmaking.LeaveLobby(ActualLobbyID);
+                    InLobby = false;
+                    ReadyToPlay = true;
+                    LobbyDataReady = false;
+                }
             }
         }
 
