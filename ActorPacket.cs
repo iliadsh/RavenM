@@ -58,6 +58,9 @@ namespace RavenM
 
         [ProtoMember(16)]
         public Vector3? MarkerPosition;
+
+        [ProtoMember(17)]
+        public int Flags;
     }
 
     public enum ActorStateFlags

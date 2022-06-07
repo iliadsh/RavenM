@@ -629,6 +629,7 @@ namespace RavenM
                                         var controller = actor.controller as NetActorController;
 
                                         controller.Targets = actor_packet;
+                                        controller.Flags = actor_packet.Flags;
                                     }
                                 }
                                 break;
@@ -1010,6 +1011,34 @@ namespace RavenM
             SendPacketToServer(data, PacketType.GameStateUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
         }
 
+        private int GenerateFlags(Actor actor)
+        {
+            int flags = 0;
+            if (!actor.dead && actor.controller.Aiming()) flags |= (int)ActorStateFlags.Aiming;
+            if (!actor.dead && actor.controller.Countermeasures()) flags |= (int)ActorStateFlags.Countermeasures;
+            if (!actor.dead && actor.controller.Crouch()) flags |= (int)ActorStateFlags.Crouch;
+            if (!actor.dead && actor.controller.Fire()) flags |= (int)ActorStateFlags.Fire;
+            if (!actor.dead && actor.controller.HoldingSprint()) flags |= (int)ActorStateFlags.HoldingSprint;
+            if (!actor.dead && actor.controller.IdlePose()) flags |= (int)ActorStateFlags.IdlePose;
+            if (!actor.dead && actor.controller.IsAirborne()) flags |= (int)ActorStateFlags.IsAirborne;
+            if (!actor.dead && actor.controller.IsAlert()) flags |= (int)ActorStateFlags.IsAlert;
+            if (!actor.dead && actor.controller.IsMoving()) flags |= (int)ActorStateFlags.IsMoving;
+            if (actor.controller.IsOnPlayerSquad()) flags |= (int)ActorStateFlags.IsOnPlayerSquad;
+            if (!actor.dead && actor.controller.IsReadyToPickUpPassengers()) flags |= (int)ActorStateFlags.IsReadyToPickUpPassengers;
+            if (!actor.dead && actor.controller.IsSprinting()) flags |= (int)ActorStateFlags.IsSprinting;
+            if (!actor.dead && actor.controller.IsTakingFire()) flags |= (int)ActorStateFlags.IsTakingFire;
+            if (!actor.dead && actor.controller.Jump()) flags |= (int)ActorStateFlags.Jump;
+            if (!actor.dead && actor.controller.OnGround()) flags |= (int)ActorStateFlags.OnGround;
+            if (!actor.dead && actor.controller.ProjectToGround()) flags |= (int)ActorStateFlags.ProjectToGround;
+            if (!actor.dead && actor.controller.Prone()) flags |= (int)ActorStateFlags.Prone;
+            if (!actor.dead && actor.controller.Reload()) flags |= (int)ActorStateFlags.Reload;
+            if (actor.dead) flags |= (int)ActorStateFlags.Dead;
+            if (actor.aiControlled) flags |= (int)ActorStateFlags.AiControlled;
+            if (!actor.dead && actor.controller.DeployParachute()) flags |= (int)ActorStateFlags.DeployParachute;
+
+            return flags;
+        }
+
         public void SendActorFlags()
         {
             var bulkActorUpdate = new BulkFlagsUpdate
@@ -1029,28 +1058,7 @@ namespace RavenM
 
                 var owned_actor = guid.guid;
 
-                int flags = 0;
-                if (!actor.dead && actor.controller.Aiming()) flags |= (int)ActorStateFlags.Aiming;
-                if (!actor.dead && actor.controller.Countermeasures()) flags |= (int)ActorStateFlags.Countermeasures;
-                if (!actor.dead && actor.controller.Crouch()) flags |= (int)ActorStateFlags.Crouch;
-                if (!actor.dead && actor.controller.Fire()) flags |= (int)ActorStateFlags.Fire;
-                if (!actor.dead && actor.controller.HoldingSprint()) flags |= (int)ActorStateFlags.HoldingSprint;
-                if (!actor.dead && actor.controller.IdlePose()) flags |= (int)ActorStateFlags.IdlePose;
-                if (!actor.dead && actor.controller.IsAirborne()) flags |= (int)ActorStateFlags.IsAirborne;
-                if (!actor.dead && actor.controller.IsAlert()) flags |= (int)ActorStateFlags.IsAlert;
-                if (!actor.dead && actor.controller.IsMoving()) flags |= (int)ActorStateFlags.IsMoving;
-                if (actor.controller.IsOnPlayerSquad()) flags |= (int)ActorStateFlags.IsOnPlayerSquad;
-                if (!actor.dead && actor.controller.IsReadyToPickUpPassengers()) flags |= (int)ActorStateFlags.IsReadyToPickUpPassengers;
-                if (!actor.dead && actor.controller.IsSprinting()) flags |= (int)ActorStateFlags.IsSprinting;
-                if (!actor.dead && actor.controller.IsTakingFire()) flags |= (int)ActorStateFlags.IsTakingFire;
-                if (!actor.dead && actor.controller.Jump()) flags |= (int)ActorStateFlags.Jump;
-                if (!actor.dead && actor.controller.OnGround()) flags |= (int)ActorStateFlags.OnGround;
-                if (!actor.dead && actor.controller.ProjectToGround()) flags |= (int)ActorStateFlags.ProjectToGround;
-                if (!actor.dead && actor.controller.Prone()) flags |= (int)ActorStateFlags.Prone;
-                if (!actor.dead && actor.controller.Reload()) flags |= (int)ActorStateFlags.Reload;
-                if (actor.dead) flags |= (int)ActorStateFlags.Dead;
-                if (actor.aiControlled) flags |= (int)ActorStateFlags.AiControlled;
-                if (!actor.dead && actor.controller.DeployParachute()) flags |= (int)ActorStateFlags.DeployParachute;
+                int flags = GenerateFlags(actor);
 
                 if (ActorStateCache.TryGetValue(owned_actor, out int saved_flags) && saved_flags == flags)
                     continue;
@@ -1128,6 +1136,7 @@ namespace RavenM
                     ActiveWeaponHash = actor.activeWeapon != null ? actor.activeWeapon.name.GetHashCode() : 0,
                     Team = actor.team,
                     MarkerPosition = actor.aiControlled ? null : (Vector3?)MarkerPosition,
+                    Flags = GenerateFlags(actor),
                 };
 
                 bulkActorUpdate.Updates.Add(net_actor);
