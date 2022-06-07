@@ -1125,15 +1125,23 @@ namespace RavenM
                     //
                     // ...Mortars actually use the player's facing direction.
                     // Because why not.
-                    FacingDirection = (!actor.aiControlled && actor.seat != null && actor.seat.activeWeapon != null && actor.seat.activeWeapon.GetType() != typeof(Mortar)) ? 
+                    FacingDirection = (!actor.aiControlled && actor.IsSeated() && actor.seat.HasActiveWeapon() && actor.seat.activeWeapon.GetType() != typeof(Mortar)) ? 
                                         actor.seat.activeWeapon.CurrentMuzzle().forward :
                                         actor.controller.FacingDirection(),
                     HelicopterInput = actor.seat != null ? (Vector4?)actor.controller.HelicopterInput() : null,
                     LadderInput = actor.dead ? 0f : actor.controller.LadderInput(),
                     ParachuteInput = actor.dead ? Vector2.zero : actor.controller.ParachuteInput(),
-                    RangeInput = actor.dead ? 0f : actor.controller.RangeInput(),
+                    // Not the real controller.RangeInput(), but what the mortar sees. Otherwise,
+                    // the other clients cant keep up with the fast mouse scrolls.
+                    RangeInput = !actor.dead && actor.IsSeated() && actor.seat.HasActiveWeapon() && actor.seat.activeWeapon.GetType() == typeof(Mortar) 
+                                    ? (float)typeof(Mortar).GetField("range", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(actor.seat.activeWeapon)
+                                    : 0f,
                     Velocity = actor.dead ? Vector3.zero : actor.controller.Velocity(),
-                    ActiveWeaponHash = actor.activeWeapon != null ? actor.activeWeapon.name.GetHashCode() : 0,
+                    ActiveWeaponHash = actor.activeWeapon != null
+                                        ? actor.IsSeated() 
+                                            ? actor.seat.ActiveWeaponSlot() 
+                                            : actor.activeWeapon.name.GetHashCode() 
+                                        : 0,
                     Team = actor.team,
                     MarkerPosition = actor.aiControlled ? null : (Vector3?)MarkerPosition,
                     Flags = GenerateFlags(actor),

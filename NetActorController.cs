@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 using HarmonyLib;
-using System;
+using System.Reflection;
 
 namespace RavenM
 {
@@ -87,8 +87,8 @@ namespace RavenM
 
             ActualRotation = Vector3.Slerp(ActualRotation, Targets.FacingDirection, 5f * Time.deltaTime);
 
-            // Ugly, but I'm tired of exceptions. 
-            if (actor.seat == null && actor.activeWeapon != null && actor.activeWeapon.GetType() != typeof(MountedWeapon) && Targets.ActiveWeaponHash != 0 && actor.activeWeapon.name.GetHashCode() != Targets.ActiveWeaponHash)
+            // For normal hand-held weapons.
+            if (!actor.IsSeated() && Targets.ActiveWeaponHash != 0 && (actor.activeWeapon == null || actor.activeWeapon.name.GetHashCode() != Targets.ActiveWeaponHash))
             {
                 var weaponWithName = GetWeaponEntryByHash(Targets.ActiveWeaponHash);
 
@@ -98,6 +98,17 @@ namespace RavenM
                     Plugin.logger.LogInfo($"Changing weapon to: {weaponWithName.name}. current weapon: {actor.activeWeapon.name}");
                     actor.EquipNewWeaponEntry(weaponWithName, actor.activeWeapon.slot, true);
                 }
+            }
+
+            // For seats that have multiple mounted weapons.
+            if (actor.IsSeated() && Targets.ActiveWeaponHash >= 0 && Targets.ActiveWeaponHash < actor.seat.weapons.Length && actor.seat.ActiveWeaponSlot() != Targets.ActiveWeaponHash)
+            {
+                actor.SwitchWeapon(Targets.ActiveWeaponHash);
+            }
+
+            if (actor.IsSeated() && actor.seat.HasActiveWeapon() && actor.seat.activeWeapon.GetType() == typeof(Mortar))
+            {
+                typeof(Mortar).GetField("range", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(actor.seat.activeWeapon, Targets.RangeInput);
             }
         }
 
@@ -434,7 +445,7 @@ namespace RavenM
 
         public override float RangeInput()
         {
-            return Targets.RangeInput;
+            return 0f;
         }
 
         public override void ReceivedDamage(bool friendlyFire, float damage, float balanceDamage, Vector3 point, Vector3 direction, Vector3 force)
