@@ -95,7 +95,7 @@ namespace RavenM
                 // ? Perhaps MountedWeapons are sometimes sent?
                 if (weaponWithName != null)
                 {
-                    Plugin.logger.LogInfo($"Changing weapon to: {weaponWithName.name}. current weapon: {actor.activeWeapon.name}");
+                    Plugin.logger.LogInfo($"Changing weapon to: {weaponWithName.name}. current weapon: {actor.activeWeapon?.name}");
                     actor.EquipNewWeaponEntry(weaponWithName, actor.activeWeapon.slot, true);
                 }
             }
