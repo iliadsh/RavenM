@@ -110,6 +110,11 @@ namespace RavenM
             {
                 typeof(Mortar).GetField("range", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(actor.seat.activeWeapon, Targets.RangeInput);
             }
+
+            if (actor.activeWeapon != null)
+            {
+                actor.activeWeapon.ammo = Targets.Ammo;
+            }
         }
 
         private static WeaponManager.WeaponEntry GetWeaponEntryByHash(int hash)

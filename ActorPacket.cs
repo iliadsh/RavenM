@@ -61,6 +61,9 @@ namespace RavenM
 
         [ProtoMember(17)]
         public int Flags;
+
+        [ProtoMember(18)]
+        public int Ammo;
     }
 
     public enum ActorStateFlags
