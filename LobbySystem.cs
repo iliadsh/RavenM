@@ -14,19 +14,28 @@ namespace RavenM
             if (LobbySystem.instance.InLobby && !LobbySystem.instance.IsLobbyOwner && !LobbySystem.instance.ReadyToPlay)
                 return false;
 
+            // Only start if all members are ready.
+            if (LobbySystem.instance.LobbyDataReady && LobbySystem.instance.IsLobbyOwner)
+            {
+                int len = SteamMatchmaking.GetNumLobbyMembers(LobbySystem.instance.ActualLobbyID);
+
+                for (int i = 0; i < len; i++)
+                {
+                    var memberId = SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i);
+                    if (SteamMatchmaking.GetLobbyData(LobbySystem.instance.ActualLobbyID, "ready_" + memberId) != "yes")
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            if (LobbySystem.instance.IsLobbyOwner)
+            {
+                // TODO: This is not a protocol. This is a single byte.
+                SteamMatchmaking.SendLobbyChatMsg(LobbySystem.instance.ActualLobbyID, new byte[] { 1 }, 1);
+            }
+
             return true;
-        }
-
-        static void Postfix(InstantActionMaps __instance)
-        {
-            if (!LobbySystem.instance.LobbyDataReady)
-                return;
-
-            if (!LobbySystem.instance.IsLobbyOwner)
-                return;
-            
-            // TODO: This is not a protocol. This is a single byte.
-            SteamMatchmaking.SendLobbyChatMsg(LobbySystem.instance.ActualLobbyID, new byte[] { 1 }, 1);
         }
     }
 
@@ -64,6 +73,34 @@ namespace RavenM
         }
     }
 
+    [HarmonyPatch(typeof(ModManager), nameof(ModManager.FinalizeLoadedModContent))]
+    public class AfterModsLoadedPatch
+    {
+        static void Postfix()
+        {
+            if (!LobbySystem.instance.InLobby || !LobbySystem.instance.LobbyDataReady || LobbySystem.instance.IsLobbyOwner || LobbySystem.instance.ModsToDownload.Count > 0)
+                return;
+
+            ModManager.instance.ContentChanged();
+            // TODO
+            SteamMatchmaking.SendLobbyChatMsg(LobbySystem.instance.ActualLobbyID, new byte[] { 1, 2 }, 2);
+        }
+    }
+
+    [HarmonyPatch(typeof(SteamMatchmaking), nameof(SteamMatchmaking.LeaveLobby))]
+    public class OnLobbyLeavePatch
+    {
+        static void Postfix()
+        {
+            // Reconstruct mods
+            foreach (var mod in ModManager.instance.mods)
+            {
+                mod.enabled = LobbySystem.instance.ModsWeOwn.Contains(mod.workshopItemId);
+            }
+            LobbySystem.instance.ModsWeOwn.Clear();
+        }
+    }
+
     public class LobbySystem : MonoBehaviour
     {
         public static LobbySystem instance;
@@ -87,6 +124,12 @@ namespace RavenM
 
         public bool ReadyToPlay = false;
 
+        public List<PublishedFileId_t> ServerMods = new List<PublishedFileId_t>();
+
+        public List<PublishedFileId_t> ModsToDownload = new List<PublishedFileId_t>();
+
+        public List<PublishedFileId_t> ModsWeOwn = new List<PublishedFileId_t>();
+
         private void Awake()
         {
             instance = this;
@@ -97,6 +140,7 @@ namespace RavenM
             Callback<LobbyEnter_t>.Create(OnLobbyEnter);
             Callback<LobbyChatUpdate_t>.Create(OnLobbyChatUpdate);
             Callback<LobbyChatMsg_t>.Create(OnLobbyChatMessage);
+            Callback<DownloadItemResult_t>.Create(OnItemDownload);
         }
 
         private void OnLobbyEnter(LobbyEnter_t pCallback)
@@ -116,6 +160,14 @@ namespace RavenM
             {
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "owner", SteamUser.GetSteamID().ToString());
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "build_id", Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString());
+
+                List<PublishedFileId_t> mods = new List<PublishedFileId_t>();
+                foreach (var mod in ModManager.instance.GetActiveMods())
+                {
+                    mods.Add(mod.workshopItemId);
+                }
+                SteamMatchmaking.SetLobbyData(ActualLobbyID, "mods", string.Join(",", mods.ToArray()));
+                SteamMatchmaking.SetLobbyData(ActualLobbyID, "ready_" + SteamUser.GetSteamID(), "yes");
             }
             else
             {
@@ -132,7 +184,67 @@ namespace RavenM
                     InLobby = false;
                     ReadyToPlay = true;
                     LobbyDataReady = false;
+                    return;
                 }
+
+                ModsWeOwn.Clear();
+                foreach (var mod in ModManager.instance.mods)
+                {
+                    if (mod.enabled)
+                    {
+                        mod.enabled = false;
+                        ModsWeOwn.Add(mod.workshopItemId);
+                    }
+                }
+                ModManager.instance.ReloadModContent();
+
+                ServerMods.Clear();
+                ModsToDownload.Clear();
+                string[] mods = SteamMatchmaking.GetLobbyData(ActualLobbyID, "mods").Split(',');
+                foreach (string mod_str in mods)
+                {
+                    if (mod_str == string.Empty)
+                        continue;
+                    PublishedFileId_t mod_id = new PublishedFileId_t(ulong.Parse(mod_str));
+
+                    ServerMods.Add(mod_id);
+
+                    bool alreadyHasMod = false;
+                    foreach (var mod in ModManager.instance.mods)
+                    {
+                        if (mod.workshopItemId == mod_id)
+                        {
+                            alreadyHasMod = true;
+                            mod.enabled = true;
+                        }
+                    }
+
+                    if (!alreadyHasMod)
+                    {
+                        ModsToDownload.Add(mod_id);
+                        bool isDownloading = SteamUGC.DownloadItem(mod_id, true);
+                        Plugin.logger.LogInfo($"Downloading mod with id: {mod_id} -- {isDownloading}");
+                    }
+                }
+                TriggerModRefresh();
+            }
+        }
+
+        private void OnItemDownload(DownloadItemResult_t pCallback)
+        {
+            Plugin.logger.LogInfo($"Downloaded mod! {pCallback.m_nPublishedFileId}");
+            typeof(ModManager).GetMethod("AddWorkshopItemAsMod", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ModManager.instance, new object[] { pCallback.m_nPublishedFileId });
+            ModsToDownload.Remove(pCallback.m_nPublishedFileId);
+
+            TriggerModRefresh();
+        }
+
+        public void TriggerModRefresh()
+        {
+            if (ModsToDownload.Count == 0)
+            {
+                Plugin.logger.LogInfo($"All server mods downloaded.");
+                ModManager.instance.ReloadModContent();
             }
         }
 
@@ -161,7 +273,7 @@ namespace RavenM
             if (SteamUser.GetSteamID() == user)
                 return;
 
-            if (OwnerID != user)
+            if (OwnerID != user && !IsLobbyOwner)
                 return;
 
             if (len == 1)
@@ -170,6 +282,11 @@ namespace RavenM
                 //No initial bots! Many errors otherwise!
                 InstantActionMaps.instance.botNumberField.text = "0";
                 InstantActionMaps.instance.StartGame();
+            }
+            // WTF am I doing. MAKE THIS A REAL PROTOCOL!
+            else if (len == 2)
+            {
+                SteamMatchmaking.SetLobbyData(ActualLobbyID, "ready_" + user, "yes");
             }
         }
 
@@ -197,6 +314,8 @@ namespace RavenM
             // the former at least has visual input for the non-host clients,
             // which is also important.
             InstantActionMaps.instance.gameModeDropdown.value = 0;
+            int customMapOptionIndex = (int)typeof(InstantActionMaps).GetField("customMapOptionIndex", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(InstantActionMaps.instance);
+            var entries = (List<InstantActionMaps.MapEntry>)typeof(InstantActionMaps).GetField("entries", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(InstantActionMaps.instance);
             if (IsLobbyOwner)
             {
                 // SteamMatchmaking.SetLobbyData(ActualLobbyID, "gameMode", InstantActionMaps.instance.gameModeDropdown.value.ToString());
@@ -208,6 +327,24 @@ namespace RavenM
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "respawnTime", InstantActionMaps.instance.respawnTimeField.text);
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "gameLength", InstantActionMaps.instance.gameLengthDropdown.value.ToString());
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "loadedLevelEntry", InstantActionMaps.instance.mapDropdown.value.ToString());
+
+                if (InstantActionMaps.instance.mapDropdown.value == customMapOptionIndex)
+                {
+                    SteamMatchmaking.SetLobbyData(ActualLobbyID, "customMap", entries[customMapOptionIndex].name);
+                }
+
+                for (int i = 0; i < 2; i++)
+                {
+                    var teamInfo = GameManager.instance.gameInfo.team[i];
+
+                    var weapons = new List<int>();
+                    foreach (var weapon in teamInfo.availableWeapons)
+                    {
+                        weapons.Add(weapon.nameHash);
+                    }
+                    string weaponString = string.Join(",", weapons.ToArray());
+                    SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "weapons", weaponString);
+                }
             }
             else
             {
@@ -220,7 +357,63 @@ namespace RavenM
                 InstantActionMaps.instance.balanceSlider.value = float.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "balance"));
                 InstantActionMaps.instance.respawnTimeField.text = SteamMatchmaking.GetLobbyData(ActualLobbyID, "respawnTime");
                 InstantActionMaps.instance.gameLengthDropdown.value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "gameLength"));
-                InstantActionMaps.instance.mapDropdown.value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "loadedLevelEntry"));
+                int givenEntry = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "loadedLevelEntry"));
+
+                if (givenEntry == customMapOptionIndex)
+                {
+                    string mapName = SteamMatchmaking.GetLobbyData(ActualLobbyID, "customMap");
+
+                    if (InstantActionMaps.instance.mapDropdown.value != customMapOptionIndex || entries[customMapOptionIndex].name != mapName)
+                    {
+                        foreach (var mod in ModManager.instance.GetActiveMods())
+                        {
+                            foreach (var map in mod.content.GetMaps())
+                            {
+                                string currentName = string.Empty;
+                                string[] parts = map.Name.Split('.');
+                                for (int i = 0; i < parts.Length - 1; i++)
+                                {
+                                    currentName += parts[i];
+                                }
+                                if (currentName == mapName)
+                                {       
+                                    InstantActionMaps.MapEntry entry = new InstantActionMaps.MapEntry
+                                    {
+                                        name = currentName,
+                                        sceneName = map.FullName,
+                                        isCustomMap = true,
+                                        hasLoadedMetaData = true,
+                                        image = mod.content.HasIconImage() 
+                                                ? Sprite.Create(mod.iconTexture, new Rect(0f, 0f, mod.iconTexture.width, mod.iconTexture.height), Vector2.zero, 100f)
+                                                : null,
+                                        suggestedBots = 0,
+                                    };
+                                    InstantActionMaps.SelectedCustomMapEntry(entry);
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    InstantActionMaps.instance.mapDropdown.value = givenEntry;
+                }
+
+                for (int i = 0; i < 2; i++)
+                {
+                    var teamInfo = GameManager.instance.gameInfo.team[i];
+
+                    teamInfo.availableWeapons.Clear();
+                    string[] weapons = SteamMatchmaking.GetLobbyData(ActualLobbyID, i + "weapons").Split(',');
+                    foreach (string weapon_str in weapons)
+                    {
+                        if (weapon_str == string.Empty)
+                            continue;
+                        int hash = int.Parse(weapon_str);
+                        var weapon = NetActorController.GetWeaponEntryByHash(hash);
+                        teamInfo.availableWeapons.Add(weapon);
+                    }
+                }
             }
         }
 
@@ -297,7 +490,10 @@ namespace RavenM
 
                     string name = SteamFriends.GetFriendPersonaName(memberId);
 
+                    var old_color = GUI.contentColor;
+                    GUI.contentColor = SteamMatchmaking.GetLobbyData(ActualLobbyID, "ready_" + memberId) == "yes" ? new Color(0.5f, 1f, 0.5f) : new Color(1f, 0.5f, 0.5f);
                     GUI.Box(new Rect(25f, 90f + i * 30, 110f, 20f), name);
+                    GUI.contentColor = old_color;
                 }
 
                 if (GUI.Button(new Rect(25f, 90f + len * 30, 110f, 20f), "Leave"))
@@ -305,6 +501,14 @@ namespace RavenM
                     SteamMatchmaking.LeaveLobby(ActualLobbyID);
                     LobbyDataReady = false;
                     InLobby = false;
+                }
+
+                if (ModsToDownload.Count > 0)
+                {
+                    int hasDownloaded = ServerMods.Count - ModsToDownload.Count;
+
+                    // Really needs work.
+                    GUI.Box(new Rect(10, 130f + len * 30, 150f, 60f), $"Downloading Mods\n\n   {hasDownloaded}/{ServerMods.Count}");
                 }
             }
         }

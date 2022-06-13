@@ -13,17 +13,17 @@ namespace RavenM
     /// Well... if everyone has the same mods (the EXACT same), then its
     /// *probably* safe to remove this.
     /// </summary>
-    [HarmonyPatch(typeof(ModManager), nameof(ModManager.OnGameManagerStart))]
-    public class NoModsPatch
-    {
-        static bool Prefix(ModManager __instance)
-        {
-            __instance.noWorkshopMods = true;
-            __instance.builtInMutators.Clear();
-            __instance.noContentMods = true;
-            return true;
-        }
-    }
+    //[HarmonyPatch(typeof(ModManager), nameof(ModManager.OnGameManagerStart))]
+    //public class NoModsPatch
+    //{
+    //    static bool Prefix(ModManager __instance)
+    //    {
+    //        __instance.noWorkshopMods = true;
+    //        __instance.builtInMutators.Clear();
+    //        __instance.noContentMods = true;
+    //        return true;
+    //    }
+    //}
 
     public class GuidComponent : MonoBehaviour
     {

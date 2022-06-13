@@ -117,7 +117,7 @@ namespace RavenM
             }
         }
 
-        private static WeaponManager.WeaponEntry GetWeaponEntryByHash(int hash)
+        public static WeaponManager.WeaponEntry GetWeaponEntryByHash(int hash)
         {
             foreach (var entry in WeaponManager.instance.allWeapons)
                 if (entry.name.GetHashCode() == hash)
