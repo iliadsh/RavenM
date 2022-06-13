@@ -3,6 +3,7 @@ using System.Reflection;
 using UnityEngine;
 using Steamworks;
 using HarmonyLib;
+using System;
 
 namespace RavenM
 {
@@ -31,6 +32,8 @@ namespace RavenM
 
             if (LobbySystem.instance.IsLobbyOwner)
             {
+                SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "freeze", "true");
+
                 // TODO: This is not a protocol. This is a single byte.
                 SteamMatchmaking.SendLobbyChatMsg(LobbySystem.instance.ActualLobbyID, new byte[] { 1 }, 1);
             }
@@ -92,6 +95,9 @@ namespace RavenM
     {
         static void Postfix()
         {
+            if (LobbySystem.instance.IsLobbyOwner)
+                return;
+
             // Reconstruct mods
             foreach (var mod in ModManager.instance.mods)
             {
@@ -196,7 +202,6 @@ namespace RavenM
                         ModsWeOwn.Add(mod.workshopItemId);
                     }
                 }
-                ModManager.instance.ReloadModContent();
 
                 ServerMods.Clear();
                 ModsToDownload.Clear();
@@ -233,7 +238,8 @@ namespace RavenM
         private void OnItemDownload(DownloadItemResult_t pCallback)
         {
             Plugin.logger.LogInfo($"Downloaded mod! {pCallback.m_nPublishedFileId}");
-            typeof(ModManager).GetMethod("AddWorkshopItemAsMod", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ModManager.instance, new object[] { pCallback.m_nPublishedFileId });
+            var mod = (ModInformation)typeof(ModManager).GetMethod("AddWorkshopItemAsMod", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ModManager.instance, new object[] { pCallback.m_nPublishedFileId });
+            mod.enabled = true;
             ModsToDownload.Remove(pCallback.m_nPublishedFileId);
 
             TriggerModRefresh();
@@ -344,9 +350,43 @@ namespace RavenM
                     }
                     string weaponString = string.Join(",", weapons.ToArray());
                     SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "weapons", weaponString);
+
+                    foreach (var vehiclePrefab in teamInfo.vehiclePrefab)
+                    {
+                        var type = vehiclePrefab.Key;
+                        var prefab = vehiclePrefab.Value;
+
+                        bool isDefault = true; // Default vehicle.
+                        int idx = Array.IndexOf(ActorManager.instance.defaultVehiclePrefabs, prefab);
+
+                        if (idx == -1)
+                        {
+                            isDefault = false;
+                            idx = ModManager.instance.vehiclePrefabs[type].IndexOf(prefab);
+                        }
+
+                        SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "vehicle_" + type, prefab == null ? "NULL" : isDefault + "," + idx);
+                    }
+
+                    foreach (var turretPrefab in teamInfo.turretPrefab)
+                    {
+                        var type = turretPrefab.Key;
+                        var prefab = turretPrefab.Value;
+
+                        bool isDefault = true; // Default turret.
+                        int idx = Array.IndexOf(ActorManager.instance.defaultTurretPrefabs, prefab);
+
+                        if (idx == -1)
+                        {
+                            isDefault = false;
+                            idx = ModManager.instance.turretPrefabs[type].IndexOf(prefab);
+                        }
+
+                        SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "turret_" + type, prefab == null ? "NULL" : isDefault + "," + idx);
+                    }
                 }
             }
-            else
+            else if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "freeze") != "true")
             {
                 // InstantActionMaps.instance.gameModeDropdown.value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "gameMode"));
                 InstantActionMaps.instance.nightToggle.isOn = bool.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nightMode"));
@@ -413,6 +453,71 @@ namespace RavenM
                         var weapon = NetActorController.GetWeaponEntryByHash(hash);
                         teamInfo.availableWeapons.Add(weapon);
                     }
+
+                    bool changedVehicles = false;
+                    foreach (var vehicleType in (VehicleSpawner.VehicleSpawnType[])Enum.GetValues(typeof(VehicleSpawner.VehicleSpawnType)))
+                    {
+                        var type = vehicleType;
+                        var prefab = teamInfo.vehiclePrefab[type];
+
+                        var targetPrefab = SteamMatchmaking.GetLobbyData(ActualLobbyID, i + "vehicle_" + type);
+
+                        GameObject newPrefab = null;
+                        if (targetPrefab != "NULL")
+                        {
+                            string[] args = targetPrefab.Split(',');
+                            bool isDefault = bool.Parse(args[0]);
+                            int idx = int.Parse(args[1]);
+
+                            if (isDefault)
+                            {
+                                newPrefab = ActorManager.instance.defaultVehiclePrefabs[idx];
+                            }
+                            else
+                            {
+                                newPrefab = ModManager.instance.vehiclePrefabs[type][idx];
+                            }
+                        }
+
+                        if (prefab != newPrefab)
+                            changedVehicles = true;
+
+                        teamInfo.vehiclePrefab[type] = newPrefab;
+                    }
+
+                    bool changedTurrets = false;
+                    foreach (var turretType in (TurretSpawner.TurretSpawnType[])Enum.GetValues(typeof(TurretSpawner.TurretSpawnType)))
+                    {
+                        var type = turretType;
+                        var prefab = teamInfo.turretPrefab[type];
+
+                        var targetPrefab = SteamMatchmaking.GetLobbyData(ActualLobbyID, i + "turret_" + type);
+
+                        GameObject newPrefab = null;
+                        if (targetPrefab != "NULL")
+                        {
+                            string[] args = targetPrefab.Split(',');
+                            bool isDefault = bool.Parse(args[0]);
+                            int idx = int.Parse(args[1]);
+
+                            if (isDefault)
+                            {
+                                newPrefab = ActorManager.instance.defaultTurretPrefabs[idx];
+                            }
+                            else
+                            {
+                                newPrefab = ModManager.instance.turretPrefabs[type][idx];
+                            }
+                        }
+
+                        if (prefab != newPrefab)
+                            changedTurrets = true;
+
+                        teamInfo.turretPrefab[type] = newPrefab;
+                    }
+
+                    if (changedVehicles || changedTurrets)
+                        GamePreview.UpdatePreview();
                 }
             }
         }
