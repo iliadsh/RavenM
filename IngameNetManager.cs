@@ -322,13 +322,23 @@ namespace RavenM
             ClientVehicles.Clear();
             TargetVehicleStates.Clear();
 
-            ServerConnections.Clear();
-
             IsHost = false;
 
             IsClient = false;
 
             MarkerPosition = Vector3.zero;
+        }
+
+        public void OpenRelay()
+        {
+            Plugin.logger.LogInfo("Starting server socket for connections.");
+
+            ServerConnections.Clear();
+            ServerSocket = SteamNetworkingSockets.CreateListenSocketP2P(0, 0, null);
+
+            PollGroup = SteamNetworkingSockets.CreatePollGroup();
+
+            IsHost = true;
         }
 
         public void StartAsServer()
@@ -337,11 +347,8 @@ namespace RavenM
 
             ResetState();
 
-            ServerSocket = SteamNetworkingSockets.CreateListenSocketP2P(0, 0, null);
-
-            PollGroup = SteamNetworkingSockets.CreatePollGroup();
-
             IsHost = true;
+
             IsClient = true;
 
             foreach (var actor in FindObjectsOfType<Actor>())

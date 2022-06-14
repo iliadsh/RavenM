@@ -34,6 +34,7 @@ namespace RavenM
             {
                 SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "freeze", "true");
 
+                IngameNetManager.instance.OpenRelay();
                 // TODO: This is not a protocol. This is a single byte.
                 SteamMatchmaking.SendLobbyChatMsg(LobbySystem.instance.ActualLobbyID, new byte[] { 1 }, 1);
             }
