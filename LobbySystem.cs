@@ -88,6 +88,9 @@ namespace RavenM
             ModManager.instance.ContentChanged();
             // TODO
             SteamMatchmaking.SendLobbyChatMsg(LobbySystem.instance.ActualLobbyID, new byte[] { 1, 2 }, 2);
+
+            // We need to update the skin dropdown with the new mods.
+            typeof(InstantActionMaps).GetMethod("SetupSkinList", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(InstantActionMaps.instance, null);
         }
     }
 
@@ -385,6 +388,8 @@ namespace RavenM
 
                         SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "turret_" + type, prefab == null ? "NULL" : isDefault + "," + idx);
                     }
+
+                    SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "skin", InstantActionMaps.instance.skinDropdowns[i].value.ToString());
                 }
             }
             else if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "freeze") != "true")
@@ -519,6 +524,8 @@ namespace RavenM
 
                     if (changedVehicles || changedTurrets)
                         GamePreview.UpdatePreview();
+
+                    InstantActionMaps.instance.skinDropdowns[i].value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, i + "skin"));
                 }
             }
         }
