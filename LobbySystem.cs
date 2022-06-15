@@ -37,6 +37,39 @@ namespace RavenM
                 IngameNetManager.instance.OpenRelay();
                 // TODO: This is not a protocol. This is a single byte.
                 SteamMatchmaking.SendLobbyChatMsg(LobbySystem.instance.ActualLobbyID, new byte[] { 1 }, 1);
+
+                // Reset the ready states for when everyone has actually loaded in.
+                int len = SteamMatchmaking.GetNumLobbyMembers(LobbySystem.instance.ActualLobbyID);
+
+                for (int i = 0; i < len; i++)
+                {
+                    var memberId = SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i);
+                    SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "ready_" + memberId, "no");
+                }
+            }
+
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(LoadoutUi), nameof(LoadoutUi.OnDeployClick))]
+    public class FirstDeployPatch
+    {
+        static bool Prefix()
+        {
+            if (LobbySystem.instance.InLobby)
+            {
+                // Wait for everyone to load in first.
+                int len = SteamMatchmaking.GetNumLobbyMembers(LobbySystem.instance.ActualLobbyID);
+
+                for (int i = 0; i < len; i++)
+                {
+                    var memberId = SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i);
+                    if (SteamMatchmaking.GetLobbyData(LobbySystem.instance.ActualLobbyID, "ready_" + memberId) != "yes")
+                    {
+                        return false;
+                    }
+                }
             }
 
             return true;
@@ -50,18 +83,18 @@ namespace RavenM
         {
             if (!LobbySystem.instance.LobbyDataReady)
                 return;
-
+            
             if (LobbySystem.instance.IsLobbyOwner)
+            {
                 IngameNetManager.instance.StartAsServer();
+                SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "ready_" + SteamUser.GetSteamID(), "yes");
+            }  
             else
             {
                 IngameNetManager.instance.StartAsClient(LobbySystem.instance.OwnerID);
+                // TODO
+                SteamMatchmaking.SendLobbyChatMsg(LobbySystem.instance.ActualLobbyID, new byte[] { 1, 2 }, 2);
             }
-
-            SteamMatchmaking.LeaveLobby(LobbySystem.instance.ActualLobbyID);
-            LobbySystem.instance.InLobby = false;
-            LobbySystem.instance.LobbyDataReady = false;
-            LobbySystem.instance.ReadyToPlay = true;
         }
     }
 
@@ -99,7 +132,11 @@ namespace RavenM
     {
         static void Postfix()
         {
-            if (LobbySystem.instance.IsLobbyOwner)
+            LobbySystem.instance.InLobby = false;
+            LobbySystem.instance.ReadyToPlay = true;
+            LobbySystem.instance.LobbyDataReady = false;
+
+            if (LobbySystem.instance.IsLobbyOwner || !LobbySystem.instance.CachedMods)
                 return;
 
             // Reconstruct mods
@@ -108,6 +145,22 @@ namespace RavenM
                 mod.enabled = LobbySystem.instance.ModsWeOwn.Contains(mod.workshopItemId);
             }
             LobbySystem.instance.ModsWeOwn.Clear();
+            LobbySystem.instance.CachedMods = false;
+
+            if (!GameManager.IsIngame())
+                ModManager.instance.ReloadModContent();
+        }
+    }
+
+    [HarmonyPatch(typeof(GameManager), nameof(GameManager.ReturnToMenu))]
+    public class LeaveOnEndGame
+    {
+        static void Postfix()
+        {
+            if (LobbySystem.instance.InLobby)
+            {
+                SteamMatchmaking.LeaveLobby(LobbySystem.instance.ActualLobbyID);
+            }
         }
     }
 
@@ -133,6 +186,8 @@ namespace RavenM
         public CSteamID OwnerID = CSteamID.Nil;
 
         public bool ReadyToPlay = false;
+
+        public bool CachedMods = false;
 
         public List<PublishedFileId_t> ServerMods = new List<PublishedFileId_t>();
 
@@ -191,9 +246,6 @@ namespace RavenM
                 {
                     Plugin.logger.LogInfo("Build ID mismatch! Leaving lobby.");
                     SteamMatchmaking.LeaveLobby(ActualLobbyID);
-                    InLobby = false;
-                    ReadyToPlay = true;
-                    LobbyDataReady = false;
                     return;
                 }
 
@@ -206,6 +258,7 @@ namespace RavenM
                         ModsWeOwn.Add(mod.workshopItemId);
                     }
                 }
+                CachedMods = true;
 
                 ServerMods.Clear();
                 ModsToDownload.Clear();
@@ -267,10 +320,6 @@ namespace RavenM
                 if (OwnerID == new CSteamID(pCallback.m_ulSteamIDUserChanged))
                 {
                     SteamMatchmaking.LeaveLobby(ActualLobbyID);
-                    InLobby = false;
-                    ReadyToPlay = true;
-                    // Keep the lobby data as available, so that we can still join the match
-                    // connection if needed.
                 }
             }
         }
@@ -302,7 +351,7 @@ namespace RavenM
 
         private void Update()
         {
-            if (GameManager.instance == null || GameManager.IsIngame())
+            if (GameManager.instance == null || GameManager.IsIngame() || GameManager.IsInLoadingScreen())
                 return;
 
             if (Input.GetKeyDown(KeyCode.M) && !InLobby)
@@ -532,7 +581,7 @@ namespace RavenM
 
         private void OnGUI()
         {
-            if (GameManager.instance == null || GameManager.IsIngame())
+            if (GameManager.instance == null || (GameManager.IsIngame() && LoadoutUi.instance != null && LoadoutUi.HasBeenClosed()))
                 return;
 
             var menu_page = (int)typeof(MainMenu).GetField("page", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(MainMenu.instance);
@@ -540,7 +589,7 @@ namespace RavenM
             if (menu_page != MainMenu.PAGE_INSTANT_ACTION)
                 return;
 
-            if (!InLobby && GUIStack.Count != 0)
+            if (!InLobby && GUIStack.Count != 0 && GameManager.IsInMainMenu())
             {
                 if (GUIStack.Peek() == "Main")
                 {
@@ -592,7 +641,7 @@ namespace RavenM
                 GUI.Box(new Rect(10f, 10f, 150f, 120f + len * 30), $"Lobby - {len}/20");
                 GUI.Label(new Rect(35f, 40f, 130f, 20f), ActualLobbyID.GetAccountID().ToString());
 
-                if (GUI.Button(new Rect(25f, 60f, 110f, 20f), "Copy ID"))
+                if (GameManager.IsInMainMenu() && GUI.Button(new Rect(25f, 60f, 110f, 20f), "Copy ID"))
                 {
                     GUIUtility.systemCopyBuffer = ActualLobbyID.GetAccountID().ToString();
                 }
