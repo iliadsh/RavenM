@@ -292,7 +292,7 @@ namespace RavenM
 
                 Vector3 vector = FpsActorController.instance.GetActiveCamera().WorldToScreenPoint(actor.CenterPosition() + new Vector3(0, 1f, 0));
                 
-                if (vector.z < 0f)
+                if (vector.z < 0f || actor.team != GameManager.PlayerTeam())
                 {
                     continue;
                 }
