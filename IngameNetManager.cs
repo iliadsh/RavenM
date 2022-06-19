@@ -632,6 +632,7 @@ namespace RavenM
                                         }
 
                                         actor.name = actor_packet.Name;
+                                        actor.scoreboardEntry.UpdateNameLabel();
 
                                         var controller = actor.controller as NetActorController;
 
