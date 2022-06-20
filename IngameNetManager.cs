@@ -1425,8 +1425,11 @@ namespace RavenM
             actorsOnTeam[actor.team].Remove(actor);
 
             var nextActorIndexTeam = typeof(ActorManager).GetField("nextActorIndexTeam", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(ActorManager.instance) as int[];
-            nextActorIndexTeam[0]--;
-            nextActorIndexTeam[1]--;
+            nextActorIndexTeam[actor.team]--;
+
+            var nextActorIndexF = typeof(ActorManager).GetField("nextActorIndex", BindingFlags.Instance | BindingFlags.NonPublic);
+            int nextActorIndex = (int)nextActorIndexF.GetValue(ActorManager.instance);
+            nextActorIndexF.SetValue(ActorManager.instance,  nextActorIndex - 1);
 
             ActorManager.Drop(actor);
             Destroy(actor.controller);
