@@ -644,6 +644,8 @@ namespace RavenM
                                         actor.name = actor_packet.Name;
                                         actor.scoreboardEntry.UpdateNameLabel();
 
+                                        actor.health = actor_packet.Health;
+
                                         var controller = actor.controller as NetActorController;
 
                                         controller.Targets = actor_packet;
@@ -1224,6 +1226,7 @@ namespace RavenM
                     MarkerPosition = actor.aiControlled ? null : (Vector3?)MarkerPosition,
                     Flags = GenerateFlags(actor),
                     Ammo = !actor.dead && actor.activeWeapon != null ? actor.activeWeapon.ammo : 0,
+                    Health = actor.health,
                 };
 
                 bulkActorUpdate.Updates.Add(net_actor);

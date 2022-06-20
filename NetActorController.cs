@@ -62,7 +62,7 @@ namespace RavenM
             if (respawn_action.TrueDone())
             {
                 if ((Flags & (int)ActorStateFlags.Dead) != 0 && !actor.dead)
-                    actor.KillSilently();
+                    actor.Kill(DamageInfo.Default);
 
                 if (!((Flags & (int)ActorStateFlags.Dead) != 0) && actor.dead)
                     actor.SpawnAt(Targets.Position, Quaternion.identity);
