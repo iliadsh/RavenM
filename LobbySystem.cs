@@ -208,6 +208,18 @@ namespace RavenM
             Callback<DownloadItemResult_t>.Create(OnItemDownload);
         }
 
+        // Make sure we reconstruct mods when the game closes.
+        private void OnApplicationQuit()
+        {
+            if (InLobby && !IsLobbyOwner)
+            {
+                foreach (var mod in ModManager.instance.mods)
+                {
+                    mod.enabled = ModsWeOwn.Contains(mod.workshopItemId);
+                }
+            }
+        }
+
         private void OnLobbyEnter(LobbyEnter_t pCallback)
         {
             Plugin.logger.LogInfo("Joined lobby!");
