@@ -14,5 +14,7 @@
         EnterSeat,
         LeaveSeat,
         GameStateUpdate,
+        SpawnProjectile,
+        UpdateProjectile,
     }
 }

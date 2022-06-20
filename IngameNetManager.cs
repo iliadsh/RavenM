@@ -136,6 +136,12 @@ namespace RavenM
 
         public Dictionary<int, VehiclePacket> TargetVehicleStates = new Dictionary<int, VehiclePacket>();
 
+        public HashSet<int> OwnedProjectiles = new HashSet<int>();
+
+        public Dictionary<int, Projectile> ClientProjectiles = new Dictionary<int, Projectile>();
+
+        public int ActorToSpawnProjectile = 0;
+
         public HSteamNetConnection C2SConnection;
 
         /// Server owned
@@ -321,6 +327,10 @@ namespace RavenM
             OwnedVehicles.Clear();
             ClientVehicles.Clear();
             TargetVehicleStates.Clear();
+            OwnedProjectiles.Clear();
+            ClientProjectiles.Clear();
+
+            ActorToSpawnProjectile = 0;
 
             IsHost = false;
 
@@ -926,6 +936,64 @@ namespace RavenM
                                     }
                                 }
                                 break;
+                            case PacketType.SpawnProjectile:
+                                {
+                                    var spawnPacket = Serializer.Deserialize<SpawnProjectilePacket>(dataStream);
+
+                                    if (OwnedActors.Contains(spawnPacket.SourceId))
+                                        break;
+
+                                    var actor = ClientActors[spawnPacket.SourceId];
+
+                                    if (actor == null)
+                                        break;
+
+                                    var weapon = actor.activeWeapon;
+
+                                    if (weapon == null)
+                                        break;
+
+                                    // Maybe move to a scope guard?
+                                    ActorToSpawnProjectile = spawnPacket.SourceId;
+
+                                    var projectile = (Projectile)weapon.GetType().GetMethod("SpawnProjectile", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(weapon, new object[] 
+                                    {
+                                        spawnPacket.Direction,
+                                        spawnPacket.MuzzlePosition,
+                                    });
+
+                                    ActorToSpawnProjectile = 0;
+
+                                    projectile.gameObject.AddComponent<GuidComponent>().guid = spawnPacket.ProjectileId;
+
+                                    ClientProjectiles[spawnPacket.ProjectileId] = projectile;
+                                }
+                                break;
+                            case PacketType.UpdateProjectile:
+                                {
+                                    var bulkProjectilePacket = Serializer.Deserialize<BulkProjectileUpdate>(dataStream);
+
+                                    if (bulkProjectilePacket.Updates == null)
+                                        break;
+
+                                    foreach (UpdateProjectilePacket projectilePacket in bulkProjectilePacket.Updates)
+                                    {
+                                        if (OwnedProjectiles.Contains(projectilePacket.Id))
+                                            continue;
+
+                                        if (!ClientProjectiles.ContainsKey(projectilePacket.Id))
+                                            continue;
+
+                                        Projectile projectile = ClientProjectiles[projectilePacket.Id];
+
+                                        if (projectile == null)
+                                            continue;
+
+                                        projectile.transform.position = projectilePacket.Position;
+                                        projectile.velocity = projectilePacket.Velocity;
+                                    }
+                                }
+                                break;
                         }
                     }
 
@@ -977,6 +1045,8 @@ namespace RavenM
                 SendVehicleStates();
 
                 SendTurretStates();
+
+                SendProjectileUpdates();
             }
         }
 
@@ -1262,6 +1332,51 @@ namespace RavenM
             byte[] data = memoryStream.ToArray();
 
             SendPacketToServer(data, PacketType.VehicleUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
+        }
+
+        public void SendProjectileUpdates()
+        {
+            var bulkProjectileUpdate = new BulkProjectileUpdate
+            {
+                Updates = new List<UpdateProjectilePacket>(),
+            };
+
+            foreach (var projectile in FindObjectsOfType<Projectile>())
+            {
+                // We should only update projectiles where it is obvious
+                // there is a desync, like rockets++
+                if (!typeof(Rocket).IsAssignableFrom(projectile.GetType()))
+                    continue;
+
+                var guid = projectile.GetComponent<GuidComponent>();
+
+                if (guid == null)
+                    continue;
+
+                var id = guid.guid;
+
+                if (!OwnedProjectiles.Contains(id))
+                    continue;
+
+                var net_projectile = new UpdateProjectilePacket
+                {
+                    Id = id,
+                    Position = projectile.transform.position,
+                    Velocity = projectile.velocity,
+                };
+
+                bulkProjectileUpdate.Updates.Add(net_projectile);
+            }
+
+            if (bulkProjectileUpdate.Updates.Count == 0)
+                return;
+
+            using MemoryStream memoryStream = new MemoryStream();
+
+            Serializer.Serialize(memoryStream, bulkProjectileUpdate);
+            byte[] data = memoryStream.ToArray();
+
+            SendPacketToServer(data, PacketType.UpdateProjectile, Constants.k_nSteamNetworkingSend_Unreliable);
         }
     }
 }

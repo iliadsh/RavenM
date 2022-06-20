@@ -114,6 +114,9 @@ namespace RavenM
             if (actor.activeWeapon != null)
             {
                 actor.activeWeapon.ammo = Targets.Ammo;
+
+                // This would be broken since we normally set the projectiles it spawns to null.
+                actor.activeWeapon.onSpawnProjectiles.RemoveAllListeners();
             }
         }
 
