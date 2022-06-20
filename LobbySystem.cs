@@ -452,6 +452,13 @@ namespace RavenM
 
                     SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "skin", InstantActionMaps.instance.skinDropdowns[i].value.ToString());
                 }
+
+                var enabledMutators = new List<bool>();
+                foreach (var mutator in ModManager.instance.loadedMutators)
+                {
+                    enabledMutators.Add(mutator.isEnabled);
+                }
+                SteamMatchmaking.SetLobbyData(ActualLobbyID, "mutators", string.Join(",", enabledMutators.ToArray()));
             }
             else if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "freeze") != "true")
             {
@@ -587,6 +594,20 @@ namespace RavenM
                         GamePreview.UpdatePreview();
 
                     InstantActionMaps.instance.skinDropdowns[i].value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, i + "skin"));
+                }
+
+                string[] enabledMutators = SteamMatchmaking.GetLobbyData(ActualLobbyID, "mutators").Split(',');
+                for (int i = 0; i < ModManager.instance.loadedMutators.Count; i++)
+                {
+                    if (i > enabledMutators.Length)
+                        break;
+
+                    string enabled_str = enabledMutators[i];
+
+                    if (enabled_str == string.Empty)
+                        continue;
+
+                    ModManager.instance.loadedMutators[i].isEnabled = bool.Parse(enabled_str);
                 }
             }
         }
