@@ -20,9 +20,102 @@ namespace RavenM
         }
     }
 
+    [HarmonyPatch(typeof(Actor), nameof(Actor.SwitchSeat))]
+    public class SwitchSeatPatch
+    {
+        static void Prefix(Actor __instance, int seatIndex, ref bool swapIfOccupied)
+        {
+            if (!swapIfOccupied)
+                return;
+
+            if (!__instance.IsSeated())
+                return;
+
+            var seat = __instance.seat.vehicle.seats[seatIndex];
+
+            if (!seat.IsOccupied())
+                return;
+
+            Actor occupant = seat.occupant;
+
+            var guid = occupant.GetComponent<GuidComponent>();
+
+            if (guid == null)
+                return;
+
+            var id = guid.guid;
+
+            if (IngameNetManager.instance.OwnedActors.Contains(id))
+                return;
+
+            var controller = occupant.controller as NetActorController;
+            if ((controller.Targets.Flags & (int)ActorStateFlags.AiControlled) == 0)
+                swapIfOccupied = false;
+        }
+    }
+
     [HarmonyPatch(typeof(Actor), nameof(Actor.EnterSeat))]
     public class EnterSeatPatch
     {
+        static void Prefix(ref Seat seat, bool kickOutOccupant)
+        {
+            // We are only interested in the EVIL player.
+            if (!kickOutOccupant)
+                return;
+
+            if (seat.IsOccupied())
+            {
+                Actor occupant = seat.occupant;
+
+                var guid = occupant.GetComponent<GuidComponent>();
+
+                if (guid == null)
+                    return;
+
+                var id = guid.guid;
+
+                if (IngameNetManager.instance.OwnedActors.Contains(id))
+                    return;
+
+                // If the seat we want is held by a player, then we look
+                // for a seat that's not.
+                var controller = occupant.controller as NetActorController;
+                if ((controller.Targets.Flags & (int)ActorStateFlags.AiControlled) == 0)
+                {
+                    var vehicle = seat.vehicle;
+                    foreach (var potentialSeat in vehicle.seats)
+                    {
+                        if (!potentialSeat.IsOccupied())
+                        {
+                            seat = potentialSeat;
+                            return;
+                        }
+
+                        occupant = potentialSeat.occupant;
+
+                        guid = occupant.GetComponent<GuidComponent>();
+
+                        if (guid == null)
+                            continue;
+
+                        id = guid.guid;
+
+                        if (IngameNetManager.instance.OwnedActors.Contains(id))
+                            continue;
+
+                        controller = occupant.controller as NetActorController;
+                        if ((controller.Targets.Flags & (int)ActorStateFlags.AiControlled) == 0)
+                            continue;
+
+                        seat = potentialSeat;
+                        return;
+                    }
+
+                    seat = null;
+                }
+            }
+        }
+
         static void Postfix(Actor __instance, Seat seat, bool kickOutOccupant, bool __result)
         {
             if (!IngameNetManager.instance.IsClient)
