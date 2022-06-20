@@ -238,11 +238,22 @@ namespace RavenM
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "owner", SteamUser.GetSteamID().ToString());
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "build_id", Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString());
 
+                bool needsToReload = false;
                 List<PublishedFileId_t> mods = new List<PublishedFileId_t>();
                 foreach (var mod in ModManager.instance.GetActiveMods())
                 {
-                    mods.Add(mod.workshopItemId);
+                    if (mod.workshopItemId.ToString() == "0")
+                    {
+                        mod.enabled = false;
+                        needsToReload = true;
+                    }
+                    else
+                        mods.Add(mod.workshopItemId);
                 }
+
+                if (needsToReload)
+                    ModManager.instance.ReloadModContent();
+
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "mods", string.Join(",", mods.ToArray()));
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "ready_" + SteamUser.GetSteamID(), "yes");
             }
@@ -280,6 +291,9 @@ namespace RavenM
                     if (mod_str == string.Empty)
                         continue;
                     PublishedFileId_t mod_id = new PublishedFileId_t(ulong.Parse(mod_str));
+
+                    if (mod_id.ToString() == "0")
+                        continue;
 
                     ServerMods.Add(mod_id);
 
