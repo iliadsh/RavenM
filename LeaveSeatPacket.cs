@@ -16,13 +16,21 @@ namespace RavenM
             if (!IngameNetManager.instance.IsClient)
                 return true;
 
-            var vehicleId = __instance.seat.vehicle.GetComponent<GuidComponent>().guid;
+            var vehicleGuid = __instance.seat.vehicle.GetComponent<GuidComponent>();
+            if (vehicleGuid == null)
+                return true;
+
+            var vehicleId = vehicleGuid.guid;
 
             // Give up control if we temporarily required it.
             if (!IngameNetManager.instance.IsHost && __instance.seat.IsDriverSeat())
                 IngameNetManager.instance.OwnedVehicles.Remove(vehicleId);
 
-            var actorId = __instance.GetComponent<GuidComponent>().guid;
+            var actorGuid = __instance.GetComponent<GuidComponent>();
+            if (actorGuid == null)
+                return true;
+
+            var actorId = actorGuid.guid;
 
             if (!IngameNetManager.instance.OwnedActors.Contains(actorId) && IngameNetManager.instance.IsHost && __instance.seat.IsDriverSeat())
             {
@@ -45,13 +53,21 @@ namespace RavenM
             if (__instance.seat.vehicle == null)
                 return true;
 
-            var vehicleId = __instance.seat.vehicle.GetComponent<GuidComponent>().guid;
+            var vehicleGuid = __instance.seat.vehicle.GetComponent<GuidComponent>();
+            if (vehicleGuid == null)
+                return true;
+
+            var vehicleId = vehicleGuid.guid;
 
             // Give up control if we temporarily required it.
             if (!IngameNetManager.instance.IsHost && __instance.seat.IsDriverSeat())
                 IngameNetManager.instance.OwnedVehicles.Remove(vehicleId);
 
-            var actorId = __instance.GetComponent<GuidComponent>().guid;
+            var actorGuid = __instance.GetComponent<GuidComponent>();
+            if (actorGuid == null)
+                return true;
+
+            var actorId = actorGuid.guid;
 
             if (!IngameNetManager.instance.OwnedActors.Contains(actorId) && IngameNetManager.instance.IsHost && __instance.seat.IsDriverSeat())
             {
@@ -66,7 +82,11 @@ namespace RavenM
             if (!IngameNetManager.instance.IsClient)
                 return;
 
-            var actorId = __instance.GetComponent<GuidComponent>().guid;
+            var actorGuid = __instance.GetComponent<GuidComponent>();
+            if (actorGuid == null)
+                return;
+
+            var actorId = actorGuid.guid;
 
             if (!IngameNetManager.instance.OwnedActors.Contains(actorId))
                 return;

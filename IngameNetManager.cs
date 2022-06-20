@@ -408,8 +408,7 @@ namespace RavenM
                 // 0 (AI) actors.
                 if (actor.aiControlled)
                 {
-                    ActorManager.Drop(actor);
-                    Destroy(actor.gameObject);
+                    DestroyActor(actor);
                     continue;
                 }
 
@@ -1178,12 +1177,21 @@ namespace RavenM
 
                 if (guid == null)
                 {
-                    int id = RandomGen.Next(0, int.MaxValue);
+                    if (IsHost)
+                    {
+                        int id = RandomGen.Next(0, int.MaxValue);
 
-                    actor.gameObject.AddComponent<GuidComponent>().guid = id;
+                        guid = actor.gameObject.AddComponent<GuidComponent>();
+                        guid.guid = id;
 
-                    ClientActors.Add(id, actor);
-                    OwnedActors.Add(id);
+                        ClientActors.Add(id, actor);
+                        OwnedActors.Add(id);
+                    }
+                    else
+                    {
+                        DestroyActor(actor);
+                        continue;
+                    }
                 }
 
                 if (!OwnedActors.Contains(guid.guid))
@@ -1380,6 +1388,49 @@ namespace RavenM
             byte[] data = memoryStream.ToArray();
 
             SendPacketToServer(data, PacketType.UpdateProjectile, Constants.k_nSteamNetworkingSend_Unreliable);
+        }
+
+        /// <summary>
+        /// Clean up an actor's presence as much as possible.
+        /// </summary>
+        public void DestroyActor(Actor actor)
+        {
+            switch (actor.team)
+            {
+                case 0:
+                    var t0field = typeof(ActorManager).GetField("team0Bots", BindingFlags.Instance | BindingFlags.NonPublic);
+                    int team0Bots = (int)t0field.GetValue(ActorManager.instance);
+                    t0field.SetValue(ActorManager.instance, team0Bots - 1);
+                    break;
+                case 1:
+                    var t1field = typeof(ActorManager).GetField("team1Bots", BindingFlags.Instance | BindingFlags.NonPublic);
+                    int team1Bots = (int)t1field.GetValue(ActorManager.instance);
+                    t1field.SetValue(ActorManager.instance, team1Bots - 1);
+                    break;
+            }
+
+            var scoreboard = typeof(ScoreboardUi).GetField("entriesOfTeam", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(ScoreboardUi.instance) as Dictionary<int, List<ScoreboardActorEntry>>;
+            scoreboard[actor.team].Remove(actor.scoreboardEntry);
+
+            if (actor.IsSeated())
+                actor.LeaveSeat(false);
+
+            var controller = actor.controller as AiActorController;
+            if (controller.squad != null)
+                controller.squad.SplitSquad(new List<ActorController>() { controller });
+
+            ActorManager.instance.aiActorControllers.Remove(controller);
+
+            var actorsOnTeam = typeof(ActorManager).GetField("actorsOnTeam", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(ActorManager.instance) as List<Actor>[];
+            actorsOnTeam[actor.team].Remove(actor);
+
+            var nextActorIndexTeam = typeof(ActorManager).GetField("nextActorIndexTeam", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(ActorManager.instance) as int[];
+            nextActorIndexTeam[0]--;
+            nextActorIndexTeam[1]--;
+
+            ActorManager.Drop(actor);
+            Destroy(actor.controller);
+            Destroy(actor);
         }
     }
 }

@@ -16,7 +16,7 @@ namespace RavenM
             if (!IngameNetManager.instance.IsClient)
                 return true;
 
-            if (!IngameNetManager.instance.OwnedActors.Contains(__instance.actor.GetComponent<GuidComponent>().guid))
+            if (!IngameNetManager.instance.IsHost)
                 return false;
 
             return true;

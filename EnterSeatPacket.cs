@@ -124,14 +124,22 @@ namespace RavenM
             if (!__result)
                 return;
 
-            var actorId = __instance.GetComponent<GuidComponent>().guid;
+            var actorGuid = __instance.GetComponent<GuidComponent>();
+            if (actorGuid == null)
+                return;
+
+            var actorId = actorGuid.guid;
 
             if (!IngameNetManager.instance.OwnedActors.Contains(actorId))
                 return;
 
             var vehicle = seat.vehicle;
 
-            var targetVehicleId = vehicle.GetComponent<GuidComponent>().guid;
+            var vehicleGuid = vehicle.GetComponent<GuidComponent>();
+            if (vehicleGuid == null)
+                return;
+
+            var targetVehicleId = vehicleGuid.guid;
 
             var seatId = vehicle.seats.IndexOf(seat);
 
