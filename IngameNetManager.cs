@@ -104,6 +104,42 @@ namespace RavenM
         }
     }
 
+    [HarmonyPatch(typeof(ActorManager), nameof(ActorManager.CreateAIActor))]
+    public class CreateBotPatch
+    {
+        static bool Prefix(ref Actor __result)
+        {
+            if (!IngameNetManager.instance.IsClient || IngameNetManager.instance.IsHost)
+                return true;
+
+            if (IngameNetManager.instance.ClientCanSpawnBot)
+                return true;
+
+            __result = null;
+            return false;
+        }
+
+        static void Postfix(Actor __result)
+        {
+            if (!IngameNetManager.instance.IsClient)
+                return;
+
+            if (__result == null)
+                return;
+
+            if (IngameNetManager.instance.ClientCanSpawnBot)
+                return;
+
+            // Smaller integers do better with ProtoBuf's integer compression.
+            int id = IngameNetManager.instance.BotIdGen++;
+
+            __result.gameObject.AddComponent<GuidComponent>().guid = id;
+
+            IngameNetManager.instance.ClientActors.Add(id, __result);
+            IngameNetManager.instance.OwnedActors.Add(id);
+        }
+    }
+
     public class IngameNetManager : MonoBehaviour
     {
         public static IngameNetManager instance;
@@ -116,7 +152,7 @@ namespace RavenM
         public int _bytesOut = 0;
         public int _totalBytesOut = 0;
 
-        private int _botIdGen = 0;
+        public int BotIdGen = 0;
 
         public Guid OwnGUID = Guid.NewGuid();
 
@@ -132,6 +168,8 @@ namespace RavenM
 
         public Dictionary<int, Vehicle> ClientVehicles = new Dictionary<int, Vehicle>();
 
+        public List<TurretSpawner> TurretSpawners = new List<TurretSpawner>();
+
         public HashSet<int> RemoteDeadVehicles = new HashSet<int>();
 
         public Dictionary<int, VehiclePacket> TargetVehicleStates = new Dictionary<int, VehiclePacket>();
@@ -141,6 +179,8 @@ namespace RavenM
         public Dictionary<int, Projectile> ClientProjectiles = new Dictionary<int, Projectile>();
 
         public int ActorToSpawnProjectile = 0;
+
+        public bool ClientCanSpawnBot = false;
 
         public HSteamNetConnection C2SConnection;
 
@@ -317,7 +357,7 @@ namespace RavenM
             _bytesOut = 0;
             _totalBytesOut = 0;
 
-            _botIdGen = 0;
+            BotIdGen = 0;
 
             MainSendTick.Start();
 
@@ -326,11 +366,13 @@ namespace RavenM
             ClientActors.Clear();
             OwnedVehicles.Clear();
             ClientVehicles.Clear();
+            TurretSpawners.Clear();
             TargetVehicleStates.Clear();
             OwnedProjectiles.Clear();
             ClientProjectiles.Clear();
 
             ActorToSpawnProjectile = 0;
+            ClientCanSpawnBot = false;
 
             IsHost = false;
 
@@ -363,8 +405,7 @@ namespace RavenM
 
             foreach (var actor in FindObjectsOfType<Actor>())
             {
-                // Smaller integers do better with ProtoBuf's integer compression.
-                int id = actor.aiControlled ? _botIdGen++ : RandomGen.Next(13337, int.MaxValue);
+                int id = actor.aiControlled ? BotIdGen++ : RandomGen.Next(13337, int.MaxValue);
 
                 actor.gameObject.AddComponent<GuidComponent>().guid = id;
 
@@ -380,6 +421,11 @@ namespace RavenM
 
                 ClientVehicles.Add(id, vehicle);
                 OwnedVehicles.Add(id);
+            }
+
+            foreach (var turretSpawner in FindObjectsOfType<TurretSpawner>())
+            {
+                TurretSpawners.Add(turretSpawner);
             }
 
             var iden = new SteamNetworkingIdentity
@@ -400,23 +446,13 @@ namespace RavenM
 
             IsClient = true;
 
-            foreach (var actor in FindObjectsOfType<Actor>())
+            var player = ActorManager.instance.player;
             {
-                // ATM, Drop()ing an actor doesn't actually remove it from everything
-                // the ActorManager uses, so while this will make the Actor invisible,
-                // there will be a shit ton of errors. So... clients should start with
-                // 0 (AI) actors.
-                if (actor.aiControlled)
-                {
-                    DestroyActor(actor);
-                    continue;
-                }
+                int id = RandomGen.Next(13337, int.MaxValue);
 
-                int id = RandomGen.Next(0, int.MaxValue);
+                player.gameObject.AddComponent<GuidComponent>().guid = id;
 
-                actor.gameObject.AddComponent<GuidComponent>().guid = id;
-
-                ClientActors.Add(id, actor);
+                ClientActors.Add(id, player);
                 OwnedActors.Add(id);
             }
 
@@ -618,7 +654,10 @@ namespace RavenM
                                         {
                                             Plugin.logger.LogInfo($"New actor registered with ID {actor_packet.Id} name {actor_packet.Name}");
 
+                                            // FIXME: Another better lock needed.
+                                            ClientCanSpawnBot = true;
                                             actor = ActorManager.instance.CreateAIActor(actor_packet.Team);
+                                            ClientCanSpawnBot = false;
 
                                             actor.gameObject.AddComponent<GuidComponent>().guid = actor_packet.Id;
 
@@ -905,7 +944,7 @@ namespace RavenM
                                             {
                                                 var gameUpdatePacket = Serializer.Deserialize<BattleStatePacket>(dataStream);
 
-                                                var battleObj = FindObjectOfType<BattleMode>();
+                                                var battleObj = GameModeBase.instance as BattleMode;
 
                                                 var currentBattalions = (int[])typeof(BattleMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(battleObj);
 
@@ -1062,7 +1101,7 @@ namespace RavenM
             {
                 case GameModeType.Battalion:
                     {
-                        var battleObj = FindObjectOfType<BattleMode>();
+                        var battleObj = GameModeBase.instance as BattleMode;
 
                         var gamePacket = new BattleStatePacket
                         {
@@ -1125,17 +1164,9 @@ namespace RavenM
                 Updates = new List<ActorFlagsPacket>(),
             };
 
-            foreach (var actor in FindObjectsOfType<Actor>())
+            foreach (var owned_actor in OwnedActors)
             {
-                var guid = actor.GetComponent<GuidComponent>();
-
-                if (guid == null)
-                    continue;
-
-                if (!OwnedActors.Contains(guid.guid))
-                    continue;
-
-                var owned_actor = guid.guid;
+                var actor = ClientActors[owned_actor];
 
                 int flags = GenerateFlags(actor);
 
@@ -1171,33 +1202,9 @@ namespace RavenM
                 Updates = new List<ActorPacket>(),
             };
 
-            foreach (var actor in FindObjectsOfType<Actor>())
+            foreach (var owned_actor in OwnedActors)
             {
-                var guid = actor.GetComponent<GuidComponent>();
-
-                if (guid == null)
-                {
-                    if (IsHost)
-                    {
-                        int id = RandomGen.Next(0, int.MaxValue);
-
-                        guid = actor.gameObject.AddComponent<GuidComponent>();
-                        guid.guid = id;
-
-                        ClientActors.Add(id, actor);
-                        OwnedActors.Add(id);
-                    }
-                    else
-                    {
-                        DestroyActor(actor);
-                        continue;
-                    }
-                }
-
-                if (!OwnedActors.Contains(guid.guid))
-                    continue;
-
-                var owned_actor = guid.guid;
+                var actor = ClientActors[owned_actor];
 
                 ActorPacket net_actor = new ActorPacket
                 {
@@ -1302,7 +1309,7 @@ namespace RavenM
                 Updates = new List<VehiclePacket>(),
             };
 
-            foreach (var turret_spawner in FindObjectsOfType<TurretSpawner>())
+            foreach (var turret_spawner in TurretSpawners)
             {
                 for (int i = 0; i < 2; i++)
                 {
@@ -1352,26 +1359,18 @@ namespace RavenM
                 Updates = new List<UpdateProjectilePacket>(),
             };
 
-            foreach (var projectile in FindObjectsOfType<Projectile>())
+            foreach (var owned_projectile in OwnedProjectiles)
             {
+                var projectile = ClientProjectiles[owned_projectile];
+
                 // We should only update projectiles where it is obvious
                 // there is a desync, like rockets++
                 if (!typeof(Rocket).IsAssignableFrom(projectile.GetType()))
                     continue;
 
-                var guid = projectile.GetComponent<GuidComponent>();
-
-                if (guid == null)
-                    continue;
-
-                var id = guid.guid;
-
-                if (!OwnedProjectiles.Contains(id))
-                    continue;
-
                 var net_projectile = new UpdateProjectilePacket
                 {
-                    Id = id,
+                    Id = owned_projectile,
                     Position = projectile.transform.position,
                     Velocity = projectile.velocity,
                 };
