@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using RavenM.RSPatch.Packets;
 using Steamworks;
 using System;
 using System.Collections;
@@ -187,6 +188,10 @@ namespace RavenM
         public HashSet<int> OwnedProjectiles = new HashSet<int>();
 
         public Dictionary<int, Projectile> ClientProjectiles = new Dictionary<int, Projectile>();
+
+        public HashSet<int> OwnedCustomObjects = new HashSet<int>();
+
+        public Dictionary<int, GameObject> ClientCustomObjects = new Dictionary<int, GameObject>();
 
         public int ActorToSpawnProjectile = 0;
 
@@ -1367,6 +1372,30 @@ namespace RavenM
                                         break;
 
                                     state.VoiceQueue.Add(decodedData);
+                            case PacketType.CustomObjectUpdate:
+                                {
+                                    var bulkCustomObjectUpdatePacket = dataStream.ReadBulkCustomObjectUpdate();
+
+                                    if (bulkCustomObjectUpdatePacket.Updates == null)
+                                        break;
+
+                                    foreach (CustomObjectUpdatePacket customObjectPacket in bulkCustomObjectUpdatePacket.Updates)
+                                    {
+                                        if (OwnedCustomObjects.Contains(customObjectPacket.Id))
+                                            continue;
+
+                                        if (!ClientCustomObjects.ContainsKey(customObjectPacket.Id))
+                                            continue;
+
+                                        GameObject customObject = ClientCustomObjects[customObjectPacket.Id];
+                                        customObject.transform.position = customObjectPacket.Position;
+                                        customObject.transform.eulerAngles = customObjectPacket.Rotation;
+                                        customObject.SetActive(customObjectPacket.Active);
+
+                                        customObject.gameObject.AddComponent<GuidComponent>().guid = customObjectPacket.Id;
+
+                                        ClientCustomObjects[customObjectPacket.Id] = customObject;
+                                    }
                                 }
                                 break;
                             case PacketType.VehicleDamage:
@@ -1453,8 +1482,12 @@ namespace RavenM
                 SendTurretStates();
 
                 SendProjectileUpdates();
+
+                SendCustomObjectUpdates();
             }
         }
+
+        
 
         public void SendGameState()
         {
@@ -1784,6 +1817,12 @@ namespace RavenM
 
             SendPacketToServer(data, PacketType.UpdateProjectile, Constants.k_nSteamNetworkingSend_Unreliable);
         }
+        private void SendCustomObjectUpdates()
+        {
+            var bulkCustomObjectUpdate = new BulkCustomObjectUpdate
+            {
+                Updates = new List<CustomObjectUpdatePacket>(),
+            };
 
         public void SendVoiceData()
         {
@@ -1809,7 +1848,7 @@ namespace RavenM
                 }
             }
         }
-
+        
         /// <summary>
         /// Clean up an actor's presence as much as possible.
         /// </summary>
@@ -1854,6 +1893,55 @@ namespace RavenM
             ActorManager.Drop(actor);
             Destroy(actor.controller);
             Destroy(actor);
+        }
+        private void SendCustomObjectUpdates()
+        {
+            var bulkCustomObjectUpdate = new BulkCustomObjectUpdate
+            {
+                Updates = new List<CustomObjectUpdatePacket>(),
+            };
+
+            var cleanup = new List<int>();
+
+            foreach (var owned_CustomGameObjects in OwnedCustomObjects)
+            {
+                var customObject = ClientCustomObjects[owned_CustomGameObjects];
+
+                if (customObject == null)
+                {
+                    cleanup.Add(owned_CustomGameObjects);
+                    continue;
+                }
+
+                // We should only update projectiles where it is obvious
+                // there is a desync, like rockets++
+
+                var net_customObject = new CustomObjectUpdatePacket
+                {
+                    Id = owned_CustomGameObjects,
+                    Position = customObject.transform.position,
+                    Rotation = customObject.transform.eulerAngles,
+                    Active = customObject.gameObject.activeSelf,
+                };
+
+                bulkCustomObjectUpdate.Updates.Add(net_customObject);
+            }
+
+            foreach (var projectile in cleanup)
+                OwnedCustomObjects.Remove(projectile);
+
+            if (bulkCustomObjectUpdate.Updates.Count == 0)
+                return;
+
+            using MemoryStream memoryStream = new MemoryStream();
+
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(bulkCustomObjectUpdate);
+            }
+            byte[] data = memoryStream.ToArray();
+
+            SendPacketToServer(data, PacketType.CustomObjectUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
         }
     }
 }

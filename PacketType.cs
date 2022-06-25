@@ -18,6 +18,6 @@
         UpdateProjectile,
         Chat,
         Voip,
-        VehicleDamage,
+        CustomObjectUpdate
     }
 }
