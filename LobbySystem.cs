@@ -112,12 +112,12 @@ namespace RavenM
         {
             if (!LobbySystem.instance.LobbyDataReady)
                 return;
-            
+
             if (LobbySystem.instance.IsLobbyOwner)
             {
                 IngameNetManager.instance.StartAsServer();
                 SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "ready_" + SteamUser.GetSteamID(), "yes");
-            }  
+            }
             else
             {
                 IngameNetManager.instance.StartAsClient(LobbySystem.instance.OwnerID);
@@ -282,13 +282,13 @@ namespace RavenM
             }
 
             LobbyDataReady = true;
-            ActualLobbyID = new CSteamID(pCallback.m_ulSteamIDLobby);;
+            ActualLobbyID = new CSteamID(pCallback.m_ulSteamIDLobby); ;
 
             if (IsLobbyOwner)
             {
-                OwnerID = SteamUser.GetSteamID();
-                SteamMatchmaking.SetLobbyData(ActualLobbyID, "owner", OwnerID.ToString());
-                SteamMatchmaking.SetLobbyData(ActualLobbyID, "build_id", Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString());
+                SteamMatchmaking.SetLobbyData(ActualLobbyID, "owner", SteamUser.GetSteamID().ToString());
+                //SteamMatchmaking.SetLobbyData(ActualLobbyID, "build_id", Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString());
+                SteamMatchmaking.SetLobbyData(ActualLobbyID, "build_id", Plugin.BuildGUID);
 
                 bool needsToReload = false;
                 List<PublishedFileId_t> mods = new List<PublishedFileId_t>();
@@ -317,7 +317,7 @@ namespace RavenM
                 MainMenu.instance.OpenPageIndex(MainMenu.PAGE_INSTANT_ACTION);
                 ReadyToPlay = false;
 
-                if (Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString() != SteamMatchmaking.GetLobbyData(ActualLobbyID, "build_id"))
+                if (Plugin.BuildGUID != SteamMatchmaking.GetLobbyData(ActualLobbyID, "build_id"))
                 {
                     Plugin.logger.LogInfo("Build ID mismatch! Leaving lobby.");
                     SteamMatchmaking.LeaveLobby(ActualLobbyID);
@@ -519,6 +519,12 @@ namespace RavenM
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "gameLength", InstantActionMaps.instance.gameLengthDropdown.value.ToString());
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "loadedLevelEntry", InstantActionMaps.instance.mapDropdown.value.ToString());
 
+                //Update game length when the host changes the dropdown
+                //InstantActionMaps.instance.gameLengthDropdown.onValueChanged.AddListener((i) => 
+                //{
+                //    SteamMatchmaking.SetLobbyData(ActualLobbyID, "gameLength", i.ToString());
+                //});
+
                 if (InstantActionMaps.instance.mapDropdown.value == customMapOptionIndex)
                 {
                     SteamMatchmaking.SetLobbyData(ActualLobbyID, "customMap", entries[customMapOptionIndex].name);
@@ -579,7 +585,8 @@ namespace RavenM
                 {
                     enabledMutators.Add(mutator.isEnabled);
                 }
-                SteamMatchmaking.SetLobbyData(ActualLobbyID, "mutators", string.Join(",", enabledMutators.ToArray()));
+                SteamMatchmaking.SetLobbyData(ActualLobbyID, "mutators", dataString);
+                //Plugin.logger.LogInfo($"Mutator data size, {dataString.Length * sizeof(char)}");
             }
             else if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "freeze") != "true" && SteamMatchmaking.GetLobbyData(ActualLobbyID, "ready_" + SteamUser.GetSteamID()) == "yes")
             {
@@ -611,14 +618,14 @@ namespace RavenM
                                     currentName += parts[i];
                                 }
                                 if (currentName == mapName)
-                                {       
+                                {
                                     InstantActionMaps.MapEntry entry = new InstantActionMaps.MapEntry
                                     {
                                         name = currentName,
                                         sceneName = map.FullName,
                                         isCustomMap = true,
                                         hasLoadedMetaData = true,
-                                        image = mod.content.HasIconImage() 
+                                        image = mod.content.HasIconImage()
                                                 ? Sprite.Create(mod.iconTexture, new Rect(0f, 0f, mod.iconTexture.width, mod.iconTexture.height), Vector2.zero, 100f)
                                                 : null,
                                         suggestedBots = 0,

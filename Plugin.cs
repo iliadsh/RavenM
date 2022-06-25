@@ -1,4 +1,5 @@
 ﻿using BepInEx;
+using BepInEx.Configuration;
 using HarmonyLib;
 using Steamworks;
 using System.Reflection;
@@ -35,6 +36,24 @@ namespace RavenM
 
         public static BepInEx.Logging.ManualLogSource logger = null;
 
+        public static bool changeGUID = false;
+
+        public static string BuildGUID
+        {
+            get
+            {
+                if (!changeGUID)
+                {
+                    return Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString();
+                }
+                else
+                {
+                    return "bb3ef199-df63-4e99-a8a1-89a27d9e2fcb";
+                }
+            }
+        }
+        private ConfigEntry<bool> configDisplayGreeting;
+
         private void Awake()
         {
             instance = this;
@@ -44,13 +63,28 @@ namespace RavenM
 
             var harmony = new Harmony("patch.ravenm");
             harmony.PatchAll();
+            ProtoBuf.Meta.RuntimeTypeModel.Default.Add(typeof(Vector2), false).Add("x", "y");
+            ProtoBuf.Meta.RuntimeTypeModel.Default.Add(typeof(Vector3), false).Add("x", "y", "z");
+            ProtoBuf.Meta.RuntimeTypeModel.Default.Add(typeof(Vector4), false).Add("x", "y", "z", "w");
+            ProtoBuf.Meta.RuntimeTypeModel.Default.Add(typeof(Quaternion), false).Add("x", "y", "z", "w");
+
+            configDisplayGreeting = Config.Bind("General.Toggles",
+                                                "Enable Dev Mode",
+                                                false,
+                                                "Change GUID to aaaa");
+            changeGUID = configDisplayGreeting.Value;
+            // Test code
+            Logger.LogInfo("Hello, world!");
         }
 
         private void OnGUI()
         {
-            GUI.Label(new Rect(10, Screen.height - 20, 400, 40), $"RavenM ID: {Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId}");
+            GUI.Label(new Rect(10, Screen.height - 20, 400, 40), $"RavenM ID: {BuildGUID}");
         }
-
+        public void printConsole(string message)
+        {
+            Lua.ScriptConsole.instance.LogInfo(message);
+        }
         void Update()
         {
             if (!SteamManager.Initialized)
