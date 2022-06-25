@@ -48,6 +48,7 @@ namespace RavenM.RSPatch.Proxy
             IngameNetManager.instance.SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
         }
 
+
         [MoonSharpHidden]
         public object GetValue()
         {
