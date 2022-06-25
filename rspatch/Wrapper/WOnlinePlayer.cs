@@ -4,7 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-namespace RavenM.RavenScriptExtension.Wrapper
+
+namespace RavenM.RSPatch.Wrapper
 {
     [Lua.Name("OnlinePlayer")]
     public static class WOnlinePlayer

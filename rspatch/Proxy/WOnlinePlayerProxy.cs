@@ -5,12 +5,12 @@ using System.Text;
 using System.Threading.Tasks;
 using Lua.Proxy;
 using MoonSharp.Interpreter;
-using RavenM.RavenScriptExtension.Wrapper;
+using RavenM.RSPatch.Wrapper;
 
-namespace RavenM.RavenScriptExtension.Proxy
+namespace RavenM.RSPatch.Proxy
 {
     [Proxy(typeof(WOnlinePlayer))]
-    public class OnlinePlayerProxy : IProxy
+    public class WOnlinePlayerProxy : IProxy
     {
         public static void SendPacketToServer(string data,int packetType, int send_flags)
         {
