@@ -203,6 +203,20 @@ namespace RavenM
 
         public Vector3 MarkerPosition = Vector3.zero;
 
+        public string CurrentChatMessage = string.Empty;
+
+        public string FullChatLink = string.Empty;
+
+        public Vector2 ChatScrollPosition = Vector2.zero;
+
+        public Texture2D ChatBackground = new Texture2D(1, 1);
+
+        public bool JustFocused = false;
+
+        public bool TypeIntention = false;
+
+        public bool ChatMode = false;
+
         private void Awake()
         {
             instance = this;
@@ -213,6 +227,9 @@ namespace RavenM
             var imageBytes = resourceMemory.ToArray();
 
             MarkerTexture.LoadImage(imageBytes);
+
+            ChatBackground.SetPixel(0, 0, Color.grey * 0.5f);
+            ChatBackground.Apply();
         }
 
         private void Start()
@@ -336,7 +353,7 @@ namespace RavenM
                 DrawMarker(controller.Targets.MarkerPosition ?? Vector3.zero);
 
                 Vector3 vector = FpsActorController.instance.GetActiveCamera().WorldToScreenPoint(actor.CenterPosition() + new Vector3(0, 1f, 0));
-                
+
                 if (vector.z < 0f || actor.team != GameManager.PlayerTeam())
                 {
                     continue;
@@ -344,6 +361,85 @@ namespace RavenM
 
                 GUI.Box(new Rect(vector.x - 50f, Screen.height - vector.y, 110f, 20f), actor.name);
             }
+
+            if (Event.current.isKey && Event.current.keyCode == KeyCode.None && JustFocused)
+            {
+                Event.current.Use();
+                JustFocused = false;
+                return;
+            }
+
+            GUI.SetNextControlName("chat");
+            CurrentChatMessage = GUI.TextField(new Rect(10f, Screen.height / 2 + 210, 500f, 25f), CurrentChatMessage);
+
+            if (GUI.GetNameOfFocusedControl() == "chat")
+            {
+                string color = !ChatMode ? "green" : (GameManager.PlayerTeam() == 0 ? "blue" : "red");
+                string text = ChatMode ? "GLOBAL" : "TEAM";
+                GUI.Label(new Rect(510f, Screen.height / 2 + 210, 70f, 25f), $"<color={color}><b>{text}</b></color>");
+            }
+
+            if (Event.current.isKey && Event.current.keyCode == KeyCode.Y && GUI.GetNameOfFocusedControl() != "chat")
+            {
+                GUI.FocusControl("chat");
+                JustFocused = true;
+                ChatMode = true;
+            }
+
+            if (Event.current.isKey && Event.current.keyCode == KeyCode.U && GUI.GetNameOfFocusedControl() != "chat")
+            {
+                GUI.FocusControl("chat");
+                JustFocused = true;
+                ChatMode = false;
+            }
+
+            if (Event.current.isKey && Event.current.keyCode == KeyCode.Escape && GUI.GetNameOfFocusedControl() == "chat")
+            {
+                GUI.FocusControl("");
+            }
+
+            if (Event.current.isKey && Event.current.keyCode == KeyCode.Return && GUI.GetNameOfFocusedControl() == "chat" && !string.IsNullOrEmpty(CurrentChatMessage))
+            {
+                PushChatMessage(ActorManager.instance.player.name, CurrentChatMessage, ChatMode, GameManager.PlayerTeam());
+
+                using MemoryStream memoryStream = new MemoryStream();
+                var chatPacket = new ChatPacket
+                {
+                    Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
+                    Message = CurrentChatMessage,
+                    TeamOnly = !ChatMode,
+                };
+
+                using (var writer = new ProtocolWriter(memoryStream))
+                {
+                    writer.Write(chatPacket);
+                }
+                byte[] data = memoryStream.ToArray();
+
+                SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
+
+                CurrentChatMessage = string.Empty;
+                GUI.FocusControl("");
+            }
+
+            var style = new GUIStyle();
+            style.normal.background = ChatBackground;
+            GUILayout.BeginArea(new Rect(10f, Screen.height / 2, 500f, 200f), string.Empty, style);
+            ChatScrollPosition = GUILayout.BeginScrollView(ChatScrollPosition, GUILayout.Width(500f), GUILayout.Height(200f));
+            GUILayout.Label(FullChatLink);
+            GUILayout.EndScrollView();
+            GUILayout.EndArea();
+        }
+
+        public void PushChatMessage(string name, string message, bool global, int team)
+        {
+            if (!global && GameManager.PlayerTeam() != team)
+                return;
+
+            string color = !global ? "green" : (team == 0 ? "blue" : "red");
+
+            FullChatLink += $"<color={color}><b><{name}></b></color> {message}\n";
+            ChatScrollPosition.y = Mathf.Infinity;
         }
 
         public void ResetState()
@@ -378,6 +474,13 @@ namespace RavenM
             IsClient = false;
 
             MarkerPosition = Vector3.zero;
+
+            CurrentChatMessage = string.Empty;
+            FullChatLink = string.Empty;
+            ChatScrollPosition = Vector2.zero;
+            JustFocused = false;
+            TypeIntention = false;
+            ChatMode = false;
         }
 
         public void OpenRelay()
@@ -1037,6 +1140,18 @@ namespace RavenM
                                         projectile.transform.position = projectilePacket.Position;
                                         projectile.velocity = projectilePacket.Velocity;
                                     }
+                                }
+                                break;
+                            case PacketType.Chat:
+                                {
+                                    var chatPacket = dataStream.ReadChatPacket();
+
+                                    var actor = ClientActors[chatPacket.Id];
+
+                                    if (actor == null)
+                                        break;
+
+                                    PushChatMessage(actor.name, chatPacket.Message, !chatPacket.TeamOnly, actor.team);
                                 }
                                 break;
                         }

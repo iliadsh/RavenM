@@ -16,5 +16,6 @@
         GameStateUpdate,
         SpawnProjectile,
         UpdateProjectile,
+        Chat,
     }
 }

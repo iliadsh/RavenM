@@ -237,6 +237,13 @@ namespace RavenM
                 Write(update);
             }
         }
+
+        public void Write(ChatPacket value)
+        {
+            Write(value.Id);
+            Write(value.Message);
+            Write(value.TeamOnly);
+        }
     }
 
     public class ProtocolReader : BinaryReader
@@ -531,6 +538,16 @@ namespace RavenM
             return new BulkVehicleUpdate
             {
                 Updates = updates,
+            };
+        }
+
+        public ChatPacket ReadChatPacket()
+        {
+            return new ChatPacket
+            {
+                Id = ReadInt32(),
+                Message = ReadString(),
+                TeamOnly = ReadBoolean(),
             };
         }
     }
