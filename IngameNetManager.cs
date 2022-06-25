@@ -984,6 +984,7 @@ namespace RavenM
                                         var controller = actor.controller as NetActorController;
 
                                         controller.Flags = flagPacket.StateVector;
+                                        Plugin.logger.LogInfo("BulkUpdate for actor " + actor.name);
                                     }
                                 }
                                 break;
