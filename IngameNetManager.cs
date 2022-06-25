@@ -1,5 +1,4 @@
 ﻿using HarmonyLib;
-using ProtoBuf;
 using Steamworks;
 using System;
 using System.Collections;
@@ -517,7 +516,10 @@ namespace RavenM
                 data = compressed
             };
 
-            Serializer.Serialize(packetStream, packet);
+            using (var writer = new ProtocolWriter(packetStream))
+            {
+                writer.Write(packet);
+            }
             byte[] packet_data = packetStream.ToArray();
 
             _totalBytesOut += packet_data.Length;
@@ -623,21 +625,23 @@ namespace RavenM
                     Marshal.Copy(msg.m_pData, msg_data, 0, msg.m_cbSize);
 
                     using var memStream = new MemoryStream(msg_data);
+                    using var packetReader = new ProtocolReader(memStream);
 
-                    var packet = Serializer.Deserialize<Packet>(memStream);
+                    var packet = packetReader.ReadPacket();
 
                     if (packet.sender != OwnGUID)
                     {
                         _total++;
 
                         using MemoryStream compressedStream = new MemoryStream(packet.data);
-                        using DeflateStream dataStream = new DeflateStream(compressedStream, CompressionMode.Decompress);
+                        using DeflateStream decompressStream = new DeflateStream(compressedStream, CompressionMode.Decompress);
+                        using var dataStream = new ProtocolReader(decompressStream);
 
                         switch (packet.Id)
                         {
                             case PacketType.ActorUpdate:
                                 {
-                                    var bulkActorPacket = Serializer.Deserialize<BulkActorUpdate>(dataStream);
+                                    var bulkActorPacket = dataStream.ReadBulkActorUpdate();
 
                                     foreach (ActorPacket actor_packet in bulkActorPacket.Updates)
                                     {
@@ -661,7 +665,8 @@ namespace RavenM
 
                                             actor.gameObject.AddComponent<GuidComponent>().guid = actor_packet.Id;
 
-                                            actor.SpawnAt(actor_packet.Position, Quaternion.identity);
+                                            if ((actor_packet.Flags & (int)ActorStateFlags.Dead) == 0)
+                                                actor.SpawnAt(actor_packet.Position, Quaternion.identity);
 
                                             var weapon_parent = actor.controller.WeaponParent();
                                             var loadout = actor.controller.GetLoadout();
@@ -693,7 +698,7 @@ namespace RavenM
                                 break;
                             case PacketType.ActorFlags:
                                 {
-                                    var bulkFlagPacket = Serializer.Deserialize<BulkFlagsUpdate>(dataStream);
+                                    var bulkFlagPacket = dataStream.ReadBulkFlagsUpdate();
 
                                     if (bulkFlagPacket.Updates == null)
                                         break;
@@ -716,7 +721,7 @@ namespace RavenM
                                 break;
                             case PacketType.VehicleUpdate:
                                 {
-                                    var bulkVehiclePacket = Serializer.Deserialize<BulkVehicleUpdate>(dataStream);
+                                    var bulkVehiclePacket = dataStream.ReadBulkVehicleUpdate();
 
                                     if (bulkVehiclePacket.Updates == null)
                                         break;
@@ -798,7 +803,7 @@ namespace RavenM
                             case PacketType.Damage:
                                 {
                                     Plugin.logger.LogInfo("Damage packet.");
-                                    DamagePacket damage_packet = Serializer.Deserialize<DamagePacket>(dataStream);
+                                    DamagePacket damage_packet = dataStream.ReadDamagePacket();
 
                                     if (!ClientActors.ContainsKey(damage_packet.TargetActor))
                                         break;
@@ -829,7 +834,7 @@ namespace RavenM
                             case PacketType.Death:
                                 {
                                     Plugin.logger.LogInfo("Death packet.");
-                                    DamagePacket damage_packet = Serializer.Deserialize<DamagePacket>(dataStream);
+                                    DamagePacket damage_packet = dataStream.ReadDamagePacket();
 
                                     if (!ClientActors.ContainsKey(damage_packet.TargetActor))
                                         break;
@@ -863,7 +868,7 @@ namespace RavenM
                             case PacketType.EnterSeat:
                                 {
                                     Plugin.logger.LogInfo("Enter packet.");
-                                    var enterSeatPacket = Serializer.Deserialize<EnterSeatPacket>(dataStream);
+                                    var enterSeatPacket = dataStream.ReadEnterSeatPacket();
 
                                     if (OwnedActors.Contains(enterSeatPacket.ActorId))
                                         break;
@@ -912,7 +917,7 @@ namespace RavenM
                             case PacketType.LeaveSeat:
                                 {
                                     Plugin.logger.LogInfo("Leave packet.");
-                                    var leaveSeatPacket = Serializer.Deserialize<LeaveSeatPacket>(dataStream);
+                                    var leaveSeatPacket = dataStream.ReadLeaveSeatPacket();
 
                                     if (OwnedActors.Contains(leaveSeatPacket.Id))
                                         break;
@@ -942,7 +947,7 @@ namespace RavenM
                                     {
                                         case GameModeType.Battalion:
                                             {
-                                                var gameUpdatePacket = Serializer.Deserialize<BattleStatePacket>(dataStream);
+                                                var gameUpdatePacket = dataStream.ReadBattleStatePacket();
 
                                                 var battleObj = GameModeBase.instance as BattleMode;
 
@@ -978,7 +983,7 @@ namespace RavenM
                                 break;
                             case PacketType.SpawnProjectile:
                                 {
-                                    var spawnPacket = Serializer.Deserialize<SpawnProjectilePacket>(dataStream);
+                                    var spawnPacket = dataStream.ReadSpawnProjectilePacket();
 
                                     if (OwnedActors.Contains(spawnPacket.SourceId))
                                         break;
@@ -1011,7 +1016,7 @@ namespace RavenM
                                 break;
                             case PacketType.UpdateProjectile:
                                 {
-                                    var bulkProjectilePacket = Serializer.Deserialize<BulkProjectileUpdate>(dataStream);
+                                    var bulkProjectilePacket = dataStream.ReadBulkProjectileUpdate();
 
                                     if (bulkProjectilePacket.Updates == null)
                                         break;
@@ -1117,7 +1122,10 @@ namespace RavenM
 
                         using MemoryStream memoryStream = new MemoryStream();
 
-                        Serializer.Serialize(memoryStream, gamePacket);
+                        using (var writer = new ProtocolWriter(memoryStream))
+                        {
+                            writer.Write(gamePacket);
+                        }
                         data = memoryStream.ToArray();
                     }
                     break;
@@ -1189,7 +1197,10 @@ namespace RavenM
 
             using MemoryStream memoryStream = new MemoryStream();
 
-            Serializer.Serialize(memoryStream, bulkActorUpdate);
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(bulkActorUpdate);
+            }
             byte[] data = memoryStream.ToArray();
 
             SendPacketToServer(data, PacketType.ActorFlags, Constants.k_nSteamNetworkingSend_Reliable);
@@ -1249,7 +1260,10 @@ namespace RavenM
 
             using MemoryStream memoryStream = new MemoryStream();
 
-            Serializer.Serialize(memoryStream, bulkActorUpdate);
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(bulkActorUpdate);
+            }
             byte[] data = memoryStream.ToArray();
 
             SendPacketToServer(data, PacketType.ActorUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
@@ -1295,7 +1309,10 @@ namespace RavenM
 
             using MemoryStream memoryStream = new MemoryStream();
 
-            Serializer.Serialize(memoryStream, bulkVehicleUpdate);
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(bulkVehicleUpdate);
+            }
             byte[] data = memoryStream.ToArray();
 
             SendPacketToServer(data, PacketType.VehicleUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
@@ -1346,7 +1363,10 @@ namespace RavenM
 
             using MemoryStream memoryStream = new MemoryStream();
 
-            Serializer.Serialize(memoryStream, bulkTurretUpdate);
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(bulkTurretUpdate);
+            }
             byte[] data = memoryStream.ToArray();
 
             SendPacketToServer(data, PacketType.VehicleUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
@@ -1359,9 +1379,17 @@ namespace RavenM
                 Updates = new List<UpdateProjectilePacket>(),
             };
 
+            var cleanup = new List<int>();
+
             foreach (var owned_projectile in OwnedProjectiles)
             {
                 var projectile = ClientProjectiles[owned_projectile];
+
+                if (projectile == null)
+                {
+                    cleanup.Add(owned_projectile);
+                    continue;
+                }
 
                 // We should only update projectiles where it is obvious
                 // there is a desync, like rockets++
@@ -1378,12 +1406,18 @@ namespace RavenM
                 bulkProjectileUpdate.Updates.Add(net_projectile);
             }
 
+            foreach (var projectile in cleanup)
+                OwnedProjectiles.Remove(projectile);
+
             if (bulkProjectileUpdate.Updates.Count == 0)
                 return;
 
             using MemoryStream memoryStream = new MemoryStream();
 
-            Serializer.Serialize(memoryStream, bulkProjectileUpdate);
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(bulkProjectileUpdate);
+            }
             byte[] data = memoryStream.ToArray();
 
             SendPacketToServer(data, PacketType.UpdateProjectile, Constants.k_nSteamNetworkingSend_Unreliable);

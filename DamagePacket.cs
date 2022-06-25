@@ -1,5 +1,4 @@
-﻿using ProtoBuf;
-using UnityEngine;
+﻿using UnityEngine;
 using HarmonyLib;
 using System.IO;
 using Steamworks;
@@ -44,7 +43,10 @@ namespace RavenM
                 Silent = false,
             };
 
-            Serializer.Serialize(memoryStream, damage);
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(damage);
+            }
             byte[] data = memoryStream.ToArray();
 
             IngameNetManager.instance.SendPacketToServer(data, PacketType.Damage, Constants.k_nSteamNetworkingSend_Reliable);
@@ -87,7 +89,10 @@ namespace RavenM
                 Silent = isSilentKill,
             };
 
-            Serializer.Serialize(memoryStream, damage);
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(damage);
+            }
             byte[] data = memoryStream.ToArray();
 
             IngameNetManager.instance.SendPacketToServer(data, PacketType.Death, Constants.k_nSteamNetworkingSend_Reliable);
@@ -98,46 +103,33 @@ namespace RavenM
     /// <summary>
     /// Sent for both Damage and Death. Essentially a DamageInfo struct.
     /// </summary>
-    [ProtoContract]
     public class DamagePacket
     {
-		[ProtoMember(1)]
         public DamageInfo.DamageSourceType Type;
 
-		[ProtoMember(2)]
 		public float HealthDamage;
 
-		[ProtoMember(3)]
 		public float BalanceDamage;
 
-		[ProtoMember(4)]
 		public bool IsSplashDamage;
 
-		[ProtoMember(5)]
 		public bool IsPiercing;
 
-		[ProtoMember(6)]
 		public bool IsCriticalHit;
 
-		[ProtoMember(7)]
 		public Vector3 Point;
 
-		[ProtoMember(8)]
 		public Vector3 Direction;
 
-		[ProtoMember(9)]
 		public Vector3 ImpactForce;
 
-		[ProtoMember(10)]
 		public int SourceActor;
 
 		// [ProtoMember(11)]
 		// public string SourceWeapon;
 
-		[ProtoMember(12)]
 		public int TargetActor;
 
-        [ProtoMember(13)]
         public bool Silent;
 	}
 }

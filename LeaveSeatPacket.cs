@@ -1,5 +1,4 @@
 ﻿using System.IO;
-using ProtoBuf;
 using HarmonyLib;
 using Steamworks;
 
@@ -99,7 +98,10 @@ namespace RavenM
                 Id = actorId,
             };
 
-            Serializer.Serialize(memoryStream, leavePacket);
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(leavePacket);
+            }
             byte[] data = memoryStream.ToArray();
 
             IngameNetManager.instance.SendPacketToServer(data, PacketType.LeaveSeat, Constants.k_nSteamNetworkingSend_Reliable);
@@ -109,13 +111,11 @@ namespace RavenM
     /// <summary>
     /// Send when an actor leaves a Vehicle seat.
     /// </summary>
-    [ProtoContract]
     public class LeaveSeatPacket
     {
         /// <summary>
         /// The actor that is leaving the seat.
         /// </summary>
-        [ProtoMember(1)]
         public int Id;
     }
 }

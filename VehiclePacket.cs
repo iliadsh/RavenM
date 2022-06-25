@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using ProtoBuf;
 using UnityEngine;
 using HarmonyLib;
 
@@ -56,44 +55,31 @@ namespace RavenM
         }
     }
 
-    [ProtoContract]
     public class VehiclePacket
     {
-        [ProtoMember(1)]
         public int Id;
 
-        [ProtoMember(2)]
         public VehicleSpawner.VehicleSpawnType Type;
 
-        [ProtoMember(3)]
         public Vector3 Position;
 
-        [ProtoMember(4)]
         public Quaternion Rotation;
 
-        [ProtoMember(5)]
         public int Team;
 
-        [ProtoMember(6)]
         public float Health;
 
-        [ProtoMember(7)]
         public bool Dead;
 
-        [ProtoMember(8)]
         public bool IsTurret;
 
-        [ProtoMember(9)]
         public TurretSpawner.TurretSpawnType TurretType;
 
-        [ProtoMember(10)]
         public bool Active;
     }
 
-    [ProtoContract]
     public class BulkVehicleUpdate
     {
-        [ProtoMember(1)]
         public List<VehiclePacket> Updates;
     }
 }

@@ -1,5 +1,4 @@
-﻿using ProtoBuf;
-using HarmonyLib;
+﻿using HarmonyLib;
 using System.IO;
 using Steamworks;
 
@@ -163,7 +162,10 @@ namespace RavenM
                 SeatId = seatId,
             };
 
-            Serializer.Serialize(memoryStream, enterPacket);
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(enterPacket);
+            }
             byte[] data = memoryStream.ToArray();
 
             IngameNetManager.instance.SendPacketToServer(data, PacketType.EnterSeat, Constants.k_nSteamNetworkingSend_Reliable);
@@ -173,25 +175,21 @@ namespace RavenM
     /// <summary>
     /// Send when an actor enters a Vehicle.
     /// </summary>
-    [ProtoContract]
     public class EnterSeatPacket
     {
         /// <summary>
         /// GUID of the Actor that is entering a seat.
         /// </summary>
-        [ProtoMember(1)]
         public int ActorId;
 
         /// <summary>
         /// GUID of the Vehicle that owns the seat.
         /// </summary>
-        [ProtoMember(2)]
         public int VehicleId;
 
         /// <summary>
         /// Index of the seat in the owning vehicle.
         /// </summary>
-        [ProtoMember(3)]
         public int SeatId;
     }
 }

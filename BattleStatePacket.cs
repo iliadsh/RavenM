@@ -1,5 +1,4 @@
-﻿using ProtoBuf;
-using HarmonyLib;
+﻿using HarmonyLib;
 
 namespace RavenM
 {
@@ -21,16 +20,12 @@ namespace RavenM
         }
     }
 
-    [ProtoContract]
     public class BattleStatePacket
     {
-        [ProtoMember(1)]
         public int[] RemainingBattalions;
 
-        [ProtoMember(2)]
         public int[] Tickets;
 
-        [ProtoMember(3)]
         public int[] SpawnPointOwners;
     }
 }

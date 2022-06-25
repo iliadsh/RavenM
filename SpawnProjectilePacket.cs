@@ -1,5 +1,4 @@
-﻿using ProtoBuf;
-using HarmonyLib;
+﻿using HarmonyLib;
 using System.IO;
 using Steamworks;
 using UnityEngine;
@@ -67,29 +66,27 @@ namespace RavenM
                 ProjectileId = projectileId,
             };
 
-            Serializer.Serialize(memoryStream, spawnPacket);
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(spawnPacket);
+            }
             byte[] data = memoryStream.ToArray();
 
             IngameNetManager.instance.SendPacketToServer(data, PacketType.SpawnProjectile, Constants.k_nSteamNetworkingSend_Reliable);
         }
     }
     
-    [ProtoContract]
     public class SpawnProjectilePacket
     {
-        [ProtoMember(1)]
         public int SourceId;
 
-        [ProtoMember(2)]
         public Vector3 Direction;
 
-        [ProtoMember(3)]
         public Vector3 MuzzlePosition;
 
         /// <summary>
         /// Used for potential updates to position/rotation.
         /// </summary>
-        [ProtoMember(4)]
         public int ProjectileId;
     }
 }

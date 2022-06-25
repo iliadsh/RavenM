@@ -49,11 +49,6 @@ namespace RavenM
 
             var harmony = new Harmony("patch.ravenm");
             harmony.PatchAll();
-
-            ProtoBuf.Meta.RuntimeTypeModel.Default.Add(typeof(Vector2), false).Add("x", "y");
-            ProtoBuf.Meta.RuntimeTypeModel.Default.Add(typeof(Vector3), false).Add("x", "y", "z");
-            ProtoBuf.Meta.RuntimeTypeModel.Default.Add(typeof(Vector4), false).Add("x", "y", "z", "w");
-            ProtoBuf.Meta.RuntimeTypeModel.Default.Add(typeof(Quaternion), false).Add("x", "y", "z", "w");
         }
 
         private void OnGUI()
