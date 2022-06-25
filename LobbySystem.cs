@@ -656,7 +656,7 @@ namespace RavenM
                     PrivateLobby = GUI.Toggle(new Rect(20f, 40f, 110f, 20f), PrivateLobby, "Friends Only");
                     if (GUI.Button(new Rect(30f, 70f, 80f, 20f), "Start"))
                     {
-                        SteamMatchmaking.CreateLobby(PrivateLobby ? ELobbyType.k_ELobbyTypeFriendsOnly : ELobbyType.k_ELobbyTypePublic, 20);
+                        SteamMatchmaking.CreateLobby(PrivateLobby ? ELobbyType.k_ELobbyTypeFriendsOnly : ELobbyType.k_ELobbyTypePublic, 250);
                         InLobby = true;
                         IsLobbyOwner = true;
                         LobbyDataReady = false;
@@ -685,7 +685,7 @@ namespace RavenM
             {
                 int len = SteamMatchmaking.GetNumLobbyMembers(ActualLobbyID);
 
-                GUI.Box(new Rect(10f, 10f, 150f, 120f + len * 30), $"Lobby - {len}/20");
+                GUI.Box(new Rect(10f, 10f, 150f, 120f + len * 30), $"Lobby - {len}/250");
                 GUI.Label(new Rect(35f, 40f, 130f, 20f), ActualLobbyID.GetAccountID().ToString());
 
                 if (GameManager.IsInMainMenu() && GUI.Button(new Rect(25f, 60f, 110f, 20f), "Copy ID"))
