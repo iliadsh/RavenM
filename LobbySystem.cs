@@ -579,14 +579,13 @@ namespace RavenM
                     SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "skin", InstantActionMaps.instance.skinDropdowns[i].value.ToString());
                 }
 
-                var enabledMutators = new List<bool>();
+                 var enabledMutators = new List<bool>();
                 ModManager.instance.loadedMutators.Sort((x, y) => x.name.CompareTo(y.name));
                 foreach (var mutator in ModManager.instance.loadedMutators)
                 {
                     enabledMutators.Add(mutator.isEnabled);
                 }
-                SteamMatchmaking.SetLobbyData(ActualLobbyID, "mutators", dataString);
-                //Plugin.logger.LogInfo($"Mutator data size, {dataString.Length * sizeof(char)}");
+                SteamMatchmaking.SetLobbyData(ActualLobbyID, "mutators", string.Join(",", enabledMutators.ToArray()));
             }
             else if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "freeze") != "true" && SteamMatchmaking.GetLobbyData(ActualLobbyID, "ready_" + SteamUser.GetSteamID()) == "yes")
             {
