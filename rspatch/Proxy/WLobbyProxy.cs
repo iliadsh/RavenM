@@ -12,7 +12,7 @@ namespace RavenM.RSPatch.Proxy
     [Proxy(typeof(WLobby))]
     public class WLobbyProxy : IProxy
     {
-        public static IList<string> members
+        public static string[] members
         {
             get
             {

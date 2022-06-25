@@ -11,7 +11,7 @@ namespace RavenM.RSPatch.Wrapper
     public static class WLobby
     {
         [Getter]
-        public static IList<string> GetLobbyMembers()
+        public static string[] GetLobbyMembers()
         {
             int numPlayers = SteamMatchmaking.GetNumLobbyMembers(LobbySystem.instance.ActualLobbyID);
 
@@ -20,6 +20,7 @@ namespace RavenM.RSPatch.Wrapper
             for (int i = 0; i < numPlayers; i++)
             {
                 members[i] = SteamFriends.GetFriendPersonaName(SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i));
+                Plugin.logger.LogInfo(members[i]);
             }
 
             Plugin.logger.LogInfo(members.Length);
