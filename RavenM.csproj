@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net452</TargetFramework>
+    <TargetFramework>net46</TargetFramework>
     <AssemblyName>RavenM</AssemblyName>
     <Description>A Ravenfield multiplayer mod.</Description>
     <Version>1.0.0</Version>
@@ -10,7 +10,7 @@
     <BaseIntermediateOutputPath>obj\</BaseIntermediateOutputPath>
   </PropertyGroup>
 
-  <ItemGroup>
+   <ItemGroup>
     <None Remove="assets\marker.png" />
     <None Remove="assets\marker_left.png" />
     <None Remove="assets\marker_right.png" />
