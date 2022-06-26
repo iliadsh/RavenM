@@ -259,6 +259,7 @@ namespace RavenM
             Write(value.Id);
             Write(value.Voice.Length);
             Write(value.Voice);
+        }
         public void Write(BulkCustomObjectUpdate value)
         {
             Write(value.Updates.Count);
@@ -582,7 +583,7 @@ namespace RavenM
             {
                 Id = ReadInt32(),
                 Voice = ReadBytes(ReadInt32()),
-            }
+            };
         }
         
         public CustomObjectUpdatePacket ReadSyncCustomObjectPacket()

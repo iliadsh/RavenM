@@ -1204,7 +1204,7 @@ namespace RavenM
                                     {
                                         OwnedVehicles.Add(actor.seat.vehicle.GetComponent<GuidComponent>().guid);
                                         actor.seat.vehicle.isInvulnerable = false;
-                                    }   
+                                    }
 
                                     actor.LeaveSeat(false);
                                 }
@@ -1229,7 +1229,7 @@ namespace RavenM
 
                                                 typeof(BattleMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(battleObj, gameUpdatePacket.RemainingBattalions);
                                                 typeof(BattleMode).GetField("tickets", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(battleObj, gameUpdatePacket.Tickets);
-                                                
+
                                                 for (int i = 0; i < 2; i++)
                                                 {
                                                     if (gameUpdatePacket.RemainingBattalions[i] != 0)
@@ -1269,7 +1269,7 @@ namespace RavenM
                                     // Maybe move to a scope guard?
                                     ActorToSpawnProjectile = spawnPacket.SourceId;
 
-                                    var projectile = (Projectile)weapon.GetType().GetMethod("SpawnProjectile", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(weapon, new object[] 
+                                    var projectile = (Projectile)weapon.GetType().GetMethod("SpawnProjectile", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(weapon, new object[]
                                     {
                                         spawnPacket.Direction,
                                         spawnPacket.MuzzlePosition,
@@ -1349,7 +1349,7 @@ namespace RavenM
                                         voiceBuffer = new byte[bufferSize];
                                         res = SteamUser.DecompressVoice(voicePacket.Voice, (uint)voicePacket.Voice.Length, voiceBuffer, (uint)voiceBuffer.Length, out nBytesWritten, 11025);
                                     } while (res == EVoiceResult.k_EVoiceResultBufferTooSmall);
-                                    
+
                                     if (res != EVoiceResult.k_EVoiceResultOK)
                                     {
                                         Plugin.logger.LogError($"Failed to decompress voice. Reason: {res}");
@@ -1372,6 +1372,8 @@ namespace RavenM
                                         break;
 
                                     state.VoiceQueue.Add(decodedData);
+                                }
+                                break;
                             case PacketType.CustomObjectUpdate:
                                 {
                                     var bulkCustomObjectUpdatePacket = dataStream.ReadBulkCustomObjectUpdate();
@@ -1817,13 +1819,6 @@ namespace RavenM
 
             SendPacketToServer(data, PacketType.UpdateProjectile, Constants.k_nSteamNetworkingSend_Unreliable);
         }
-        private void SendCustomObjectUpdates()
-        {
-            var bulkCustomObjectUpdate = new BulkCustomObjectUpdate
-            {
-                Updates = new List<CustomObjectUpdatePacket>(),
-            };
-
         public void SendVoiceData()
         {
             if (SteamUser.GetAvailableVoice(out uint pcbCompressed) == EVoiceResult.k_EVoiceResultOK)
