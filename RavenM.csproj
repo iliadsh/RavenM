@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <None Remove="assets\marker.png" />
+    <None Remove="assets\mic.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -65,5 +66,9 @@
     <Reference Include="UnityEngine.UIModule">
       <HintPath>libs\UnityEngine.UIModule.dll</HintPath>
     </Reference>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <EmbeddedResource Include="assets\mic.png" />
   </ItemGroup>
 </Project>

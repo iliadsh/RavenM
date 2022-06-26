@@ -244,6 +244,13 @@ namespace RavenM
             Write(value.Message);
             Write(value.TeamOnly);
         }
+
+        public void Write(VoicePacket value)
+        {
+            Write(value.Id);
+            Write(value.Voice.Length);
+            Write(value.Voice);
+        }
     }
 
     public class ProtocolReader : BinaryReader
@@ -548,6 +555,15 @@ namespace RavenM
                 Id = ReadInt32(),
                 Message = ReadString(),
                 TeamOnly = ReadBoolean(),
+            };
+        }
+
+        public VoicePacket ReadVoicePacket()
+        {
+            return new VoicePacket
+            {
+                Id = ReadInt32(),
+                Voice = ReadBytes(ReadInt32()),
             };
         }
     }

@@ -17,5 +17,6 @@
         SpawnProjectile,
         UpdateProjectile,
         Chat,
+        Voip,
     }
 }

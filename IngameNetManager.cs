@@ -141,6 +141,17 @@ namespace RavenM
 
     public class IngameNetManager : MonoBehaviour
     {
+        public class AudioContainer
+        {
+            public List<float[]> VoiceQueue = new List<float[]>();
+
+            public bool Buffering = true;
+
+            public float[] CurrentData = null;
+
+            public int SampleIndex = 0;
+        }
+
         public static IngameNetManager instance;
 
         public float _ticker2 = 0f;
@@ -217,6 +228,12 @@ namespace RavenM
 
         public bool ChatMode = false;
 
+        public bool UsingMicrophone = false;
+
+        public Texture2D MicTexture = new Texture2D(2, 2);
+
+        public Dictionary<int, AudioContainer> PlayVoiceQueue = new Dictionary<int, AudioContainer>();
+
         private void Awake()
         {
             instance = this;
@@ -230,6 +247,13 @@ namespace RavenM
 
             ChatBackground.SetPixel(0, 0, Color.grey * 0.5f);
             ChatBackground.Apply();
+
+            using var micResource = Assembly.GetExecutingAssembly().GetManifestResourceStream("RavenM.assets.mic.png");
+            resourceMemory.SetLength(0);
+            micResource.CopyTo(resourceMemory);
+            imageBytes = resourceMemory.ToArray();
+
+            MicTexture.LoadImage(imageBytes);
         }
 
         private void Start()
@@ -305,6 +329,20 @@ namespace RavenM
                 _bytesOut = _totalBytesOut;
                 _totalBytesOut = 0;
             }
+
+            if (Input.GetKeyDown(KeyCode.CapsLock))
+            {
+                SteamUser.StartVoiceRecording();
+                UsingMicrophone = true;
+            }
+                
+            if (Input.GetKeyUp(KeyCode.CapsLock))
+            {
+                SteamUser.StopVoiceRecording();
+                UsingMicrophone = false;
+            }
+
+            SendVoiceData();
         }
 
         private void DrawMarker(Vector3 worldPos)
@@ -369,6 +407,9 @@ namespace RavenM
                 return;
             }
 
+            if (Event.current.isKey && (Event.current.keyCode == KeyCode.Tab || Event.current.character == '\t'))
+                Event.current.Use();
+
             GUI.SetNextControlName("chat");
             CurrentChatMessage = GUI.TextField(new Rect(10f, Screen.height / 2 + 210, 500f, 25f), CurrentChatMessage);
 
@@ -429,6 +470,9 @@ namespace RavenM
             GUILayout.Label(FullChatLink);
             GUILayout.EndScrollView();
             GUILayout.EndArea();
+
+            if (UsingMicrophone)
+                GUI.DrawTexture(new Rect(10, Screen.height - 150, 50f, 50f), MicTexture);
         }
 
         public void PushChatMessage(string name, string message, bool global, int team)
@@ -481,6 +525,9 @@ namespace RavenM
             JustFocused = false;
             TypeIntention = false;
             ChatMode = false;
+
+            UsingMicrophone = false;
+            PlayVoiceQueue.Clear();
         }
 
         public void OpenRelay()
@@ -783,6 +830,82 @@ namespace RavenM
                                             net_controller.ActualRotation = actor_packet.FacingDirection;
 
                                             actor.controller = net_controller;
+
+                                            // Here we set up the voice audio source for the player.
+                                            // The audio packets are buffered and played only once enough 
+                                            // data is recieved to prevent the audio from "cutting out"
+                                            if ((actor_packet.Flags & (int)ActorStateFlags.AiControlled) == 0)
+                                            {
+                                                var state = new AudioContainer();
+                                                PlayVoiceQueue[actor_packet.Id] = state;
+
+                                                int id = actor_packet.Id;
+
+                                                // Adapted from https://forum.unity.com/threads/example-voicechat-with-unet-and-steamworks.482721/
+                                                void OnAudioRead(float[] data)
+                                                {
+                                                    if (state.Buffering)
+                                                        state.Buffering = state.VoiceQueue.Count < 3;
+
+                                                    if (state.Buffering)
+                                                    {
+                                                        for (int i = 0; i < data.Length; i++)
+                                                            data[i] = 0f;
+                                                        return;
+                                                    }
+
+                                                    Plugin.logger.LogInfo($"Requesting audio of size: {data.Length}");
+
+                                                    int count = 0;
+                                                    while (count < data.Length)
+                                                    {
+                                                        float sample = 0;
+
+                                                        if (state.CurrentData == null)
+                                                        {
+                                                            GrabNextPacket();
+                                                        }
+                                                        // Looks silly but is needed.
+                                                        if (state.CurrentData != null)
+                                                        {
+                                                            sample = state.CurrentData[state.SampleIndex++];
+
+                                                            if (state.SampleIndex >= state.CurrentData.Length)
+                                                            {
+                                                                GrabNextPacket();
+                                                            }
+                                                        }
+
+                                                        data[count] = sample;
+                                                        count++;
+                                                    }
+                                                }
+
+                                                void GrabNextPacket()
+                                                {
+                                                    if (state.VoiceQueue.Count > 0)
+                                                    {
+                                                        var data = state.VoiceQueue[0];
+                                                        state.CurrentData = data;
+                                                        state.VoiceQueue.RemoveAt(0);
+                                                    }
+                                                    else
+                                                    {
+                                                        state.CurrentData = null;
+                                                        state.Buffering = true;
+                                                    }
+
+                                                    state.SampleIndex = 0;
+                                                }
+
+                                                var voiceSource = actor.gameObject.AddComponent<AudioSource>();
+                                                voiceSource.loop = true;
+                                                voiceSource.clip = AudioClip.Create(actor_packet.Name + " voice", 11025 * 10, 1, 11025, true, OnAudioRead);
+                                                voiceSource.transform.parent = actor.transform;
+                                                voiceSource.spatialBlend = 1f;
+                                                voiceSource.outputAudioMixerGroup = GameManager.instance.sfxMixer.outputAudioMixerGroup;
+                                                voiceSource.Play();
+                                            }
 
                                             ClientActors[actor_packet.Id] = actor;
                                         }
@@ -1152,6 +1275,45 @@ namespace RavenM
                                         break;
 
                                     PushChatMessage(actor.name, chatPacket.Message, !chatPacket.TeamOnly, actor.team);
+                                }
+                                break;
+                            case PacketType.Voip:
+                                {
+                                    var voicePacket = dataStream.ReadVoicePacket();
+
+                                    int bufferSize = 22050;
+                                    byte[] voiceBuffer = null;
+                                    EVoiceResult res = EVoiceResult.k_EVoiceResultNoData;
+                                    uint nBytesWritten = 0;
+                                    do
+                                    {
+                                        bufferSize *= 2;
+                                        voiceBuffer = new byte[bufferSize];
+                                        res = SteamUser.DecompressVoice(voicePacket.Voice, (uint)voicePacket.Voice.Length, voiceBuffer, (uint)voiceBuffer.Length, out nBytesWritten, 11025);
+                                    } while (res == EVoiceResult.k_EVoiceResultBufferTooSmall);
+                                    
+                                    if (res != EVoiceResult.k_EVoiceResultOK)
+                                    {
+                                        Plugin.logger.LogError($"Failed to decompress voice. Reason: {res}");
+                                        break;
+                                    }
+
+                                    if (nBytesWritten == 0)
+                                        break;
+
+                                    var decodedData = new float[nBytesWritten / 2];
+                                    for (int i = 0; i < decodedData.Length; i++)
+                                    {
+                                        float value = BitConverter.ToInt16(voiceBuffer, i * 2);
+                                        decodedData[i] = value * 15f / short.MaxValue;
+                                    }
+
+                                    var state = PlayVoiceQueue[voicePacket.Id];
+
+                                    if (state == null)
+                                        break;
+
+                                    state.VoiceQueue.Add(decodedData);
                                 }
                                 break;
                         }
@@ -1536,6 +1698,31 @@ namespace RavenM
             byte[] data = memoryStream.ToArray();
 
             SendPacketToServer(data, PacketType.UpdateProjectile, Constants.k_nSteamNetworkingSend_Unreliable);
+        }
+
+        public void SendVoiceData()
+        {
+            if (SteamUser.GetAvailableVoice(out uint pcbCompressed) == EVoiceResult.k_EVoiceResultOK)
+            {
+                var voiceBuffer = new byte[pcbCompressed];
+                if (SteamUser.GetVoice(true, voiceBuffer, pcbCompressed, out uint nBytesWritten) == EVoiceResult.k_EVoiceResultOK && nBytesWritten == pcbCompressed)
+                {
+                    using MemoryStream memoryStream = new MemoryStream();
+                    var voicePacket = new VoicePacket
+                    {
+                        Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
+                        Voice = voiceBuffer,
+                    };
+
+                    using (var writer = new ProtocolWriter(memoryStream))
+                    {
+                        writer.Write(voicePacket);
+                    }
+                    byte[] data = memoryStream.ToArray();
+
+                    SendPacketToServer(data, PacketType.Voip, Constants.k_nSteamNetworkingSend_UnreliableNoDelay);
+                }
+            }
         }
 
         /// <summary>
