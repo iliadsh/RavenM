@@ -833,7 +833,7 @@ namespace RavenM
                         using MemoryStream compressedStream = new MemoryStream(packet.data);
                         using DeflateStream decompressStream = new DeflateStream(compressedStream, CompressionMode.Decompress);
                         using var dataStream = new ProtocolReader(decompressStream);
-
+                        //RavenM.RSPatch.RSPatchRavenscriptManagerEvents.events.onReceivePacket.Invoke("" + packet.Id);
                         switch (packet.Id)
                         {
                             case PacketType.ActorUpdate:
@@ -1331,7 +1331,6 @@ namespace RavenM
 
                                     if (actor == null)
                                         break;
-
                                     PushChatMessage(actor.name, chatPacket.Message, !chatPacket.TeamOnly, actor.team);
                                 }
                                 break;
@@ -1374,63 +1373,32 @@ namespace RavenM
                                     state.VoiceQueue.Add(decodedData);
                                 }
                                 break;
-                            case PacketType.CustomObjectUpdate:
-                                {
-                                    var bulkCustomObjectUpdatePacket = dataStream.ReadBulkCustomObjectUpdate();
+                            //case PacketType.CustomObjectUpdate:
+                            //    {
+                            //        var bulkCustomObjectUpdatePacket = dataStream.ReadBulkCustomObjectUpdate();
 
-                                    if (bulkCustomObjectUpdatePacket.Updates == null)
-                                        break;
+                            //        if (bulkCustomObjectUpdatePacket.Updates == null)
+                            //            break;
 
-                                    foreach (CustomObjectUpdatePacket customObjectPacket in bulkCustomObjectUpdatePacket.Updates)
-                                    {
-                                        if (OwnedCustomObjects.Contains(customObjectPacket.Id))
-                                            continue;
+                            //        foreach (CustomObjectUpdatePacket customObjectPacket in bulkCustomObjectUpdatePacket.Updates)
+                            //        {
+                            //            if (OwnedCustomObjects.Contains(customObjectPacket.Id))
+                            //                continue;
 
-                                        if (!ClientCustomObjects.ContainsKey(customObjectPacket.Id))
-                                            continue;
+                            //            if (!ClientCustomObjects.ContainsKey(customObjectPacket.Id))
+                            //                continue;
 
-                                        GameObject customObject = ClientCustomObjects[customObjectPacket.Id];
-                                        customObject.transform.position = customObjectPacket.Position;
-                                        customObject.transform.eulerAngles = customObjectPacket.Rotation;
-                                        customObject.SetActive(customObjectPacket.Active);
+                            //            GameObject customObject = ClientCustomObjects[customObjectPacket.Id];
+                            //            customObject.transform.position = customObjectPacket.Position;
+                            //            customObject.transform.eulerAngles = customObjectPacket.Rotation;
+                            //            customObject.SetActive(customObjectPacket.Active);
 
-                                        customObject.gameObject.AddComponent<GuidComponent>().guid = customObjectPacket.Id;
+                            //            customObject.gameObject.AddComponent<GuidComponent>().guid = customObjectPacket.Id;
 
-                                        ClientCustomObjects[customObjectPacket.Id] = customObject;
-                                    }
-                                }
-                                break;
-                            case PacketType.VehicleDamage:
-                                {
-                                    Plugin.logger.LogInfo("Vehicle damage packet.");
-                                    DamagePacket damage_packet = dataStream.ReadDamagePacket();
-
-                                    if (!ClientVehicles.ContainsKey(damage_packet.Target))
-                                        break;
-
-                                    Actor sourceActor = damage_packet.SourceActor == -1 ? null : ClientActors[damage_packet.SourceActor];
-                                    Vehicle targetVehicle = ClientVehicles[damage_packet.Target];
-
-                                    Plugin.logger.LogInfo($"Got vehicle damage from {targetVehicle.name}!");
-
-                                    DamageInfo damage_info = new DamageInfo
-                                    {
-                                        type = damage_packet.Type,
-                                        healthDamage = damage_packet.HealthDamage,
-                                        balanceDamage = damage_packet.BalanceDamage,
-                                        isSplashDamage = damage_packet.IsSplashDamage,
-                                        isPiercing = damage_packet.IsPiercing,
-                                        isCriticalHit = damage_packet.IsCriticalHit,
-                                        point = damage_packet.Point,
-                                        direction = damage_packet.Direction,
-                                        impactForce = damage_packet.ImpactForce,
-                                        sourceActor = sourceActor,
-                                        sourceWeapon = null,
-                                    };
-
-                                    targetVehicle.Damage(damage_info);
-                                }
-                                break;
+                            //            ClientCustomObjects[customObjectPacket.Id] = customObject;
+                            //        }
+                            //    }
+                            //    break;
                         }
                     }
 
@@ -1485,7 +1453,7 @@ namespace RavenM
 
                 SendProjectileUpdates();
 
-                SendCustomObjectUpdates();
+                //SendCustomObjectUpdates();
             }
         }
 
