@@ -46,6 +46,8 @@ namespace RavenM
                     var memberId = SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i);
                     SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "ready_" + memberId, "no");
                 }
+
+                SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "started", "yes");
             }
 
             return true;
@@ -110,20 +112,29 @@ namespace RavenM
         }
     }
 
+    [HarmonyPatch(typeof(InstantActionMaps), "SetupSkinList")]
+    public class SkinListPatch
+    {
+        static void Prefix() => ModManager.instance.actorSkins.Sort((x, y) => x.name.CompareTo(y.name));
+    }
+
     [HarmonyPatch(typeof(ModManager), nameof(ModManager.FinalizeLoadedModContent))]
     public class AfterModsLoadedPatch
     {
         static void Postfix()
         {
+            if (InstantActionMaps.instance != null)
+            {
+                // We need to update the skin dropdown with the new mods.
+                typeof(InstantActionMaps).GetMethod("SetupSkinList", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(InstantActionMaps.instance, null);
+            }
+
             if (!LobbySystem.instance.InLobby || !LobbySystem.instance.LobbyDataReady || LobbySystem.instance.IsLobbyOwner || LobbySystem.instance.ModsToDownload.Count > 0)
                 return;
 
             ModManager.instance.ContentChanged();
             // TODO
             SteamMatchmaking.SendLobbyChatMsg(LobbySystem.instance.ActualLobbyID, new byte[] { 1, 2 }, 2);
-
-            // We need to update the skin dropdown with the new mods.
-            typeof(InstantActionMaps).GetMethod("SetupSkinList", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(InstantActionMaps.instance, null);
         }
     }
 
@@ -195,9 +206,19 @@ namespace RavenM
 
         public List<PublishedFileId_t> ModsWeOwn = new List<PublishedFileId_t>();
 
+        public Texture2D LobbyBackground = new Texture2D(1, 1);
+
+        public Texture2D ProgressTexture = new Texture2D(1, 1);
+
         private void Awake()
         {
             instance = this;
+
+            LobbyBackground.SetPixel(0, 0, Color.black);
+            LobbyBackground.Apply();
+
+            ProgressTexture.SetPixel(0, 0, Color.green);
+            ProgressTexture.Apply();
         }
 
         private void Start()
@@ -272,6 +293,13 @@ namespace RavenM
                     return;
                 }
 
+                if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "started") == "yes")
+                {
+                    Plugin.logger.LogInfo("The game has already started :( Leaving lobby.");
+                    SteamMatchmaking.LeaveLobby(ActualLobbyID);
+                    return;
+                }
+
                 ModsWeOwn.Clear();
                 foreach (var mod in ModManager.instance.mods)
                 {
@@ -310,8 +338,6 @@ namespace RavenM
                     if (!alreadyHasMod)
                     {
                         ModsToDownload.Add(mod_id);
-                        bool isDownloading = SteamUGC.DownloadItem(mod_id, true);
-                        Plugin.logger.LogInfo($"Downloading mod with id: {mod_id} -- {isDownloading}");
                     }
                 }
                 TriggerModRefresh();
@@ -322,10 +348,13 @@ namespace RavenM
         {
             Plugin.logger.LogInfo($"Downloaded mod! {pCallback.m_nPublishedFileId}");
             var mod = (ModInformation)typeof(ModManager).GetMethod("AddWorkshopItemAsMod", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ModManager.instance, new object[] { pCallback.m_nPublishedFileId });
-            mod.enabled = true;
-            ModsToDownload.Remove(pCallback.m_nPublishedFileId);
+            if (ModsToDownload.Contains(pCallback.m_nPublishedFileId))
+            {
+                mod.enabled = true;
+                ModsToDownload.Remove(pCallback.m_nPublishedFileId);
 
-            TriggerModRefresh();
+                TriggerModRefresh();
+            }
         }
 
         public void TriggerModRefresh()
@@ -334,6 +363,12 @@ namespace RavenM
             {
                 Plugin.logger.LogInfo($"All server mods downloaded.");
                 ModManager.instance.ReloadModContent();
+            }
+            else
+            {
+                var mod_id = ModsToDownload[0];
+                bool isDownloading = SteamUGC.DownloadItem(mod_id, true);
+                Plugin.logger.LogInfo($"Downloading mod with id: {mod_id} -- {isDownloading}");
             }
         }
 
@@ -468,13 +503,14 @@ namespace RavenM
                 }
 
                 var enabledMutators = new List<bool>();
+                ModManager.instance.loadedMutators.Sort((x, y) => x.name.CompareTo(y.name));
                 foreach (var mutator in ModManager.instance.loadedMutators)
                 {
                     enabledMutators.Add(mutator.isEnabled);
                 }
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "mutators", string.Join(",", enabledMutators.ToArray()));
             }
-            else if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "freeze") != "true")
+            else if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "freeze") != "true" && SteamMatchmaking.GetLobbyData(ActualLobbyID, "ready_" + SteamUser.GetSteamID()) == "yes")
             {
                 // InstantActionMaps.instance.gameModeDropdown.value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "gameMode"));
                 InstantActionMaps.instance.nightToggle.isOn = bool.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nightMode"));
@@ -611,6 +647,7 @@ namespace RavenM
                 }
 
                 string[] enabledMutators = SteamMatchmaking.GetLobbyData(ActualLobbyID, "mutators").Split(',');
+                ModManager.instance.loadedMutators.Sort((x, y) => x.name.CompareTo(y.name));
                 for (int i = 0; i < ModManager.instance.loadedMutators.Count; i++)
                 {
                     if (i > enabledMutators.Length)
@@ -636,25 +673,47 @@ namespace RavenM
             if (menu_page != MainMenu.PAGE_INSTANT_ACTION)
                 return;
 
+            var lobbyStyle = new GUIStyle(GUI.skin.box);
+            lobbyStyle.normal.background = LobbyBackground;
+
             if (!InLobby && GUIStack.Count != 0 && GameManager.IsInMainMenu())
             {
+                GUILayout.BeginArea(new Rect(10f, 10f, 150f, 10000f), string.Empty);
+                GUILayout.BeginVertical(lobbyStyle);
+
                 if (GUIStack.Peek() == "Main")
                 {
-                    GUI.Box(new Rect(10f, 10f, 100f, 90f), "RavenM");
-                    if (GUI.Button(new Rect(20f, 40f, 80f, 20f), "Host"))
-                    {
+                    GUILayout.BeginHorizontal();
+                        GUILayout.FlexibleSpace();
+                            GUILayout.Label($"RavenM");
+                        GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.Space(15f);
+
+                    if (GUILayout.Button("HOST"))
                         GUIStack.Push("Host");
-                    }
-                    if (GUI.Button(new Rect(20f, 70f, 80f, 20f), "Join"))
-                    {
+
+                    GUILayout.Space(5f);
+
+                    if (GUILayout.Button("JOIN"))
                         GUIStack.Push("Join");
-                    }
                 }
                 else if (GUIStack.Peek() == "Host")
                 {
-                    GUI.Box(new Rect(10f, 10f, 130f, 90f), "Host");
-                    PrivateLobby = GUI.Toggle(new Rect(20f, 40f, 110f, 20f), PrivateLobby, "Friends Only");
-                    if (GUI.Button(new Rect(30f, 70f, 80f, 20f), "Start"))
+                    GUILayout.BeginHorizontal();
+                        GUILayout.FlexibleSpace();
+                            GUILayout.Label($"HOST");
+                        GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.Space(5f);
+
+                    PrivateLobby = GUILayout.Toggle(PrivateLobby, "FRIENDS ONLY");
+
+                    GUILayout.Space(10f);
+
+                    if (GUILayout.Button("START"))
                     {
                         SteamMatchmaking.CreateLobby(PrivateLobby ? ELobbyType.k_ELobbyTypeFriendsOnly : ELobbyType.k_ELobbyTypePublic, 250);
                         InLobby = true;
@@ -664,10 +723,25 @@ namespace RavenM
                 }
                 else if (GUIStack.Peek() == "Join")
                 {
-                    GUI.Box(new Rect(10f, 10f, 130f, 120f), "Join");
-                    GUI.Label(new Rect(20f, 40f, 110f, 20f), "Lobby ID");
-                    JoinLobbyID = GUI.TextField(new Rect(20f, 65f, 110f, 20f), JoinLobbyID);
-                    if (GUI.Button(new Rect(30f, 100f, 80f, 20f), "Start"))
+                    GUILayout.BeginHorizontal();
+                        GUILayout.FlexibleSpace();
+                            GUILayout.Label($"JOIN");
+                        GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.Space(10f);
+
+                    GUILayout.BeginHorizontal();
+                        GUILayout.FlexibleSpace();
+                            GUILayout.Label($"LOBBY ID");
+                        GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    JoinLobbyID = GUILayout.TextField(JoinLobbyID);
+
+                    GUILayout.Space(15f);
+
+                    if (GUILayout.Button("START"))
                     {
                         if (uint.TryParse(JoinLobbyID, out uint idLong))
                         {
@@ -679,19 +753,51 @@ namespace RavenM
                         }
                     }
                 }
+
+                GUILayout.EndVertical();
+                GUILayout.EndArea();
             }
 
             if (InLobby && LobbyDataReady)
             {
+                GUILayout.BeginArea(new Rect(10f, 10f, 150f, 10000f), string.Empty);
+                GUILayout.BeginVertical(lobbyStyle);
+
                 int len = SteamMatchmaking.GetNumLobbyMembers(ActualLobbyID);
 
-                GUI.Box(new Rect(10f, 10f, 150f, 120f + len * 30), $"Lobby - {len}/250");
-                GUI.Label(new Rect(35f, 40f, 130f, 20f), ActualLobbyID.GetAccountID().ToString());
+                if (GameManager.IsInMainMenu() && GUILayout.Button("<color=red>LEAVE</color>"))
+                {
+                    SteamMatchmaking.LeaveLobby(ActualLobbyID);
+                    LobbyDataReady = false;
+                    InLobby = false;
+                }
 
-                if (GameManager.IsInMainMenu() && GUI.Button(new Rect(25f, 60f, 110f, 20f), "Copy ID"))
+                GUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                        GUILayout.Label($"LOBBY - {len}/250");
+                    GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.Space(15f);
+
+                GUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                        GUILayout.Label(ActualLobbyID.GetAccountID().ToString());
+                    GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                if (GameManager.IsInMainMenu() && GUILayout.Button("COPY ID"))
                 {
                     GUIUtility.systemCopyBuffer = ActualLobbyID.GetAccountID().ToString();
                 }
+
+                GUILayout.Space(15f);
+
+                GUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                        GUILayout.Label("MEMBERS:");
+                    GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
 
                 for (int i = 0; i < len; i++)
                 {
@@ -699,26 +805,79 @@ namespace RavenM
 
                     string name = SteamFriends.GetFriendPersonaName(memberId);
 
-                    var old_color = GUI.contentColor;
-                    GUI.contentColor = SteamMatchmaking.GetLobbyData(ActualLobbyID, "ready_" + memberId) == "yes" ? new Color(0.5f, 1f, 0.5f) : new Color(1f, 0.5f, 0.5f);
-                    GUI.Box(new Rect(25f, 90f + i * 30, 110f, 20f), name);
-                    GUI.contentColor = old_color;
+                    var readyColor = SteamMatchmaking.GetLobbyData(ActualLobbyID, "ready_" + memberId) == "yes" ? "green" : "red";
+                    GUILayout.Box($"<color={readyColor}>{name}</color>");
                 }
 
-                if (GUI.Button(new Rect(25f, 90f + len * 30, 110f, 20f), "Leave"))
+                GUILayout.EndVertical();
+                GUILayout.EndArea();
+            }
+
+            if (ModsToDownload.Count > 0)
+            {
+                GUILayout.BeginArea(new Rect(160f, 10f, 150f, 10000f), string.Empty);
+                GUILayout.BeginVertical(lobbyStyle);
+
+                int hasDownloaded = ServerMods.Count - ModsToDownload.Count;
+
+                GUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                        GUILayout.Label("DOWNLOADING");
+                    GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                        GUILayout.Label("MODS:");
+                    GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.Space(5f);
+
+                GUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                        GUILayout.Label($"{hasDownloaded}/{ServerMods.Count}");
+                    GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                if (SteamUGC.GetItemDownloadInfo(new PublishedFileId_t(ModsToDownload[0].m_PublishedFileId), out ulong punBytesDownloaded, out ulong punBytesTotal))
                 {
-                    SteamMatchmaking.LeaveLobby(ActualLobbyID);
-                    LobbyDataReady = false;
-                    InLobby = false;
+                    GUILayout.Space(5f);
+
+                    GUILayout.BeginHorizontal();
+                        GUILayout.FlexibleSpace();
+                            GUILayout.Label($"{punBytesDownloaded / 1024}KB/{punBytesTotal / 1024}KB");
+                        GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.Space(5f);
+
+                    GUIStyle progressStyle = new GUIStyle();
+                    progressStyle.normal.background = ProgressTexture;
+
+                    GUILayout.BeginHorizontal();
+                        GUILayout.BeginVertical(progressStyle);
+                            GUILayout.Box(ProgressTexture);
+                        GUILayout.EndVertical();
+                        GUILayout.Space((float)(punBytesTotal - punBytesDownloaded) / punBytesTotal * 150f);
+                    GUILayout.EndHorizontal();
                 }
 
-                if (ModsToDownload.Count > 0)
+                GUILayout.Space(15f);
+
+                if (GUILayout.Button("<color=red>CANCEL</color>"))
                 {
-                    int hasDownloaded = ServerMods.Count - ModsToDownload.Count;
-
-                    // Really needs work.
-                    GUI.Box(new Rect(10, 130f + len * 30, 150f, 60f), $"Downloading Mods\n\n   {hasDownloaded}/{ServerMods.Count}");
+                    if (InLobby)
+                    {
+                        SteamMatchmaking.LeaveLobby(ActualLobbyID);
+                        LobbyDataReady = false;
+                        InLobby = false;
+                    }
+                    ModsToDownload.Clear();
                 }
+
+                GUILayout.EndVertical();
+                GUILayout.EndArea();
             }
         }
     }

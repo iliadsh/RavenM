@@ -224,7 +224,7 @@ namespace RavenM
 
         public Vector2 ChatScrollPosition = Vector2.zero;
 
-        public Texture2D ChatBackground = new Texture2D(1, 1);
+        public Texture2D GreyBackground = new Texture2D(1, 1);
 
         public bool JustFocused = false;
 
@@ -249,8 +249,8 @@ namespace RavenM
 
             MarkerTexture.LoadImage(imageBytes);
 
-            ChatBackground.SetPixel(0, 0, Color.grey * 0.5f);
-            ChatBackground.Apply();
+            GreyBackground.SetPixel(0, 0, Color.grey * 0.3f);
+            GreyBackground.Apply();
 
             using var micResource = Assembly.GetExecutingAssembly().GetManifestResourceStream("RavenM.assets.mic.png");
             resourceMemory.SetLength(0);
@@ -423,7 +423,19 @@ namespace RavenM
                     continue;
                 }
 
-                GUI.Box(new Rect(vector.x - 50f, Screen.height - vector.y, 110f, 20f), actor.name);
+                var nameStyle = new GUIStyle();
+                nameStyle.normal.background = GreyBackground;
+                GUILayout.BeginArea(new Rect(vector.x - 50f, Screen.height - vector.y, 110f, 20f), string.Empty);
+                GUILayout.BeginHorizontal(nameStyle);
+                    GUILayout.FlexibleSpace();
+                        GUILayout.BeginVertical();
+                            GUILayout.FlexibleSpace();
+                                GUILayout.Label(actor.name);
+                            GUILayout.FlexibleSpace();
+                        GUILayout.EndVertical();
+                    GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+                GUILayout.EndArea();
             }
 
             if (Event.current.isKey && Event.current.keyCode == KeyCode.None && JustFocused)
@@ -436,69 +448,73 @@ namespace RavenM
             if (Event.current.isKey && (Event.current.keyCode == KeyCode.Tab || Event.current.character == '\t'))
                 Event.current.Use();
 
-            GUI.SetNextControlName("chat");
-            CurrentChatMessage = GUI.TextField(new Rect(10f, Screen.height / 2 + 210, 500f, 25f), CurrentChatMessage);
-
-            if (GUI.GetNameOfFocusedControl() == "chat")
+            if (TypeIntention)
             {
+                GUI.SetNextControlName("chat");
+                CurrentChatMessage = GUI.TextField(new Rect(10f, Screen.height - 160f, 500f, 25f), CurrentChatMessage);
+                GUI.FocusControl("chat");
+
                 string color = !ChatMode ? "green" : (GameManager.PlayerTeam() == 0 ? "blue" : "red");
                 string text = ChatMode ? "GLOBAL" : "TEAM";
-                GUI.Label(new Rect(510f, Screen.height / 2 + 210, 70f, 25f), $"<color={color}><b>{text}</b></color>");
+                GUI.Label(new Rect(510f, Screen.height - 160f, 70f, 25f), $"<color={color}><b>{text}</b></color>");
+
+                if (Event.current.isKey && Event.current.keyCode == KeyCode.Escape && TypeIntention)
+                {
+                    TypeIntention = false;
+                }
+
+                if (Event.current.isKey && Event.current.keyCode == KeyCode.Return)
+                {
+                    if (!string.IsNullOrEmpty(CurrentChatMessage))
+                    {
+                        PushChatMessage(ActorManager.instance.player.name, CurrentChatMessage, ChatMode, GameManager.PlayerTeam());
+
+                        using MemoryStream memoryStream = new MemoryStream();
+                        var chatPacket = new ChatPacket
+                        {
+                            Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
+                            Message = CurrentChatMessage,
+                            TeamOnly = !ChatMode,
+                        };
+
+                        using (var writer = new ProtocolWriter(memoryStream))
+                        {
+                            writer.Write(chatPacket);
+                        }
+                        byte[] data = memoryStream.ToArray();
+
+                        SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
+
+                        CurrentChatMessage = string.Empty;
+                    }
+                    TypeIntention = false;
+                }
             }
 
-            if (Event.current.isKey && Event.current.keyCode == KeyCode.Y && GUI.GetNameOfFocusedControl() != "chat")
+            if (Event.current.isKey && Event.current.keyCode == KeyCode.Y && !TypeIntention)
             {
-                GUI.FocusControl("chat");
+                TypeIntention = true;
                 JustFocused = true;
                 ChatMode = true;
             }
 
-            if (Event.current.isKey && Event.current.keyCode == KeyCode.U && GUI.GetNameOfFocusedControl() != "chat")
+            if (Event.current.isKey && Event.current.keyCode == KeyCode.U && !TypeIntention)
             {
-                GUI.FocusControl("chat");
+                TypeIntention = true;
                 JustFocused = true;
                 ChatMode = false;
             }
 
-            if (Event.current.isKey && Event.current.keyCode == KeyCode.Escape && GUI.GetNameOfFocusedControl() == "chat")
-            {
-                GUI.FocusControl("");
-            }
-
-            if (Event.current.isKey && Event.current.keyCode == KeyCode.Return && GUI.GetNameOfFocusedControl() == "chat" && !string.IsNullOrEmpty(CurrentChatMessage))
-            {
-                PushChatMessage(ActorManager.instance.player.name, CurrentChatMessage, ChatMode, GameManager.PlayerTeam());
-
-                using MemoryStream memoryStream = new MemoryStream();
-                var chatPacket = new ChatPacket
-                {
-                    Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
-                    Message = CurrentChatMessage,
-                    TeamOnly = !ChatMode,
-                };
-
-                using (var writer = new ProtocolWriter(memoryStream))
-                {
-                    writer.Write(chatPacket);
-                }
-                byte[] data = memoryStream.ToArray();
-
-                SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
-
-                CurrentChatMessage = string.Empty;
-                GUI.FocusControl("");
-            }
-
-            var style = new GUIStyle();
-            style.normal.background = ChatBackground;
-            GUILayout.BeginArea(new Rect(10f, Screen.height / 2, 500f, 200f), string.Empty, style);
+            var chatStyle = new GUIStyle();
+            chatStyle.normal.background = GreyBackground;
+            GUILayout.BeginArea(new Rect(10f, Screen.height - 370f, 500f, 200f), string.Empty, chatStyle);
             ChatScrollPosition = GUILayout.BeginScrollView(ChatScrollPosition, GUILayout.Width(500f), GUILayout.Height(200f));
             GUILayout.Label(FullChatLink);
             GUILayout.EndScrollView();
             GUILayout.EndArea();
 
             if (UsingMicrophone)
-                GUI.DrawTexture(new Rect(10, Screen.height - 150, 50f, 50f), MicTexture);
+                GUI.DrawTexture(new Rect(315f, Screen.height - 60f, 50f, 50f), MicTexture);
         }
 
         public void PushChatMessage(string name, string message, bool global, int team)
