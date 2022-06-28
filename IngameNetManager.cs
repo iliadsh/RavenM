@@ -212,6 +212,10 @@ namespace RavenM
 
         public Texture2D MarkerTexture = new Texture2D(2, 2);
 
+        public Texture2D RightMarker = new Texture2D(2, 2);
+
+        public Texture2D LeftMarker = new Texture2D(2, 2);
+
         public Vector3 MarkerPosition = Vector3.zero;
 
         public string CurrentChatMessage = string.Empty;
@@ -254,6 +258,20 @@ namespace RavenM
             imageBytes = resourceMemory.ToArray();
 
             MicTexture.LoadImage(imageBytes);
+
+            using var leftMarkerResource = Assembly.GetExecutingAssembly().GetManifestResourceStream("RavenM.assets.marker_left.png");
+            resourceMemory.SetLength(0);
+            leftMarkerResource.CopyTo(resourceMemory);
+            imageBytes = resourceMemory.ToArray();
+
+            LeftMarker.LoadImage(imageBytes);
+
+            using var rightMarkerResource = Assembly.GetExecutingAssembly().GetManifestResourceStream("RavenM.assets.marker_right.png");
+            resourceMemory.SetLength(0);
+            rightMarkerResource.CopyTo(resourceMemory);
+            imageBytes = resourceMemory.ToArray();
+
+            RightMarker.LoadImage(imageBytes);
         }
 
         private void Start()
@@ -349,14 +367,22 @@ namespace RavenM
         {
             if (worldPos != Vector3.zero)
             {
-                Vector3 vector = FpsActorController.instance.GetActiveCamera().WorldToScreenPoint(worldPos);
+                var camera = FpsActorController.instance.GetActiveCamera();
+                Vector3 vector = camera.WorldToScreenPoint(worldPos);
 
                 if (vector.z > 0.5f)
-                {
-                    GUI.DrawTexture(new Rect(vector.x - 15f, Screen.height - vector.y, 30f, 30f), MarkerTexture);
-                }
+                    if (vector.x >= 0 && vector.x < Screen.width)
+                        GUI.DrawTexture(new Rect(vector.x - 15f, Screen.height - vector.y, 30f, 30f), MarkerTexture);
+                    else if (vector.x > Screen.width / 2)
+                        GUI.DrawTexture(new Rect(Screen.width - 60f, Mathf.Clamp(Screen.height - vector.y, 0, Screen.height - 50f), 50f, 50f), RightMarker);
+                    else
+                        GUI.DrawTexture(new Rect(10f, Mathf.Clamp(Screen.height - vector.y, 0, Screen.height - 50f), 50f, 50f), LeftMarker);
+                else
+                    if (Vector3.Dot(camera.transform.right, worldPos - camera.transform.position) < 0)
+                        GUI.DrawTexture(new Rect(10f, 0f, 50f, 50f), LeftMarker);
+                    else
+                        GUI.DrawTexture(new Rect(Screen.width - 60f, 0f, 50f, 50f), RightMarker);
             }
-            
         }
 
         private void OnGUI()

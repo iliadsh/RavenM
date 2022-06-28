@@ -11,11 +11,15 @@
 
   <ItemGroup>
     <None Remove="assets\marker.png" />
+    <None Remove="assets\marker_left.png" />
+    <None Remove="assets\marker_right.png" />
     <None Remove="assets\mic.png" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="assets\marker.png" />
+    <EmbeddedResource Include="assets\marker_left.png" />
+    <EmbeddedResource Include="assets\marker_right.png" />
   </ItemGroup>
 
   <ItemGroup>
