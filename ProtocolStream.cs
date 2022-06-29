@@ -167,7 +167,7 @@ namespace RavenM
             Write(value.Direction);
             Write(value.ImpactForce);
             Write(value.SourceActor);
-            Write(value.TargetActor);
+            Write(value.Target);
             Write(value.Silent);
         }
 
@@ -449,7 +449,7 @@ namespace RavenM
                 Direction = ReadVector3(),
                 ImpactForce = ReadVector3(),
                 SourceActor = ReadInt32(),
-                TargetActor = ReadInt32(),
+                Target = ReadInt32(),
                 Silent = ReadBoolean(),
             };
         }

@@ -1031,8 +1031,6 @@ namespace RavenM
 
                                                 ClientVehicles[vehiclePacket.Id] = vehicle;
                                             }
-
-                                            vehicle.isInvulnerable = true;
                                         }
 
                                         if (vehicle == null)
@@ -1051,20 +1049,16 @@ namespace RavenM
 
                                         vehicle.health = vehiclePacket.Health;
 
-                                        vehicle.isInvulnerable = false;
-
                                         if (vehiclePacket.Dead)
                                         {
                                             RemoteDeadVehicles.Add(vehiclePacket.Id);
                                             if (!vehicle.dead)
-                                                vehicle.Die(new DamageInfo());
+                                                vehicle.Die(DamageInfo.Default);
                                         }
                                         else if (vehicle.health <= 0)
-                                            vehicle.Damage(new DamageInfo());
+                                            vehicle.Damage(DamageInfo.Default);
                                         else if (vehicle.health > 0 && vehicle.burning)
                                             typeof(Vehicle).GetMethod("StopBurning", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(vehicle, new object[] { });
-
-                                        vehicle.isInvulnerable = true;
                                     }
                                 }
                                 break;
@@ -1073,11 +1067,11 @@ namespace RavenM
                                     Plugin.logger.LogInfo("Damage packet.");
                                     DamagePacket damage_packet = dataStream.ReadDamagePacket();
 
-                                    if (!ClientActors.ContainsKey(damage_packet.TargetActor))
+                                    if (!ClientActors.ContainsKey(damage_packet.Target))
                                         break;
 
                                     Actor sourceActor = damage_packet.SourceActor == -1 ? null : ClientActors[damage_packet.SourceActor];
-                                    Actor targetActor = ClientActors[damage_packet.TargetActor];
+                                    Actor targetActor = ClientActors[damage_packet.Target];
 
                                     Plugin.logger.LogInfo($"Got damage from {targetActor.name}!");
 
@@ -1104,11 +1098,11 @@ namespace RavenM
                                     Plugin.logger.LogInfo("Death packet.");
                                     DamagePacket damage_packet = dataStream.ReadDamagePacket();
 
-                                    if (!ClientActors.ContainsKey(damage_packet.TargetActor))
+                                    if (!ClientActors.ContainsKey(damage_packet.Target))
                                         break;
 
                                     Actor sourceActor = damage_packet.SourceActor == -1 ? null : ClientActors[damage_packet.SourceActor];
-                                    Actor targetActor = ClientActors[damage_packet.TargetActor];
+                                    Actor targetActor = ClientActors[damage_packet.Target];
 
                                     Plugin.logger.LogInfo($"Got death from {targetActor.name}!");
 
@@ -1275,6 +1269,13 @@ namespace RavenM
                                         spawnPacket.MuzzlePosition,
                                     });
 
+                                    // Disable any form of damage from this projectile.
+                                    projectile.configuration.damage = 0f;
+                                    projectile.configuration.impactForce = 0f;
+                                    projectile.configuration.balanceDamage = 0f;
+                                    projectile.autoAssignArmorDamage = false;
+                                    projectile.armorDamage = Vehicle.ArmorRating.SmallArms;
+
                                     ActorToSpawnProjectile = 0;
 
                                     projectile.gameObject.AddComponent<GuidComponent>().guid = spawnPacket.ProjectileId;
@@ -1356,6 +1357,37 @@ namespace RavenM
                                         break;
 
                                     state.VoiceQueue.Add(decodedData);
+                                }
+                                break;
+                            case PacketType.VehicleDamage:
+                                {
+                                    Plugin.logger.LogInfo("Vehicle damage packet.");
+                                    DamagePacket damage_packet = dataStream.ReadDamagePacket();
+
+                                    if (!ClientVehicles.ContainsKey(damage_packet.Target))
+                                        break;
+
+                                    Actor sourceActor = damage_packet.SourceActor == -1 ? null : ClientActors[damage_packet.SourceActor];
+                                    Vehicle targetVehicle = ClientVehicles[damage_packet.Target];
+
+                                    Plugin.logger.LogInfo($"Got vehicle damage from {targetVehicle.name}!");
+
+                                    DamageInfo damage_info = new DamageInfo
+                                    {
+                                        type = damage_packet.Type,
+                                        healthDamage = damage_packet.HealthDamage,
+                                        balanceDamage = damage_packet.BalanceDamage,
+                                        isSplashDamage = damage_packet.IsSplashDamage,
+                                        isPiercing = damage_packet.IsPiercing,
+                                        isCriticalHit = damage_packet.IsCriticalHit,
+                                        point = damage_packet.Point,
+                                        direction = damage_packet.Direction,
+                                        impactForce = damage_packet.ImpactForce,
+                                        sourceActor = sourceActor,
+                                        sourceWeapon = null,
+                                    };
+
+                                    targetVehicle.Damage(damage_info);
                                 }
                                 break;
                         }

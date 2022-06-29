@@ -18,5 +18,6 @@
         UpdateProjectile,
         Chat,
         Voip,
+        VehicleDamage,
     }
 }
