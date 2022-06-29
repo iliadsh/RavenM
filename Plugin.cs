@@ -7,23 +7,18 @@ using UnityEngine;
 namespace RavenM
 {
     /// <summary>
-    /// Removing this patch will take a LOT of effort. Syncing mods is not
-    /// something I wish to tackle right now.
-    /// 
-    /// Well... if everyone has the same mods (the EXACT same), then its
-    /// *probably* safe to remove this.
+    /// Disable mods that are NOT workshop mods.
     /// </summary>
-    //[HarmonyPatch(typeof(ModManager), nameof(ModManager.OnGameManagerStart))]
-    //public class NoModsPatch
-    //{
-    //    static bool Prefix(ModManager __instance)
-    //    {
-    //        __instance.noWorkshopMods = true;
-    //        __instance.builtInMutators.Clear();
-    //        __instance.noContentMods = true;
-    //        return true;
-    //    }
-    //}
+    [HarmonyPatch(typeof(ModManager), nameof(ModManager.OnGameManagerStart))]
+    public class NoCustommodsPatch
+    {
+        static bool Prefix(ModManager __instance)
+        {
+            __instance.modStagingPathOverride = "NOT_REAL";
+            typeof(MapEditor.MapDescriptor).GetField("DATA_PATH", BindingFlags.Static | BindingFlags.Public).SetValue(null, "NOT_REAL");
+            return true;
+        }
+    }
 
     public class GuidComponent : MonoBehaviour
     {
