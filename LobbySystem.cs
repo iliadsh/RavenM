@@ -4,6 +4,7 @@ using UnityEngine;
 using Steamworks;
 using HarmonyLib;
 using System;
+using System.Text;
 
 namespace RavenM
 {
@@ -35,8 +36,7 @@ namespace RavenM
                 SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "freeze", "true");
 
                 IngameNetManager.instance.OpenRelay();
-                // TODO: This is not a protocol. This is a single byte.
-                SteamMatchmaking.SendLobbyChatMsg(LobbySystem.instance.ActualLobbyID, new byte[] { 1 }, 1);
+                LobbySystem.instance.SendLobbyChat(":start");
 
                 // Reset the ready states for when everyone has actually loaded in.
                 int len = SteamMatchmaking.GetNumLobbyMembers(LobbySystem.instance.ActualLobbyID);
@@ -94,8 +94,7 @@ namespace RavenM
             else
             {
                 IngameNetManager.instance.StartAsClient(LobbySystem.instance.OwnerID);
-                // TODO
-                SteamMatchmaking.SendLobbyChatMsg(LobbySystem.instance.ActualLobbyID, new byte[] { 1, 2 }, 2);
+                LobbySystem.instance.SendLobbyChat(":ready");
             }
         }
     }
@@ -129,12 +128,12 @@ namespace RavenM
                 typeof(InstantActionMaps).GetMethod("SetupSkinList", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(InstantActionMaps.instance, null);
             }
 
+            ModManager.instance.ContentChanged();
+
             if (!LobbySystem.instance.InLobby || !LobbySystem.instance.LobbyDataReady || LobbySystem.instance.IsLobbyOwner || LobbySystem.instance.ModsToDownload.Count > 0)
                 return;
-
-            ModManager.instance.ContentChanged();
-            // TODO
-            SteamMatchmaking.SendLobbyChatMsg(LobbySystem.instance.ActualLobbyID, new byte[] { 1, 2 }, 2);
+            
+            LobbySystem.instance.SendLobbyChat(":ready");
         }
     }
 
@@ -147,6 +146,14 @@ namespace RavenM
             LobbySystem.instance.ReadyToPlay = true;
             LobbySystem.instance.LobbyDataReady = false;
 
+            // Save the last played config to avoid reloading it in case it's the same the next time around.
+            if (LobbySystem.instance.ModsToDownload.Count == 0)
+            {
+                LobbySystem.instance.LastConfig.Clear();
+                foreach (var mod in ModManager.instance.mods)
+                    LobbySystem.instance.LastConfig[mod.workshopItemId] = mod.enabled;
+            }
+
             if (LobbySystem.instance.IsLobbyOwner || !LobbySystem.instance.CachedMods)
                 return;
 
@@ -157,9 +164,25 @@ namespace RavenM
             }
             LobbySystem.instance.ModsWeOwn.Clear();
             LobbySystem.instance.CachedMods = false;
+        }
+    }
 
-            if (!GameManager.IsIngame())
-                ModManager.instance.ReloadModContent();
+    [HarmonyPatch(typeof(ModPage), "Start")]
+    public class ModPageStartPatch
+    {
+        static void Postfix(ModPage __instance)
+        {
+            if (LobbySystem.instance.LastConfig.Count > 0)
+                __instance.reloadModContentButton.SetActive(true);
+        }
+    }
+
+    [HarmonyPatch(typeof(ModPage), nameof(ModPage.ReloadModContentButtonPressed))]
+    public class ModPagePressPatch
+    {
+        static void Prefix()
+        {
+            LobbySystem.instance.LastConfig.Clear();
         }
     }
 
@@ -210,6 +233,8 @@ namespace RavenM
 
         public Texture2D ProgressTexture = new Texture2D(1, 1);
 
+        public Dictionary<PublishedFileId_t, bool> LastConfig = new Dictionary<PublishedFileId_t, bool>();
+
         private void Awake()
         {
             instance = this;
@@ -232,7 +257,7 @@ namespace RavenM
         // Make sure we reconstruct mods when the game closes.
         private void OnApplicationQuit()
         {
-            if (InLobby && !IsLobbyOwner)
+            if (InLobby && !IsLobbyOwner && CachedMods)
             {
                 foreach (var mod in ModManager.instance.mods)
                 {
@@ -256,22 +281,37 @@ namespace RavenM
 
             if (IsLobbyOwner)
             {
-                SteamMatchmaking.SetLobbyData(ActualLobbyID, "owner", SteamUser.GetSteamID().ToString());
+                OwnerID = SteamUser.GetSteamID();
+                SteamMatchmaking.SetLobbyData(ActualLobbyID, "owner", OwnerID.ToString());
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "build_id", Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString());
 
                 bool needsToReload = false;
                 List<PublishedFileId_t> mods = new List<PublishedFileId_t>();
-                foreach (var mod in ModManager.instance.GetActiveMods())
+                if (LastConfig.Count > 0)
                 {
-                    if (mod.workshopItemId.ToString() == "0")
+                    foreach (var kv in LastConfig)
                     {
-                        mod.enabled = false;
-                        needsToReload = true;
-                    }
-                    else
-                        mods.Add(mod.workshopItemId);
-                }
+                        var mod = kv.Key;
+                        bool enabled = kv.Value;
 
+                        if (enabled)
+                            mods.Add(mod);
+                    }
+                }
+                else
+                {
+                    foreach (var mod in ModManager.instance.GetActiveMods())
+                    {
+                        if (mod.workshopItemId.ToString() == "0")
+                        {
+                            mod.enabled = false;
+                            needsToReload = true;
+                        }
+                        else
+                            mods.Add(mod.workshopItemId);
+                    }
+                }
+                
                 if (needsToReload)
                     ModManager.instance.ReloadModContent();
 
@@ -289,13 +329,6 @@ namespace RavenM
                 if (Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString() != SteamMatchmaking.GetLobbyData(ActualLobbyID, "build_id"))
                 {
                     Plugin.logger.LogInfo("Build ID mismatch! Leaving lobby.");
-                    SteamMatchmaking.LeaveLobby(ActualLobbyID);
-                    return;
-                }
-
-                if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "started") == "yes")
-                {
-                    Plugin.logger.LogInfo("The game has already started :( Leaving lobby.");
                     SteamMatchmaking.LeaveLobby(ActualLobbyID);
                     return;
                 }
@@ -341,6 +374,13 @@ namespace RavenM
                     }
                 }
                 TriggerModRefresh();
+                
+                if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "started") == "yes")
+                {
+                    Plugin.logger.LogInfo("The game has already started :( Leaving lobby.");
+                    SteamMatchmaking.LeaveLobby(ActualLobbyID);
+                    return;
+                }
             }
         }
 
@@ -350,7 +390,9 @@ namespace RavenM
             var mod = (ModInformation)typeof(ModManager).GetMethod("AddWorkshopItemAsMod", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ModManager.instance, new object[] { pCallback.m_nPublishedFileId });
             if (ModsToDownload.Contains(pCallback.m_nPublishedFileId))
             {
-                mod.enabled = true;
+                if (InLobby && LobbyDataReady)
+                    mod.enabled = true;
+                
                 ModsToDownload.Remove(pCallback.m_nPublishedFileId);
 
                 TriggerModRefresh();
@@ -362,7 +404,34 @@ namespace RavenM
             if (ModsToDownload.Count == 0)
             {
                 Plugin.logger.LogInfo($"All server mods downloaded.");
-                ModManager.instance.ReloadModContent();
+
+                if (InLobby && LobbyDataReady)
+                {
+                    bool contentDiffers = false;
+
+                    if (ModManager.instance.mods.Count != LastConfig.Count)
+                        contentDiffers = true;
+
+                    foreach (var mod in ModManager.instance.mods)
+                    {
+                        if (!LastConfig.ContainsKey(mod.workshopItemId))
+                        {
+                            contentDiffers = true;
+                            break;
+                        }
+
+                        if (LastConfig[mod.workshopItemId] != mod.enabled)
+                        {
+                            contentDiffers = true;
+                            break;
+                        }
+                    }
+
+                    if (contentDiffers)
+                        ModManager.instance.ReloadModContent();
+                    else
+                        SendLobbyChat(":ready");
+                }
             }
             else
             {
@@ -385,10 +454,30 @@ namespace RavenM
             }
         }
 
+        public void SendLobbyChat(string message)
+        {
+            var bytes = Encoding.UTF8.GetBytes(message);
+            SteamMatchmaking.SendLobbyChatMsg(ActualLobbyID, bytes, bytes.Length);
+        }
+
+        public string DecodeLobbyChat(byte[] bytes, int len)
+        {
+            // Don't want some a-hole crashing the lobby.
+            try
+            {
+                return Encoding.UTF8.GetString(bytes, 0, len);
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
         private void OnLobbyChatMessage(LobbyChatMsg_t pCallback)
         {
             var buf = new byte[4096];
             int len = SteamMatchmaking.GetLobbyChatEntry(ActualLobbyID, (int)pCallback.m_iChatID, out CSteamID user, buf, buf.Length, out EChatEntryType chatType);
+            string chat = DecodeLobbyChat(buf, len);
 
             if (SteamUser.GetSteamID() == user)
                 return;
@@ -396,15 +485,14 @@ namespace RavenM
             if (OwnerID != user && !IsLobbyOwner)
                 return;
 
-            if (len == 1)
+            if (chat == ":start")
             {
                 ReadyToPlay = true;
                 //No initial bots! Many errors otherwise!
                 InstantActionMaps.instance.botNumberField.text = "0";
                 InstantActionMaps.instance.StartGame();
             }
-            // WTF am I doing. MAKE THIS A REAL PROTOCOL!
-            else if (len == 2)
+            else if (chat == ":ready")
             {
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "ready_" + user, "yes");
             }
@@ -778,7 +866,7 @@ namespace RavenM
                     GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
 
-                GUILayout.Space(15f);
+                GUILayout.Space(5f);
 
                 GUILayout.BeginHorizontal();
                     GUILayout.FlexibleSpace();
