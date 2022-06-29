@@ -1271,7 +1271,6 @@ namespace RavenM
 
                                     // Disable any form of damage from this projectile.
                                     projectile.configuration.damage = 0f;
-                                    projectile.configuration.impactForce = 0f;
                                     projectile.configuration.balanceDamage = 0f;
                                     projectile.autoAssignArmorDamage = false;
                                     projectile.armorDamage = Vehicle.ArmorRating.SmallArms;
