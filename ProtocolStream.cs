@@ -204,6 +204,7 @@ namespace RavenM
             Write(value.Id);
             Write(value.Position);
             Write(value.Velocity);
+            Write(value.Boom);
         }
 
         public void Write(BulkProjectileUpdate value)
@@ -500,6 +501,7 @@ namespace RavenM
                 Id = ReadInt32(),
                 Position = ReadVector3(),
                 Velocity = ReadVector3(),
+                Boom = ReadBoolean(),
             };
         }
 

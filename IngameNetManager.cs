@@ -1304,6 +1304,16 @@ namespace RavenM
 
                                         projectile.transform.position = projectilePacket.Position;
                                         projectile.velocity = projectilePacket.Velocity;
+
+                                        if (projectilePacket.Boom && projectile.enabled)
+                                        {
+                                            var Explode = projectile.GetType().GetMethod("Explode", BindingFlags.Instance | BindingFlags.NonPublic);
+                                            // This shouldn't ever not exist, since we send only for Rockets++
+                                            if (Explode != null)
+                                            {
+                                                Explode.Invoke(projectile, new object[] { projectile.transform.position, projectile.transform.up });
+                                            }
+                                        }
                                     }
                                 }
                                 break;
@@ -1751,6 +1761,7 @@ namespace RavenM
                     Id = owned_projectile,
                     Position = projectile.transform.position,
                     Velocity = projectile.velocity,
+                    Boom = !projectile.enabled,
                 };
 
                 bulkProjectileUpdate.Updates.Add(net_projectile);
