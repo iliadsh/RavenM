@@ -88,7 +88,7 @@ namespace RavenM
             ActualRotation = Vector3.Slerp(ActualRotation, Targets.FacingDirection, 5f * Time.deltaTime);
 
             // For normal hand-held weapons.
-            if (!actor.IsSeated() && Targets.ActiveWeaponHash != 0 && (actor.activeWeapon == null || actor.activeWeapon.name.GetHashCode() != Targets.ActiveWeaponHash))
+            if (!actor.dead && !actor.IsSeated() && Targets.ActiveWeaponHash != 0 && (actor.activeWeapon == null || actor.activeWeapon.name.GetHashCode() != Targets.ActiveWeaponHash))
             {
                 var weaponWithName = GetWeaponEntryByHash(Targets.ActiveWeaponHash);
 
@@ -101,12 +101,12 @@ namespace RavenM
             }
 
             // For seats that have multiple mounted weapons.
-            if (actor.IsSeated() && Targets.ActiveWeaponHash >= 0 && Targets.ActiveWeaponHash < actor.seat.weapons.Length && actor.seat.ActiveWeaponSlot() != Targets.ActiveWeaponHash)
+            if (!actor.dead && actor.IsSeated() && Targets.ActiveWeaponHash >= 0 && Targets.ActiveWeaponHash < actor.seat.weapons.Length && actor.seat.ActiveWeaponSlot() != Targets.ActiveWeaponHash)
             {
                 actor.SwitchWeapon(Targets.ActiveWeaponHash);
             }
 
-            if (actor.IsSeated() && actor.seat.HasActiveWeapon() && actor.seat.activeWeapon.GetType() == typeof(Mortar))
+            if (!actor.dead && actor.IsSeated() && actor.seat.HasActiveWeapon() && actor.seat.activeWeapon.GetType() == typeof(Mortar))
             {
                 typeof(Mortar).GetField("range", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(actor.seat.activeWeapon, Targets.RangeInput);
             }
@@ -472,6 +472,7 @@ namespace RavenM
 
         public override void SpawnAt(Vector3 position, Quaternion rotation)
         {
+            respawn_action.Start();
         }
 
         public override void StartClimbingSlope()
