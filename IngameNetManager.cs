@@ -1,4 +1,6 @@
 ﻿using HarmonyLib;
+using Lua;
+using RavenM.RSPatch;
 using RavenM.RSPatch.Packets;
 using Steamworks;
 using System;
@@ -295,6 +297,7 @@ namespace RavenM
 
         private void Update()
         {
+            
             // AKA Tilde Key.
             if (Input.GetKeyDown(KeyCode.BackQuote) 
                 && GameManager.instance != null && GameManager.IsIngame() 
@@ -696,6 +699,7 @@ namespace RavenM
 
         public void SendPacketToServer(byte[] data, PacketType type, int send_flags)
         {
+
             _totalOut++;
 
             using MemoryStream compressOut = new MemoryStream();
@@ -720,12 +724,13 @@ namespace RavenM
             byte[] packet_data = packetStream.ToArray();
 
             _totalBytesOut += packet_data.Length;
-
+            RavenscriptEventsManagerPatch.events.onSendPacket.Invoke("" + System.Text.Encoding.ASCII.GetString(data), type.ToString());
             // This is safe. We are only pinning the array.
             unsafe
             {
                 fixed (byte* p_msg = packet_data)
                 {
+
                     var res = SteamNetworkingSockets.SendMessageToConnection(C2SConnection, (IntPtr)p_msg, (uint)packet_data.Length, send_flags, out long num);
                     if (res != EResult.k_EResultOK)
                         Plugin.logger.LogError($"Packet failed to send: {res}");
@@ -808,7 +813,6 @@ namespace RavenM
                 return;
 
             SteamNetworkingSockets.RunCallbacks();
-
             if (IsClient)
             {
                 var msg_ptr = new IntPtr[PACKET_SLACK];
@@ -833,7 +837,8 @@ namespace RavenM
                         using MemoryStream compressedStream = new MemoryStream(packet.data);
                         using DeflateStream decompressStream = new DeflateStream(compressedStream, CompressionMode.Decompress);
                         using var dataStream = new ProtocolReader(decompressStream);
-                        //RavenM.RSPatch.RSPatchRavenscriptManagerEvents.events.onReceivePacket.Invoke("" + packet.Id);
+                        
+                        //RavenscriptEventsManagerPatch.events.onReceivePacket.Invoke(dataStream.ReadPacket().data);
                         switch (packet.Id)
                         {
                             case PacketType.ActorUpdate:
@@ -1426,7 +1431,7 @@ namespace RavenM
                             continue;
 
                         var res = SteamNetworkingSockets.SendMessageToConnection(connection, msg.m_pData, (uint)msg.m_cbSize, Constants.k_nSteamNetworkingSend_Reliable, out long msg_num);
-
+                        
                         if (res != EResult.k_EResultOK)
                         {
                             Plugin.logger.LogError($"Failure {res}");

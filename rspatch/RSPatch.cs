@@ -21,7 +21,7 @@ namespace RavenM.RSPatch
         {
             script.Globals["Lobby"] = typeof(WLobbyProxy);
             script.Globals["OnlinePlayer"] = typeof(WOnlinePlayerProxy);
-            script.Globals["GameEventsM"] = typeof(RavenscriptEventsMProxy);
+            script.Globals["GameEventsOnline"] = typeof(RavenscriptEventsMProxy);
             return true;
         }
     }
@@ -70,17 +70,14 @@ namespace RavenM.RSPatch
         {
             if (__instance.sourceMutator != null)
             {
+                // Needed for HUDS to not be instanced every time a player joins
+                if (!__instance.HasMethod("RemoveDuplicate")){
+                    return true;
+                }
                 if (!(isInitialized(__instance) || !isAwake(__instance)))
                 {
                     throw new Exception("ScriptedBehaviour started but not initialized.");
                 }
-
-                //var possibleDuplicate = GameObject.Find(__instance.gameObject.name);
-                //if (possibleDuplicate != null && possibleDuplicate != __instance.gameObject)
-                //{
-                //    GameObject.Destroy(possibleDuplicate);
-                //}
-
                 foreach (ScriptedBehaviour possibleDuplicate in GameObject.FindObjectsOfType<ScriptedBehaviour>())
                 {
                     Plugin.instance.printConsole($"Checking duplicate for {__instance.gameObject.name}");
@@ -103,103 +100,59 @@ namespace RavenM.RSPatch
             }
         }
     }
-    //[HarmonyPatch(typeof(RavenscriptManager), "Awake")]
-    //public class RSPatchRavenscriptEvents
-    //{
-
-    //    static AccessTools.FieldRef<RavenscriptManager, ScriptEngine> _engine =
-    //AccessTools.FieldRefAccess<RavenscriptManager, ScriptEngine>("_engine");
-
-    //    static bool Postfix(ScriptedBehaviour __instance)
-    //    {
-    //        if (__instance.sourceMutator != null)
-    //        {
-    //            if (!(isInitialized(__instance) || !isAwake(__instance)))
-    //            {
-    //                throw new Exception("ScriptedBehaviour started but not initialized.");
-    //            }
-
-    //            //var possibleDuplicate = GameObject.Find(__instance.gameObject.name);
-    //            //if (possibleDuplicate != null && possibleDuplicate != __instance.gameObject)
-    //            //{
-    //            //    GameObject.Destroy(possibleDuplicate);
-    //            //}
-
-    //            foreach (ScriptedBehaviour possibleDuplicate in GameObject.FindObjectsOfType<ScriptedBehaviour>())
-    //            {
-    //                Plugin.instance.printConsole($"Checking duplicate for {__instance.gameObject.name}");
-    //                if (possibleDuplicate.gameObject.name == __instance.gameObject.name && possibleDuplicate.gameObject != __instance.gameObject)
-    //                {
-    //                    Plugin.instance.printConsole($"Found duplicate of {__instance.gameObject.name}, removing...");
-    //                    GameObject.Destroy(possibleDuplicate);
-    //                }
-    //            }
-
-    //            MethodInfo method = __instance.GetType().GetMethod("CallBuiltInMethod",
-    //            BindingFlags.NonPublic | BindingFlags.Instance);
-    //            method.Invoke(__instance, new object[] { start(__instance) });
-
-    //            return false;
-    //        }
-    //        else
-    //        {
-    //            return true;
-    //        }
-    //    }
-    //}
 
 
     //[HarmonyPatch(typeof(RavenscriptManager))]
     //[HarmonyPatch("events", MethodType.Getter)]
     //public sealed class RSPatchRavenscriptManagerEvents
     //{
-    //    private RavenscriptMultiplayerEvents _events2;
-
     //    static AccessTools.FieldRef<RavenscriptManager, ScriptEngine> _engine =
     //AccessTools.FieldRefAccess<RavenscriptManager, ScriptEngine>("_engine");
 
     //    private static RSPatchRavenscriptManagerEvents instance = null;
     //    private static readonly object padlock = new object();
-    //    //[HarmonyPrefix]
-    //    //public static bool returnEvents(ref RavenscriptEvents __result) {
-    //    //    //Replace get with my event Class that has the same events as the default one
-    //    //    lock (padlock)
-    //    //    {
-    //    //        if (instance == null)
-    //    //        {
-    //    //            instance = new RSPatchRavenscriptManagerEvents();
+    //    [HarmonyPrefix]
+    //    public static bool returnEvents(ref RavenscriptEvents __result)
+    //    {
+    //        //Replace get with my event Class that has the same events as the default one
+    //        //lock (padlock)
+    //        //{
+    //        //    if (instance == null)
+    //        //    {
+    //        //        instance = new RSPatchRavenscriptManagerEvents();
 
+
+    //        //    }
+    //        //}
+    //        //Plugin.logger.LogMessage(" awdw " + RSPatchRavenscriptManagerAwake._events2.ToString());
+    //        //__result = RSPatchRavenscriptManagerAwake._events2;
+    //        return true;
+    //    }
+    //    //RSPatchRavenscriptManagerEvents()
+    //    //{
+    //    //}
+    //    //public static RSPatchRavenscriptManagerEvents Instance
+    //    //{
+    //    //    get
+    //    //    {
+    //    //        lock (padlock)
+    //    //        {
+    //    //            if (instance == null)
+    //    //            {
+    //    //                instance = new RSPatchRavenscriptManagerEvents();
+    //    //            }
+    //    //            return instance;
     //    //        }
     //    //    }
-    //    //    Plugin.logger.LogInfo("returnEvents awd awd awd aw dawd awd ad");
-    //    //    //__result = instance._events2;
-    //    //    return true;
     //    //}
-    //    RSPatchRavenscriptManagerEvents()
-    //    {
-    //    }
-    //    public static RSPatchRavenscriptManagerEvents Instance
-    //    {
-    //        get
-    //        {
-    //            lock (padlock)
-    //            {
-    //                if (instance == null)
-    //                {
-    //                    instance = new RSPatchRavenscriptManagerEvents();
-    //                }
-    //                return instance;
-    //            }
-    //        }
-    //    }
 
-    //    public static RavenscriptMultiplayerEvents events
-    //    {
-    //        get
-    //        {
-    //            return RSPatchRavenscriptManagerEvents.instance._events2;
-    //        }
-    //    }
+    //    //public static RavenscriptMultiplayerEvents events
+    //    //{
+    //    //    get
+    //    //    {
+    //    //        return RSPatchRavenscriptManagerEvents.instance._events2;
+    //    //    }
+    //    //}
 
     //    //static void Postfix(RavenscriptManager __instance) {
     //    //    lock (padlock)
@@ -219,43 +172,14 @@ namespace RavenM.RSPatch
     [HarmonyPatch(typeof(RavenscriptManager), "Awake")]
     public class RSPatchRavenscriptManagerAwake
     {
-
-        static AccessTools.FieldRef<RavenscriptManager, ScriptEngine> _engine =
-        AccessTools.FieldRefAccess<RavenscriptManager, ScriptEngine>("_engine");
-
-        static AccessTools.FieldRef<RavenscriptManager, RavenscriptEvents> _events =
-       AccessTools.FieldRefAccess<RavenscriptManager, RavenscriptEvents>("_events");
-        static RavenscriptMultiplayerEvents _events2;
-
-        //public static RavenscriptMultiplayerEvents events
-        //{
-        //    get
-        //    {
-        //        return RavenscriptMultiplayerEvents.instance._events2;
-        //    }
-        //}
-        static bool Prefix(RavenscriptManager __instance)
+        static void Postfix(RavenscriptManager __instance)
         {
-            RavenscriptManager.instance = __instance;
-            __instance.console.Initialize();
-            Plugin.logger.LogInfo("1");
-            _engine(__instance) = __instance.gameObject.AddComponent<ScriptEngine>();
-            Plugin.logger.LogInfo("2");
-            _events(__instance) = __instance.gameObject.AddComponent<RavenscriptMultiplayerEvents>();
-            Plugin.logger.LogInfo("3");
-            _engine(__instance).Set(NameAttribute.GetName(typeof(RavenscriptMultiplayerEvents)), _events(__instance));
-            //_events2 = __instance.gameObject.AddComponent<RavenscriptMultiplayerEvents>();
-
-            //_engine(__instance).Set(NameAttribute.GetName(typeof(RavenscriptMultiplayerEvents)), _events(__instance));
-            Plugin.logger.LogInfo("4");
-            __instance.Invoke("PrintStartupMessage",0);
-            Plugin.instance.printConsole("-> Patched events");
-            return false;
-            //Plugin.logger.LogInfo("before Events global value -> " + _engine(__instance).GetProcessorStats());
-            //RSPatchRavenscriptManagerEvents.Instance._events2 = _engine(__instance).gameObject.AddComponent<RavenscriptMultiplayerEvents>();
-            //Plugin.instance.printConsole("_events " + RSPatchRavenscriptManagerEvents.Instance._events2.gameObject);
-            //_engine(__instance).Set(NameAttribute.GetName(typeof(RavenscriptMultiplayerEvents)), RSPatchRavenscriptManagerEvents.events);
-            //Plugin.logger.LogInfo("after Events global value -> " + _engine(__instance).GetProcessorStats());
+            __instance.gameObject.AddComponent<RavenscriptEventsManagerPatch>();
+            Plugin.logger.LogInfo("Added RavenscriptEventsManagerPatch to " + __instance.gameObject.name);
         }
     }
+  
+
+
+
 }
