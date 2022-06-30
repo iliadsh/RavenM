@@ -28,9 +28,5 @@ namespace RavenM.RSPatch.Wrapper
 
             return members;
         }
-        public static ScriptEvent GetOnReceivePackage(Actor self)
-        {
-            return self.onTakeDamage;
-        }
     }
 }

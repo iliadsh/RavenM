@@ -20,7 +20,6 @@ namespace RavenM.RSPatch.Proxy
             }
         }
 
-
         [MoonSharpHidden]
         public object GetValue()
         {

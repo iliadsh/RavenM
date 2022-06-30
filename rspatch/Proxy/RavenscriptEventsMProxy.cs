@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 namespace RavenM.RSPatch.Proxy
 {
 	[Proxy(typeof(RavenscriptMultiplayerEvents))]
-	class RavenscriptEventsMProxy : IProxy
+	public class RavenscriptEventsMProxy : IProxy
 	{
 
 		[MoonSharpHidden]
@@ -32,7 +32,13 @@ namespace RavenM.RSPatch.Proxy
 				return ScriptEventProxy.New(this._value.onReceivePacket);
 			}
 		}
-
+		public ScriptEventProxy onSendPacket
+		{
+			get
+			{
+				return ScriptEventProxy.New(this._value.onSendPacket);
+			}
+		}
 		[MoonSharpHidden]
 		public object GetValue()
 		{
