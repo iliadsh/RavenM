@@ -93,7 +93,7 @@ namespace RavenM
                 var weaponWithName = GetWeaponEntryByHash(Targets.ActiveWeaponHash);
 
                 // ? Perhaps MountedWeapons are sometimes sent?
-                if (weaponWithName != null)
+                if (weaponWithName != null && actor.activeWeapon != null)
                 {
                     Plugin.logger.LogInfo($"Changing weapon to: {weaponWithName.name}. current weapon: {actor.activeWeapon?.name}");
                     actor.EquipNewWeaponEntry(weaponWithName, actor.activeWeapon?.slot ?? 0, true);

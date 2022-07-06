@@ -18,6 +18,8 @@
         UpdateProjectile,
         Chat,
         Voip,
-        CustomObjectUpdate
+        VehicleDamage,
+        CreateCustomGameObject,
+        NetworkGameObjectsHashes
     }
 }

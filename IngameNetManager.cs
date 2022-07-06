@@ -2,6 +2,7 @@
 using Lua;
 using RavenM.RSPatch;
 using RavenM.RSPatch.Packets;
+using RavenM.RSPatch.Wrapper;
 using Steamworks;
 using System;
 using System.Collections;
@@ -61,7 +62,6 @@ namespace RavenM
                 __result = false;
                 return false;
             }
-
             return true;
         }
     }
@@ -191,10 +191,6 @@ namespace RavenM
 
         public Dictionary<int, Projectile> ClientProjectiles = new Dictionary<int, Projectile>();
 
-        public HashSet<int> OwnedCustomObjects = new HashSet<int>();
-
-        public Dictionary<int, GameObject> ClientCustomObjects = new Dictionary<int, GameObject>();
-
         public int ActorToSpawnProjectile = 0;
 
         public bool ClientCanSpawnBot = false;
@@ -245,6 +241,12 @@ namespace RavenM
 
         public Dictionary<int, AudioContainer> PlayVoiceQueue = new Dictionary<int, AudioContainer>();
 
+        public HashSet<int> OwnedGameObjects = new HashSet<int>();
+
+        public Dictionary<int, GameObject> ClientGameObjects = new Dictionary<int, GameObject>();
+
+        public Type Steamworks_NativeMethods;
+        public MethodInfo SteamAPI_SteamNetworkingMessage_t_Release;
         private void Awake()
         {
             instance = this;
@@ -279,6 +281,9 @@ namespace RavenM
             imageBytes = resourceMemory.ToArray();
 
             RightMarker.LoadImage(imageBytes);
+
+            Steamworks_NativeMethods = Type.GetType("Steamworks.NativeMethods, Assembly-CSharp-firstpass, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
+            SteamAPI_SteamNetworkingMessage_t_Release = Steamworks_NativeMethods.GetMethod("SteamAPI_SteamNetworkingMessage_t_Release", BindingFlags.Static | BindingFlags.Public);
         }
 
         private void Start()
@@ -446,80 +451,80 @@ namespace RavenM
                 GUILayout.EndArea();
             }
 
-            if (Event.current.isKey && Event.current.keyCode == KeyCode.None && JustFocused)
-            {
-                Event.current.Use();
-                JustFocused = false;
-                return;
-            }
+            //if (Event.current.isKey && Event.current.keyCode == KeyCode.None && JustFocused)
+            //{
+            //    Event.current.Use();
+            //    JustFocused = false;
+            //    return;
+            //}
 
-            if (Event.current.isKey && (Event.current.keyCode == KeyCode.Tab || Event.current.character == '\t'))
-                Event.current.Use();
+            //if (Event.current.isKey && (Event.current.keyCode == KeyCode.Tab || Event.current.character == '\t'))
+            //    Event.current.Use();
 
-            if (TypeIntention)
-            {
-                GUI.SetNextControlName("chat");
-                CurrentChatMessage = GUI.TextField(new Rect(10f, Screen.height - 160f, 500f, 25f), CurrentChatMessage);
-                GUI.FocusControl("chat");
+            //if (TypeIntention)
+            //{
+            //    GUI.SetNextControlName("chat");
+            //    CurrentChatMessage = GUI.TextField(new Rect(10f, Screen.height - 160f, 500f, 25f), CurrentChatMessage);
+            //    GUI.FocusControl("chat");
 
-                string color = !ChatMode ? "green" : (GameManager.PlayerTeam() == 0 ? "blue" : "red");
-                string text = ChatMode ? "GLOBAL" : "TEAM";
-                GUI.Label(new Rect(510f, Screen.height - 160f, 70f, 25f), $"<color={color}><b>{text}</b></color>");
+            //    string color = !ChatMode ? "green" : (GameManager.PlayerTeam() == 0 ? "blue" : "red");
+            //    string text = ChatMode ? "GLOBAL" : "TEAM";
+            //    GUI.Label(new Rect(510f, Screen.height - 160f, 70f, 25f), $"<color={color}><b>{text}</b></color>");
 
-                if (Event.current.isKey && Event.current.keyCode == KeyCode.Escape && TypeIntention)
-                {
-                    TypeIntention = false;
-                }
+            //    if (Event.current.isKey && Event.current.keyCode == KeyCode.Escape && TypeIntention)
+            //    {
+            //        TypeIntention = false;
+            //    }
 
-                if (Event.current.isKey && Event.current.keyCode == KeyCode.Return)
-                {
-                    if (!string.IsNullOrEmpty(CurrentChatMessage))
-                    {
-                        PushChatMessage(ActorManager.instance.player.name, CurrentChatMessage, ChatMode, GameManager.PlayerTeam());
+            //    if (Event.current.isKey && Event.current.keyCode == KeyCode.Return)
+            //    {
+            //        if (!string.IsNullOrEmpty(CurrentChatMessage))
+            //        {
+            //            PushChatMessage(ActorManager.instance.player.name, CurrentChatMessage, ChatMode, GameManager.PlayerTeam());
 
-                        using MemoryStream memoryStream = new MemoryStream();
-                        var chatPacket = new ChatPacket
-                        {
-                            Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
-                            Message = CurrentChatMessage,
-                            TeamOnly = !ChatMode,
-                        };
+            //            using MemoryStream memoryStream = new MemoryStream();
+            //            var chatPacket = new ChatPacket
+            //            {
+            //                Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
+            //                Message = CurrentChatMessage,
+            //                TeamOnly = !ChatMode,
+            //            };
 
-                        using (var writer = new ProtocolWriter(memoryStream))
-                        {
-                            writer.Write(chatPacket);
-                        }
-                        byte[] data = memoryStream.ToArray();
+            //            using (var writer = new ProtocolWriter(memoryStream))
+            //            {
+            //                writer.Write(chatPacket);
+            //            }
+            //            byte[] data = memoryStream.ToArray();
 
-                        SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
+            //            SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
 
-                        CurrentChatMessage = string.Empty;
-                    }
-                    TypeIntention = false;
-                }
-            }
+            //            CurrentChatMessage = string.Empty;
+            //        }
+            //        TypeIntention = false;
+            //    }
+            //}
 
-            if (Event.current.isKey && Event.current.keyCode == KeyCode.Y && !TypeIntention)
-            {
-                TypeIntention = true;
-                JustFocused = true;
-                ChatMode = true;
-            }
+            //if (Event.current.isKey && Event.current.keyCode == KeyCode.Y && !TypeIntention)
+            //{
+            //    TypeIntention = true;
+            //    JustFocused = true;
+            //    ChatMode = true;
+            //}
 
-            if (Event.current.isKey && Event.current.keyCode == KeyCode.U && !TypeIntention)
-            {
-                TypeIntention = true;
-                JustFocused = true;
-                ChatMode = false;
-            }
+            //if (Event.current.isKey && Event.current.keyCode == KeyCode.U && !TypeIntention)
+            //{
+            //    TypeIntention = true;
+            //    JustFocused = true;
+            //    ChatMode = false;
+            //}
 
-            var chatStyle = new GUIStyle();
-            chatStyle.normal.background = GreyBackground;
-            GUILayout.BeginArea(new Rect(10f, Screen.height - 370f, 500f, 200f), string.Empty, chatStyle);
-            ChatScrollPosition = GUILayout.BeginScrollView(ChatScrollPosition, GUILayout.Width(500f), GUILayout.Height(200f));
-            GUILayout.Label(FullChatLink);
-            GUILayout.EndScrollView();
-            GUILayout.EndArea();
+            //var chatStyle = new GUIStyle();
+            //chatStyle.normal.background = GreyBackground;
+            //GUILayout.BeginArea(new Rect(10f, Screen.height - 370f, 500f, 200f), string.Empty, chatStyle);
+            //ChatScrollPosition = GUILayout.BeginScrollView(ChatScrollPosition, GUILayout.Width(500f), GUILayout.Height(200f));
+            //GUILayout.Label(FullChatLink);
+            //GUILayout.EndScrollView();
+            //GUILayout.EndArea();
 
             if (UsingMicrophone)
                 GUI.DrawTexture(new Rect(315f, Screen.height - 60f, 50f, 50f), MicTexture);
@@ -724,7 +729,7 @@ namespace RavenM
             byte[] packet_data = packetStream.ToArray();
 
             _totalBytesOut += packet_data.Length;
-            RavenscriptEventsManagerPatch.events.onSendPacket.Invoke("" + System.Text.Encoding.ASCII.GetString(data), type.ToString());
+            RavenscriptEventsManagerPatch.events.onSendPacket.Invoke("" + BitConverter.ToString(data), type.ToString());
             // This is safe. We are only pinning the array.
             unsafe
             {
@@ -994,7 +999,6 @@ namespace RavenM
                                         var controller = actor.controller as NetActorController;
 
                                         controller.Flags = flagPacket.StateVector;
-                                        Plugin.logger.LogInfo("BulkUpdate for actor " + actor.name);
                                     }
                                 }
                                 break;
@@ -1021,6 +1025,11 @@ namespace RavenM
                                             if (!vehiclePacket.IsTurret)
                                             {
                                                 Plugin.logger.LogInfo($"New vehicle registered with ID {vehiclePacket.Id} type {vehiclePacket.Type}");
+                                                if(vehiclePacket.Position == null || vehiclePacket.Rotation == null)
+                                                {
+                                                    Plugin.logger.LogInfo("Vehicle pos or rot is null");
+                                                    break;
+                                                }
                                                 vehicle = VehicleSpawner.SpawnVehicleAt(vehiclePacket.Position, vehiclePacket.Rotation, vehiclePacket.Team, vehiclePacket.Type);
 
                                                 var fakeSpawner = vehicle.gameObject.AddComponent<VehicleSpawner>();
@@ -1378,38 +1387,80 @@ namespace RavenM
                                     state.VoiceQueue.Add(decodedData);
                                 }
                                 break;
-                            //case PacketType.CustomObjectUpdate:
-                            //    {
-                            //        var bulkCustomObjectUpdatePacket = dataStream.ReadBulkCustomObjectUpdate();
+                            case PacketType.VehicleDamage:
+                                {
+                                    Plugin.logger.LogInfo("Vehicle damage packet.");
+                                    DamagePacket damage_packet = dataStream.ReadDamagePacket();
 
-                            //        if (bulkCustomObjectUpdatePacket.Updates == null)
-                            //            break;
+                                    if (!ClientVehicles.ContainsKey(damage_packet.Target))
+                                        break;
 
-                            //        foreach (CustomObjectUpdatePacket customObjectPacket in bulkCustomObjectUpdatePacket.Updates)
-                            //        {
-                            //            if (OwnedCustomObjects.Contains(customObjectPacket.Id))
-                            //                continue;
+                                    Actor sourceActor = damage_packet.SourceActor == -1 ? null : ClientActors[damage_packet.SourceActor];
+                                    Vehicle targetVehicle = ClientVehicles[damage_packet.Target];
 
-                            //            if (!ClientCustomObjects.ContainsKey(customObjectPacket.Id))
-                            //                continue;
+                                    Plugin.logger.LogInfo($"Got vehicle damage from {targetVehicle.name}!");
 
-                            //            GameObject customObject = ClientCustomObjects[customObjectPacket.Id];
-                            //            customObject.transform.position = customObjectPacket.Position;
-                            //            customObject.transform.eulerAngles = customObjectPacket.Rotation;
-                            //            customObject.SetActive(customObjectPacket.Active);
+                                    DamageInfo damage_info = new DamageInfo
+                                    {
+                                        type = damage_packet.Type,
+                                        healthDamage = damage_packet.HealthDamage,
+                                        balanceDamage = damage_packet.BalanceDamage,
+                                        isSplashDamage = damage_packet.IsSplashDamage,
+                                        isPiercing = damage_packet.IsPiercing,
+                                        isCriticalHit = damage_packet.IsCriticalHit,
+                                        point = damage_packet.Point,
+                                        direction = damage_packet.Direction,
+                                        impactForce = damage_packet.ImpactForce,
+                                        sourceActor = sourceActor,
+                                        sourceWeapon = null,
+                                    };
 
-                            //            customObject.gameObject.AddComponent<GuidComponent>().guid = customObjectPacket.Id;
+                                    targetVehicle.Damage(damage_info);
+                                }
+                                break;
+                            case PacketType.CreateCustomGameObject:
+                                {
+                                    SpawnCustomGameObjectPacket customGO_packet = dataStream.ReadSpawnCustomGameObjectPacket();
+                                    Plugin.logger.LogInfo("Create Custom Game Object Packet: " + WLobby.GetNetworkPrefabByHash(customGO_packet.PrefabHash).name);
+                                    //var actor = ClientActors[customGO_packet.];
+                                    //if(actor == ActorManager.instance.player)
+                                    //{
+                                    //    Plugin.logger.LogInfo("Did not create objects for current player because it already has been created");
+                                    //    break;
+                                    //}
+                                    GameObject networkPrefab = WLobby.GetNetworkPrefabByHash(customGO_packet.PrefabHash);
+                                    GameObject instantiaedPrefab = GameObject.Instantiate(networkPrefab);
+                                    instantiaedPrefab.transform.position = customGO_packet.Position;
+                                    instantiaedPrefab.transform.eulerAngles = customGO_packet.Rotation;
+                                    Plugin.logger.LogInfo("ianstantiatedPrefab at " + instantiaedPrefab.transform.position);
+                                    if (networkPrefab == null)
+                                    {
+                                        Plugin.logger.LogDebug("Network prefab is null");
+                                        break;
+                                    }
+                                    Plugin.logger.LogDebug("Created custom gameobject " + networkPrefab.name + " with hash " + customGO_packet.PrefabHash);
+                                }
+                                break;
+                            case PacketType.NetworkGameObjectsHashes:
+                                {
+                                    NetworkGameObjectsHashesPacket syncGO_packet = dataStream.ReadSyncNetworkGameObjectsPacket();
+                                    Plugin.logger.LogInfo("Got syncGO packet with hashes: " + syncGO_packet.NetworkGameObjectHashes);
+                                    WLobby.RefreshHashes(syncGO_packet.NetworkGameObjectHashes);
 
-                            //            ClientCustomObjects[customObjectPacket.Id] = customObject;
-                            //        }
-                            //    }
-                            //    break;
+                                    //var actor = ClientActors[customGO_packet.];
+                                    //if(actor == ActorManager.instance.player)
+                                    //{
+                                    //    Plugin.logger.LogInfo("Did not create objects for current player because it already has been created");
+                                    //    break;
+                                    //}
+                                }
+                                break;
                         }
                     }
-
                     // SR7, pls update Steamworks.NET.
-                    var NativeMethods = Type.GetType("Steamworks.NativeMethods, Assembly-CSharp-firstpass, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
-                    NativeMethods.GetMethod("SteamAPI_SteamNetworkingMessage_t_Release", BindingFlags.Static | BindingFlags.Public).Invoke(null, new object[] { msg_ptr[msg_index] });
+                    SteamAPI_SteamNetworkingMessage_t_Release.Invoke(null, new object[] { msg_ptr[msg_index] });
+                    //var NativeMethods = Type.GetType("Steamworks.NativeMethods, Assembly-CSharp-firstpass, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
+                    //NativeMethods.GetMethod("SteamAPI_SteamNetworkingMessage_t_Release", BindingFlags.Static | BindingFlags.Public).Invoke(null, new object[] { msg_ptr[msg_index] });
                 }
             }
 
@@ -1862,54 +1913,6 @@ namespace RavenM
             Destroy(actor.controller);
             Destroy(actor);
         }
-        private void SendCustomObjectUpdates()
-        {
-            var bulkCustomObjectUpdate = new BulkCustomObjectUpdate
-            {
-                Updates = new List<CustomObjectUpdatePacket>(),
-            };
-
-            var cleanup = new List<int>();
-
-            foreach (var owned_CustomGameObjects in OwnedCustomObjects)
-            {
-                var customObject = ClientCustomObjects[owned_CustomGameObjects];
-
-                if (customObject == null)
-                {
-                    cleanup.Add(owned_CustomGameObjects);
-                    continue;
-                }
-
-                // We should only update projectiles where it is obvious
-                // there is a desync, like rockets++
-
-                var net_customObject = new CustomObjectUpdatePacket
-                {
-                    Id = owned_CustomGameObjects,
-                    Position = customObject.transform.position,
-                    Rotation = customObject.transform.eulerAngles,
-                    Active = customObject.gameObject.activeSelf,
-                };
-
-                bulkCustomObjectUpdate.Updates.Add(net_customObject);
-            }
-
-            foreach (var projectile in cleanup)
-                OwnedCustomObjects.Remove(projectile);
-
-            if (bulkCustomObjectUpdate.Updates.Count == 0)
-                return;
-
-            using MemoryStream memoryStream = new MemoryStream();
-
-            using (var writer = new ProtocolWriter(memoryStream))
-            {
-                writer.Write(bulkCustomObjectUpdate);
-            }
-            byte[] data = memoryStream.ToArray();
-
-            SendPacketToServer(data, PacketType.CustomObjectUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
-        }
+       
     }
 }

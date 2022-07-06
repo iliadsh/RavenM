@@ -2,14 +2,18 @@
 using Steamworks;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace RavenM.RSPatch.Wrapper
 {
     public static class WLobby
     {
+        public static Dictionary<string,GameObject> networkGameObjects = new Dictionary<string, GameObject>();
+        private static bool setupVehicles = false;
         [Getter]
         public static string[] GetLobbyMembers()
         {
@@ -28,5 +32,115 @@ namespace RavenM.RSPatch.Wrapper
 
             return members;
         }
+        public static Dictionary<string, GameObject> GetNetworkPrefabs()
+        {
+            return networkGameObjects;
+        }
+        public static void AddNetworkPrefab(GameObject prefab)
+        {
+            if (networkGameObjects == null)
+            {
+                Plugin.logger.LogInfo("networkGameObject was null");
+            }
+            string newGUID;
+            newGUID = prefab.GetHashCode().ToString();
+            if (!networkGameObjects.ContainsValue(prefab))
+            {
+                if (!setupVehicles)
+                {
+                    foreach(VehicleSpawner.VehicleSpawnType vehicleType in VehicleSpawner.ALL_VEHICLE_TYPES)
+                    {
+                        GameObject vehiclePrefab = VehicleSpawner.GetPrefab(0, vehicleType);
+                        networkGameObjects.Add(vehiclePrefab.GetHashCode().ToString(), vehiclePrefab);
+                        GameObject vehiclePrefab2 = VehicleSpawner.GetPrefab(1, vehicleType);
+                        networkGameObjects.Add(vehiclePrefab2.GetHashCode().ToString(), vehiclePrefab2);
+                    }
+                    setupVehicles = true;
+                }
+                networkGameObjects.Add(newGUID, prefab);
+            }
+            Plugin.logger.LogInfo("Added network prefab " + prefab.name + " with GUID " + newGUID);
+        }
+        // Refresh prefab hashes on the client to be able to correctly look up the prefabs by hash
+        public static void RefreshHashes(string hash)
+        {
+            string[] hashes = hash.Split(',');
+            List<GameObject> tempList = new List<GameObject>();
+            foreach(KeyValuePair<string, GameObject> pair in networkGameObjects)
+            {
+                tempList.Add(pair.Value);
+
+            }
+            // Fix this stuff messing up
+            networkGameObjects.Clear();
+            for(int i = 0; i < hashes.Length; i++)
+            {
+                Plugin.logger.LogInfo("Hash for " + hashes[i] + " and GO " + tempList[i].name);
+                networkGameObjects.Add(hashes[i], tempList[i]);
+            }
+            tempList.Clear();
+        }
+
+        // Sends Packet from host to clients to send prefab hashes
+        public static void SendNetworkGameObjectsHashesPacket()
+        { 
+            string hashes = "";
+            foreach (KeyValuePair<string, GameObject> pair in networkGameObjects)
+            {
+                hashes += pair.Key + ",";
+            }
+            hashes = hashes.Substring(0, hashes.Length - 1);
+            using MemoryStream memoryStream = new MemoryStream();
+            NetworkGameObjectsHashesPacket networkGameObjectsHashesPacket = new NetworkGameObjectsHashesPacket
+            {
+                Id = IngameNetManager.instance.RandomGen.Next(0,256),
+                NetworkGameObjectHashes = hashes
+            };
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(networkGameObjectsHashesPacket);
+            }
+            Plugin.logger.LogInfo("Send hashes: " + hashes);
+            byte[] data = memoryStream.ToArray();
+            IngameNetManager.instance.SendPacketToServer(data, PacketType.NetworkGameObjectsHashes, Constants.k_nSteamNetworkingSend_Reliable);
+        }
+        public static void RemoveNetworkPrefab(GameObject prefab)
+        {
+            KeyValuePair<string, GameObject> dictionaryPrefab = networkGameObjects
+                   .FirstOrDefault(c => c.Value == prefab);
+            networkGameObjects.Remove(dictionaryPrefab.Key);
+            Plugin.logger.LogInfo("Removed network prefab " + prefab.name);
+        }
+        public static GameObject GetNetworkPrefabByHash(string guid)
+        {
+            Plugin.logger.LogInfo("GetNetworkPrefabHash() " + guid);
+            foreach(KeyValuePair<string, GameObject> kvp in networkGameObjects)
+            {
+                Plugin.logger.LogInfo("GetNetworkPrefabByHash() -> " + kvp.Key+ " == " + guid);
+            }
+            return networkGameObjects[guid];
+
+        }
+        public static string GetNetworkPrefabByValue(GameObject prefab)
+        {
+            Plugin.logger.LogInfo("GetNetworkPrefabByValue() " + prefab.name);
+            string output = "null";
+            foreach (KeyValuePair<string, GameObject> kvp in networkGameObjects)
+            {
+                Plugin.logger.LogInfo("GetNetworkPrefabByValue() -> " + kvp.Value + " == " + prefab.name);
+                if(kvp.Value == prefab)
+                {
+                    output = kvp.Key;
+                }
+            }
+            if(output == "null")
+            {
+                Plugin.logger.LogError("GetNetworkPrefabByValue no value found in dictionary for prefab name " + prefab.name);
+            }
+            //KeyValuePair<string, GameObject> dictionaryPrefab = networkGameObjects
+                  //.FirstOrDefault(c => c.Value == prefab);
+            return output;
+        }
+
     }
 }

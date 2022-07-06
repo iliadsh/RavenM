@@ -5,6 +5,7 @@ using Steamworks;
 using HarmonyLib;
 using System;
 using System.Text;
+using RavenM.RSPatch.Wrapper;
 
 namespace RavenM
 {
@@ -72,6 +73,12 @@ namespace RavenM
                         return false;
                     }
                 }
+            }
+
+            if (IngameNetManager.instance.IsHost || LobbySystem.instance.IsLobbyOwner)
+            {
+                Plugin.logger.LogInfo("SendNetworkGameObjectsHashesPacket()");
+                WLobby.SendNetworkGameObjectsHashesPacket();
             }
 
             return true;
