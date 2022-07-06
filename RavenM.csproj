@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net46</TargetFramework>
+    <TargetFramework>net47</TargetFramework>
     <AssemblyName>RavenM</AssemblyName>
     <Description>A Ravenfield multiplayer mod.</Description>
     <Version>1.0.0</Version>
@@ -21,6 +21,7 @@
     <EmbeddedResource Include="assets\marker.png" />
     <EmbeddedResource Include="assets\marker_left.png" />
     <EmbeddedResource Include="assets\marker_right.png" />
+	<EmbeddedResource Include="assets\mic.png" />
   </ItemGroup>
 
   <ItemGroup>

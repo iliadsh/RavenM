@@ -22,6 +22,7 @@ namespace RavenM.RSPatch
             script.Globals["Lobby"] = typeof(WLobbyProxy);
             script.Globals["OnlinePlayer"] = typeof(WOnlinePlayerProxy);
             script.Globals["GameEventsOnline"] = typeof(RavenscriptEventsMProxy);
+            script.Globals["GameObjectM"] = typeof(GameObjectMProxy);
             return true;
         }
     }
@@ -36,6 +37,7 @@ namespace RavenM.RSPatch
             UserData.RegisterType(typeof(RavenscriptEventsMProxy), InteropAccessMode.Default, null);
             Script.GlobalOptions.CustomConverters.SetClrToScriptCustomConversion<RavenscriptMultiplayerEvents>((Script s, RavenscriptMultiplayerEvents v) => DynValue.FromObject(s, RavenscriptEventsMProxy.New(v)));
             Script.GlobalOptions.CustomConverters.SetScriptToClrCustomConversion(DataType.UserData, typeof(RavenscriptMultiplayerEvents), (DynValue v) => v.ToObject<RavenscriptEventsMProxy>()._value);
+            UserData.RegisterType(typeof(GameObjectMProxy), InteropAccessMode.Default, null);
             return true;
         }
     }
@@ -50,6 +52,7 @@ namespace RavenM.RSPatch
             proxyTypesList.Add(typeof(WLobbyProxy));
             proxyTypesList.Add(typeof(WOnlinePlayerProxy));
             proxyTypesList.Add(typeof(RavenscriptEventsMProxy));
+            proxyTypesList.Add(typeof(GameObjectMProxy));
             __result = proxyTypesList.ToArray();
         }
     }

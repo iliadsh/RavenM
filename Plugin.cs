@@ -70,7 +70,6 @@ namespace RavenM
                                                 "Change GUID to aaaa");
             changeGUID = configDisplayGreeting.Value;
             // Test code
-            Logger.LogInfo("Hello, world!");
         }
 
         private void OnGUI()

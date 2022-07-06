@@ -258,13 +258,18 @@ namespace RavenM
             Write(value.Voice.Length);
             Write(value.Voice);
         }
-        public void Write(BulkCustomObjectUpdate value)
+
+        public void Write(SpawnCustomGameObjectPacket value)
         {
-            Write(value.Updates.Count);
-            foreach (var update in value.Updates)
-            {
-                Write(update);
-            }
+            Write(value.SourceID);
+            Write(value.PrefabHash);
+            Write(value.Position);
+            Write(value.Rotation);
+        }
+        public void Write(NetworkGameObjectsHashesPacket value)
+        {
+            Write(value.Id);
+            Write(value.NetworkGameObjectHashes);
         }
     }
 
@@ -581,28 +586,22 @@ namespace RavenM
                 Voice = ReadBytes(ReadInt32()),
             };
         }
-        
-        public CustomObjectUpdatePacket ReadSyncCustomObjectPacket()
+        public SpawnCustomGameObjectPacket ReadSpawnCustomGameObjectPacket()
         {
-            return new CustomObjectUpdatePacket
+            return new SpawnCustomGameObjectPacket
             {
-                Id = ReadInt32(),
+                SourceID = ReadInt32(),
+                PrefabHash = ReadString(),
                 Position = ReadVector3(),
-                Rotation = ReadVector3(),
+                Rotation = ReadVector3()
             };
         }
-
-        public BulkCustomObjectUpdate ReadBulkCustomObjectUpdate()
+        public NetworkGameObjectsHashesPacket ReadSyncNetworkGameObjectsPacket()
         {
-            int count = ReadInt32();
-            var updates = new List<CustomObjectUpdatePacket>(count);
-            for (int i = 0; i < count; i++)
+            return new NetworkGameObjectsHashesPacket
             {
-                updates.Add(ReadSyncCustomObjectPacket());
-            }
-            return new BulkCustomObjectUpdate
-            {
-                Updates = updates,
+                Id = ReadInt32(),
+                NetworkGameObjectHashes = ReadString()
             };
         }
     }
