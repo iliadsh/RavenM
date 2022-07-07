@@ -188,7 +188,7 @@ namespace RavenM
 
         public Dictionary<int, Projectile> ClientProjectiles = new Dictionary<int, Projectile>();
 
-        public int ActorToSpawnProjectile = 0;
+        public bool ClientCanSpawnProjectile = false;
 
         public bool ClientCanSpawnBot = false;
 
@@ -548,11 +548,12 @@ namespace RavenM
             OwnedVehicles.Clear();
             ClientVehicles.Clear();
             TurretSpawners.Clear();
+            RemoteDeadVehicles.Clear();
             TargetVehicleStates.Clear();
             OwnedProjectiles.Clear();
             ClientProjectiles.Clear();
 
-            ActorToSpawnProjectile = 0;
+            ClientCanSpawnProjectile = false;
             ClientCanSpawnBot = false;
 
             IsHost = false;
@@ -570,6 +571,8 @@ namespace RavenM
 
             UsingMicrophone = false;
             PlayVoiceQueue.Clear();
+
+            ReleaseProjectilePatch.ConfigCache.Clear();
         }
 
         public void OpenRelay()
@@ -1261,7 +1264,7 @@ namespace RavenM
                                         break;
 
                                     // Maybe move to a scope guard?
-                                    ActorToSpawnProjectile = spawnPacket.SourceId;
+                                    ClientCanSpawnProjectile = true;
 
                                     var projectile = (Projectile)weapon.GetType().GetMethod("SpawnProjectile", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(weapon, new object[] 
                                     {
@@ -1269,15 +1272,27 @@ namespace RavenM
                                         spawnPacket.MuzzlePosition,
                                     });
 
+                                    // Save the old configuration for when the object is pooled.
+                                    ReleaseProjectilePatch.ConfigCache[projectile] = new ReleaseProjectilePatch.Config
+                                    {
+                                        damage = projectile.configuration.damage,
+                                        balanceDamage = projectile.configuration.balanceDamage,
+                                        autoAssignArmorDamage = projectile.autoAssignArmorDamage,
+                                        armorDamage = projectile.armorDamage,
+                                    };
+
                                     // Disable any form of damage from this projectile.
                                     projectile.configuration.damage = 0f;
                                     projectile.configuration.balanceDamage = 0f;
                                     projectile.autoAssignArmorDamage = false;
                                     projectile.armorDamage = Vehicle.ArmorRating.SmallArms;
 
-                                    ActorToSpawnProjectile = 0;
+                                    ClientCanSpawnProjectile = false;
 
-                                    projectile.gameObject.AddComponent<GuidComponent>().guid = spawnPacket.ProjectileId;
+                                    if (projectile.gameObject.TryGetComponent(out GuidComponent guid))
+                                        guid.guid = spawnPacket.ProjectileId;
+                                    else
+                                        projectile.gameObject.AddComponent<GuidComponent>().guid = spawnPacket.ProjectileId;
 
                                     ClientProjectiles[spawnPacket.ProjectileId] = projectile;
                                 }

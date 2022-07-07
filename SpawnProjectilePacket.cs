@@ -28,7 +28,7 @@ namespace RavenM
             if (IngameNetManager.instance.OwnedActors.Contains(id))
                 return true;
 
-            if (IngameNetManager.instance.ActorToSpawnProjectile == id)
+            if (IngameNetManager.instance.ClientCanSpawnProjectile)
                 return true;
 
             __result = null;
@@ -52,7 +52,10 @@ namespace RavenM
 
             var projectileId = IngameNetManager.instance.RandomGen.Next(0, int.MaxValue);
 
-            __result.gameObject.AddComponent<GuidComponent>().guid = projectileId;
+            if (__result.gameObject.TryGetComponent(out GuidComponent guid))
+                guid.guid = projectileId;
+            else
+                __result.gameObject.AddComponent<GuidComponent>().guid = projectileId;
 
             IngameNetManager.instance.OwnedProjectiles.Add(projectileId);
             IngameNetManager.instance.ClientProjectiles[projectileId] = __result;
