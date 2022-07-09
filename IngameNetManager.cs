@@ -63,23 +63,6 @@ namespace RavenM
         }
     }
 
-    [HarmonyPatch(typeof(FpsActorController), "Update")]
-    public class NoSlowmoPatch
-    {
-        // We patch the target slow motion speed with the normal execution speed (1.0f)
-        // which results in slow-mo being a no-op.
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
-        {
-            foreach (var instruction in instructions)
-            {
-                if (instruction.opcode == OpCodes.Ldc_R4 && (float)instruction.operand == 0.2f)
-                    instruction.operand = 1.0f;
-
-                yield return instruction;
-            }
-        }
-    }
-
     [HarmonyPatch(typeof(Mortar), "GetTargetPosition")]
     public class MortarTargetPatch
     {
@@ -376,6 +359,9 @@ namespace RavenM
 
         private void LateUpdate()
         {
+            if (!IsClient)
+                return;
+
             Time.timeScale = 1f;
             Time.fixedDeltaTime = Time.timeScale / 60f;
             GameManager.instance?.sfxMixer?.SetFloat("pitch", Time.timeScale);
