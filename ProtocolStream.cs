@@ -219,14 +219,13 @@ namespace RavenM
         public void Write(VehiclePacket value)
         {
             Write(value.Id);
-            Write((int)value.Type);
+            Write(value.NameHash);
+            Write(value.Mod);
             Write(value.Position);
             Write(value.Rotation);
-            Write(value.Team);
             Write(value.Health);
             Write(value.Dead);
             Write(value.IsTurret);
-            Write((int)value.TurretType);
             Write(value.Active);
         }
 
@@ -524,14 +523,13 @@ namespace RavenM
             return new VehiclePacket
             {
                 Id = ReadInt32(),
-                Type = (VehicleSpawner.VehicleSpawnType)ReadInt32(),
+                NameHash = ReadInt32(),
+                Mod = ReadUInt64(),
                 Position = ReadVector3(),
                 Rotation = ReadQuaternion(),
-                Team = ReadInt32(),
                 Health = ReadSingle(),
                 Dead = ReadBoolean(),
                 IsTurret = ReadBoolean(),
-                TurretType = (TurretSpawner.TurretSpawnType)ReadInt32(),
                 Active = ReadBoolean(),
             };
         }

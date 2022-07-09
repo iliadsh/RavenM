@@ -4,26 +4,6 @@ using HarmonyLib;
 
 namespace RavenM
 {
-    [HarmonyPatch(typeof(VehicleSpawner), nameof(VehicleSpawner.SpawnVehicle))]
-    public class SpawnVehicleSyncPatch
-    {
-        static void Postfix(VehicleSpawner __instance, Vehicle __result)
-        {
-            if (!IngameNetManager.instance.IsClient)
-                return;
-
-            if (!IngameNetManager.instance.IsHost)
-                return; // This shouldn't happen anyway
-
-            int id = IngameNetManager.instance.RandomGen.Next(0, int.MaxValue);
-
-            __result.gameObject.AddComponent<GuidComponent>().guid = id;
-
-            IngameNetManager.instance.ClientVehicles.Add(id, __result);
-            IngameNetManager.instance.OwnedVehicles.Add(id);
-        }
-    }
-
     /// <summary>
     /// Don't let the Vehicle die before the owner says it should.
     /// </summary>
@@ -59,21 +39,19 @@ namespace RavenM
     {
         public int Id;
 
-        public VehicleSpawner.VehicleSpawnType Type;
+        public int NameHash;
+
+        public ulong Mod;
 
         public Vector3 Position;
 
         public Quaternion Rotation;
-
-        public int Team;
 
         public float Health;
 
         public bool Dead;
 
         public bool IsTurret;
-
-        public TurretSpawner.TurretSpawnType TurretType;
 
         public bool Active;
     }
