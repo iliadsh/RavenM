@@ -82,6 +82,32 @@ namespace RavenM
     [HarmonyPatch(typeof(GameManager), "StartGame")]
     public class FinalizeStartPatch
     {
+        // Maps sometimes have their own vehicles. We need to tag them.
+        static void Prefix()
+        {
+            if (!LobbySystem.instance.InLobby)
+                return;
+
+            // The game will destroy any vehicles that have already spawned. Ignore them.
+            var ignore = UnityEngine.Object.FindObjectsOfType<Vehicle>();
+            Plugin.logger.LogInfo($"Ignore list: {ignore.Length}");
+
+            var map = GameManager.instance.lastMapEntry;
+
+            foreach (var vehicle in Resources.FindObjectsOfTypeAll<Vehicle>())
+            {
+                if (vehicle.TryGetComponent(out Vehicle _) && !vehicle.TryGetComponent(out PrefabTag _) && !Array.Exists(ignore, x => x == vehicle))
+                {
+                    Plugin.logger.LogInfo($"Detected map vehicle with name: {vehicle.name}, and from map: {map.name}.");
+
+                    var tag = vehicle.gameObject.AddComponent<PrefabTag>();
+                    tag.NameHash = vehicle.name.GetHashCode();
+                    tag.Mod = (ulong)map.name.GetHashCode();
+                    IngameNetManager.PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = vehicle.gameObject;
+                }
+            }
+        }
+
         static void Postfix()
         {
             if (!LobbySystem.instance.LobbyDataReady)
@@ -157,7 +183,9 @@ namespace RavenM
     {
         static void Postfix()
         {
-            if (LobbySystem.instance.InLobby && LobbySystem.instance.IsLobbyOwner)
+            if (LobbySystem.instance.InLobby 
+                && LobbySystem.instance.IsLobbyOwner 
+                && !(bool)typeof(GameManager).GetField("restartArmed", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(GameManager.instance))
             {
                 SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "freeze", "false");
                 SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "started", "false");

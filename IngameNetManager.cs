@@ -32,6 +32,18 @@ namespace RavenM
         }
     }
 
+    [HarmonyPatch(typeof(GameManager), nameof(GameManager.RestartLevel))]
+    public class RestartPatch
+    {
+        static bool Prefix()
+        {
+            if (IngameNetManager.instance.IsClient && !IngameNetManager.instance.IsHost)
+                return false;
+
+            return true;
+        }
+    }
+
     /// <summary>
     /// Don't spawn a foreign actor before they wish
     /// to spawn.
@@ -669,8 +681,6 @@ namespace RavenM
         {
             Plugin.logger.LogInfo("Starting server and client.");
 
-            ResetState();
-
             IsHost = true;
 
             IsClient = true;
@@ -699,8 +709,6 @@ namespace RavenM
         {
             Plugin.logger.LogInfo("Starting client.");
 
-            ResetState();
-
             IsClient = true;
 
             var player = ActorManager.instance.player;
@@ -711,23 +719,6 @@ namespace RavenM
 
                 ClientActors.Add(id, player);
                 OwnedActors.Add(id);
-            }
-
-            foreach (var vehicle in FindObjectsOfType<Vehicle>(includeInactive: true))
-            {
-                ActorManager.DropVehicle(vehicle);
-                typeof(Vehicle).GetMethod("Cleanup", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(vehicle, new object[] { });
-                vehicle.gameObject.SetActive(false);
-            }
-
-            foreach (var vehicle_spawner in FindObjectsOfType<VehicleSpawner>())
-            {
-                Destroy(vehicle_spawner);
-            }
-
-            foreach (var spawn in ActorManager.instance.spawnPoints)
-            {
-                spawn.turretSpawners.Clear();
             }
 
             var iden = new SteamNetworkingIdentity
@@ -866,7 +857,6 @@ namespace RavenM
                         Plugin.logger.LogInfo($"Killing connection from {info.m_identityRemote.GetSteamID()}.");
                         SteamNetworkingSockets.CloseConnection(pCallback.m_hConn, 0, null, false);
 
-                        ResetState();
                         GameManager.ReturnToMenu();
                         break;
                 }
@@ -1113,7 +1103,8 @@ namespace RavenM
                                             continue;
                                         }
 
-                                        vehicle.gameObject.SetActive(vehiclePacket.Active);
+                                        if (!vehicle.gameObject.activeSelf)
+                                            continue;
 
                                         TargetVehicleStates[vehiclePacket.Id] = vehiclePacket;
 
@@ -1127,8 +1118,10 @@ namespace RavenM
                                         }
                                         else if (vehicle.health <= 0)
                                             vehicle.Damage(DamageInfo.Default);
-                                        else if (vehicle.health > 0 && vehicle.burning)
+                                        else if (vehicle.burning)
                                             typeof(Vehicle).GetMethod("StopBurning", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(vehicle, new object[] { });
+                                        else if (vehicle.dead)
+                                            vehicle.GetType().GetMethod("Ressurect", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(vehicle, new object[] { });
                                     }
                                 }
                                 break;
@@ -1741,7 +1734,6 @@ namespace RavenM
                     Health = vehicle.health,
                     Dead = vehicle.dead,
                     IsTurret = vehicle.isTurret,
-                    Active = vehicle.gameObject.activeSelf,
                 };
 
                 bulkVehicleUpdate.Updates.Add(net_vehicle);
