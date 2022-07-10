@@ -744,7 +744,17 @@ namespace RavenM
         {
             for (int i = 0; i < 30; i++)
             {
-                C2SConnection = SteamNetworkingSockets.ConnectP2P(ref iden, 0, 0, null);
+                Plugin.logger.LogInfo($"Attempting connection... {i + 1}/30");
+
+                // Set the initial connection timeout to 2 minutes, for slow hosts.
+                SteamNetworkingConfigValue_t timeout = new SteamNetworkingConfigValue_t
+                {
+                    m_eValue = ESteamNetworkingConfigValue.k_ESteamNetworkingConfig_TimeoutInitial,
+                    m_eDataType = ESteamNetworkingConfigDataType.k_ESteamNetworkingConfig_Int32,
+                    m_val = new SteamNetworkingConfigValue_t.OptionValue { m_int32 = 2 * 60 * 1000 },
+                };
+
+                C2SConnection = SteamNetworkingSockets.ConnectP2P(ref iden, 0, 1, new SteamNetworkingConfigValue_t[] { timeout });
 
                 if (C2SConnection != HSteamNetConnection.Invalid)
                     yield break;
