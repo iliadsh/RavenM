@@ -8,7 +8,7 @@ using System.Text;
 
 namespace RavenM
 {
-    [HarmonyPatch(typeof(InstantActionMaps), nameof(InstantActionMaps.StartGame))]
+    [HarmonyPatch(typeof(GameManager), nameof(GameManager.StartLevel))]
     public class OnStartPatch
     {
         static bool Prefix()
@@ -50,6 +50,7 @@ namespace RavenM
                 SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "started", "yes");
             }
 
+            LobbySystem.instance.ReadyToPlay = false;
             return true;
         }
     }
@@ -145,44 +146,9 @@ namespace RavenM
             LobbySystem.instance.InLobby = false;
             LobbySystem.instance.ReadyToPlay = true;
             LobbySystem.instance.LobbyDataReady = false;
-
-            // Save the last played config to avoid reloading it in case it's the same the next time around.
-            if (LobbySystem.instance.ModsToDownload.Count == 0)
-            {
-                LobbySystem.instance.LastConfig.Clear();
-                foreach (var mod in ModManager.instance.mods)
-                    LobbySystem.instance.LastConfig[mod.workshopItemId] = mod.enabled;
-            }
-
-            if (LobbySystem.instance.IsLobbyOwner || !LobbySystem.instance.CachedMods)
-                return;
-
-            // Reconstruct mods
-            foreach (var mod in ModManager.instance.mods)
-            {
-                mod.enabled = LobbySystem.instance.ModsWeOwn.Contains(mod.workshopItemId);
-            }
-            LobbySystem.instance.ModsWeOwn.Clear();
-            LobbySystem.instance.CachedMods = false;
-        }
-    }
-
-    [HarmonyPatch(typeof(ModPage), "Start")]
-    public class ModPageStartPatch
-    {
-        static void Postfix(ModPage __instance)
-        {
-            if (LobbySystem.instance.LastConfig.Count > 0)
-                __instance.reloadModContentButton.SetActive(true);
-        }
-    }
-
-    [HarmonyPatch(typeof(ModPage), nameof(ModPage.ReloadModContentButtonPressed))]
-    public class ModPagePressPatch
-    {
-        static void Prefix()
-        {
-            LobbySystem.instance.LastConfig.Clear();
+            if (LobbySystem.instance.LoadedServerMods)
+                LobbySystem.instance.RequestModReload = true;
+            LobbySystem.instance.IsLobbyOwner = false;
         }
     }
 
@@ -191,10 +157,33 @@ namespace RavenM
     {
         static void Postfix()
         {
-            if (LobbySystem.instance.InLobby)
+            if (LobbySystem.instance.InLobby && LobbySystem.instance.IsLobbyOwner)
             {
-                SteamMatchmaking.LeaveLobby(LobbySystem.instance.ActualLobbyID);
+                SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "freeze", "false");
+                SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "started", "false");
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(ModManager), nameof(ModManager.GetActiveMods))]
+    public class ActiveModsPatch
+    {
+        static bool Prefix(ModManager __instance, ref List<ModInformation> __result)
+        {
+            if (LobbySystem.instance.LoadedServerMods && LobbySystem.instance.ServerMods.Count > 0)
+            {
+                __result = new List<ModInformation>();
+                foreach (var mod in __instance.mods)
+                {
+                    if (LobbySystem.instance.ServerMods.Contains(mod.workshopItemId))
+                    {
+                        __result.Add(mod);
+                    }
+                }
+                return false;
+            }
+
+            return true;
         }
     }
 
@@ -221,19 +210,17 @@ namespace RavenM
 
         public bool ReadyToPlay = false;
 
-        public bool CachedMods = false;
-
         public List<PublishedFileId_t> ServerMods = new List<PublishedFileId_t>();
 
         public List<PublishedFileId_t> ModsToDownload = new List<PublishedFileId_t>();
 
-        public List<PublishedFileId_t> ModsWeOwn = new List<PublishedFileId_t>();
+        public bool LoadedServerMods = false;
+
+        public bool RequestModReload = false;
 
         public Texture2D LobbyBackground = new Texture2D(1, 1);
 
         public Texture2D ProgressTexture = new Texture2D(1, 1);
-
-        public Dictionary<PublishedFileId_t, bool> LastConfig = new Dictionary<PublishedFileId_t, bool>();
 
         private void Awake()
         {
@@ -254,21 +241,11 @@ namespace RavenM
             Callback<DownloadItemResult_t>.Create(OnItemDownload);
         }
 
-        // Make sure we reconstruct mods when the game closes.
-        private void OnApplicationQuit()
-        {
-            if (InLobby && !IsLobbyOwner && CachedMods)
-            {
-                foreach (var mod in ModManager.instance.mods)
-                {
-                    mod.enabled = ModsWeOwn.Contains(mod.workshopItemId);
-                }
-            }
-        }
-
         private void OnLobbyEnter(LobbyEnter_t pCallback)
         {
             Plugin.logger.LogInfo("Joined lobby!");
+            RequestModReload = false;
+            LoadedServerMods = false;
 
             if (pCallback.m_EChatRoomEnterResponse != (uint)EChatRoomEnterResponse.k_EChatRoomEnterResponseSuccess)
             {
@@ -287,31 +264,17 @@ namespace RavenM
 
                 bool needsToReload = false;
                 List<PublishedFileId_t> mods = new List<PublishedFileId_t>();
-                if (LastConfig.Count > 0)
+                foreach (var mod in ModManager.instance.GetActiveMods())
                 {
-                    foreach (var kv in LastConfig)
+                    if (mod.workshopItemId.ToString() == "0")
                     {
-                        var mod = kv.Key;
-                        bool enabled = kv.Value;
+                        mod.enabled = false;
+                        needsToReload = true;
+                    }
+                    else
+                        mods.Add(mod.workshopItemId);
+                }
 
-                        if (enabled)
-                            mods.Add(mod);
-                    }
-                }
-                else
-                {
-                    foreach (var mod in ModManager.instance.GetActiveMods())
-                    {
-                        if (mod.workshopItemId.ToString() == "0")
-                        {
-                            mod.enabled = false;
-                            needsToReload = true;
-                        }
-                        else
-                            mods.Add(mod.workshopItemId);
-                    }
-                }
-                
                 if (needsToReload)
                     ModManager.instance.ReloadModContent();
 
@@ -333,17 +296,6 @@ namespace RavenM
                     return;
                 }
 
-                ModsWeOwn.Clear();
-                foreach (var mod in ModManager.instance.mods)
-                {
-                    if (mod.enabled)
-                    {
-                        mod.enabled = false;
-                        ModsWeOwn.Add(mod.workshopItemId);
-                    }
-                }
-                CachedMods = true;
-
                 ServerMods.Clear();
                 ModsToDownload.Clear();
                 string[] mods = SteamMatchmaking.GetLobbyData(ActualLobbyID, "mods").Split(',');
@@ -364,7 +316,7 @@ namespace RavenM
                         if (mod.workshopItemId == mod_id)
                         {
                             alreadyHasMod = true;
-                            mod.enabled = true;
+                            break;
                         }
                     }
 
@@ -387,12 +339,12 @@ namespace RavenM
         private void OnItemDownload(DownloadItemResult_t pCallback)
         {
             Plugin.logger.LogInfo($"Downloaded mod! {pCallback.m_nPublishedFileId}");
-            var mod = (ModInformation)typeof(ModManager).GetMethod("AddWorkshopItemAsMod", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ModManager.instance, new object[] { pCallback.m_nPublishedFileId });
             if (ModsToDownload.Contains(pCallback.m_nPublishedFileId))
             {
-                if (InLobby && LobbyDataReady)
-                    mod.enabled = true;
-                
+                var mod = (ModInformation)typeof(ModManager).GetMethod("AddWorkshopItemAsMod", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ModManager.instance, new object[] { pCallback.m_nPublishedFileId });
+                mod.hideInModList = true;
+                mod.enabled = false;
+
                 ModsToDownload.Remove(pCallback.m_nPublishedFileId);
 
                 TriggerModRefresh();
@@ -405,32 +357,23 @@ namespace RavenM
             {
                 Plugin.logger.LogInfo($"All server mods downloaded.");
 
-                if (InLobby && LobbyDataReady)
+                if (InLobby && LobbyDataReady && !IsLobbyOwner)
                 {
-                    bool contentDiffers = false;
-
-                    if (ModManager.instance.mods.Count != LastConfig.Count)
-                        contentDiffers = true;
+                    List<bool> oldState = new List<bool>();
 
                     foreach (var mod in ModManager.instance.mods)
                     {
-                        if (!LastConfig.ContainsKey(mod.workshopItemId))
-                        {
-                            contentDiffers = true;
-                            break;
-                        }
+                        oldState.Add(mod.enabled);
 
-                        if (LastConfig[mod.workshopItemId] != mod.enabled)
-                        {
-                            contentDiffers = true;
-                            break;
-                        }
+                        mod.enabled = ServerMods.Contains(mod.workshopItemId);
                     }
 
-                    if (contentDiffers)
-                        ModManager.instance.ReloadModContent();
-                    else
-                        SendLobbyChat(":ready");
+                    // Clones the list of enabled mods.
+                    ModManager.instance.ReloadModContent();
+                    LoadedServerMods = true;
+
+                    for (int i = 0; i < ModManager.instance.mods.Count; i++)
+                        ModManager.instance.mods[i].enabled = oldState[i];
                 }
             }
             else
@@ -509,6 +452,18 @@ namespace RavenM
                     GUIStack.Push("Main");
                 else
                     GUIStack.Clear();
+            }
+
+            if (MainMenu.instance != null 
+                && (int)typeof(MainMenu).GetField("page", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(MainMenu.instance) < MainMenu.PAGE_INSTANT_ACTION 
+                && InLobby)
+                MainMenu.instance.OpenPageIndex(MainMenu.PAGE_INSTANT_ACTION);
+
+            if (LoadedServerMods && RequestModReload)
+            {
+                LoadedServerMods = false;
+                RequestModReload = false;
+                ModManager.instance.ReloadModContent();
             }
 
             if (!LobbyDataReady)
