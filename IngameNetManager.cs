@@ -220,6 +220,30 @@ namespace RavenM
         }
     }
 
+    [HarmonyPatch(typeof(FpsActorController), "EnablePhotoMode")]
+    public class EnablePhotoModePatch
+    {
+        static void Postfix(FpsActorController __instance)
+        {
+            if (!IngameNetManager.instance.IsClient)
+                return;
+            
+            __instance.DisableMovement();
+        }
+    }
+
+    [HarmonyPatch(typeof(FpsActorController), "DisablePhotoMode")]
+    public class DisablePhotoModePatch
+    {
+        static void Postfix(FpsActorController __instance)
+        {
+            if (!IngameNetManager.instance.IsClient)
+                return;
+
+            __instance.EnableMovement();
+        }
+    }
+
     public class PrefabTag : MonoBehaviour
     {
         public int NameHash;
@@ -458,7 +482,7 @@ namespace RavenM
         {
             if (worldPos != Vector3.zero)
             {
-                var camera = FpsActorController.instance.GetActiveCamera();
+                var camera = FpsActorController.instance.inPhotoMode ? SpectatorCamera.instance.camera : FpsActorController.instance.GetActiveCamera();
                 Vector3 vector = camera.WorldToScreenPoint(worldPos);
 
                 if (vector.z > 0.5f)
@@ -505,14 +529,16 @@ namespace RavenM
                 if (FpsActorController.instance == null)
                     continue;
 
+                if (actor.team != GameManager.PlayerTeam())
+                    continue;
+
                 DrawMarker(controller.Targets.MarkerPosition ?? Vector3.zero);
 
-                Vector3 vector = FpsActorController.instance.GetActiveCamera().WorldToScreenPoint(actor.CenterPosition() + new Vector3(0, 1f, 0));
+                var camera = FpsActorController.instance.inPhotoMode ? SpectatorCamera.instance.camera : FpsActorController.instance.GetActiveCamera();
+                Vector3 vector = camera.WorldToScreenPoint(actor.CenterPosition() + new Vector3(0, 1f, 0));
 
-                if (vector.z < 0f || actor.team != GameManager.PlayerTeam())
-                {
+                if (vector.z < 0f)
                     continue;
-                }
 
                 var nameStyle = new GUIStyle();
                 nameStyle.normal.background = GreyBackground;
