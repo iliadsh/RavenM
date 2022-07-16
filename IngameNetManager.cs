@@ -842,7 +842,7 @@ namespace RavenM
                         using MemoryStream compressedStream = new MemoryStream(packet.data);
                         using DeflateStream decompressStream = new DeflateStream(compressedStream, CompressionMode.Decompress);
                         using var dataStream = new ProtocolReader(decompressStream);
-                        
+                        RSPatch.RSPatch.FixedUpdate(packet, dataStream);
                         //RavenscriptEventsManagerPatch.events.onReceivePacket.Invoke(dataStream.ReadPacket().data);
                         switch (packet.Id)
                         {
@@ -1418,43 +1418,7 @@ namespace RavenM
                                     targetVehicle.Damage(damage_info);
                                 }
                                 break;
-                            case PacketType.CreateCustomGameObject:
-                                {
-                                    SpawnCustomGameObjectPacket customGO_packet = dataStream.ReadSpawnCustomGameObjectPacket();
-                                    Plugin.logger.LogInfo("Create Custom Game Object Packet: " + WLobby.GetNetworkPrefabByHash(customGO_packet.PrefabHash).name);
-                                    //var actor = ClientActors[customGO_packet.];
-                                    //if(actor == ActorManager.instance.player)
-                                    //{
-                                    //    Plugin.logger.LogInfo("Did not create objects for current player because it already has been created");
-                                    //    break;
-                                    //}
-                                    GameObject networkPrefab = WLobby.GetNetworkPrefabByHash(customGO_packet.PrefabHash);
-                                    GameObject instantiaedPrefab = GameObject.Instantiate(networkPrefab);
-                                    instantiaedPrefab.transform.position = customGO_packet.Position;
-                                    instantiaedPrefab.transform.eulerAngles = customGO_packet.Rotation;
-                                    Plugin.logger.LogInfo("ianstantiatedPrefab at " + instantiaedPrefab.transform.position);
-                                    if (networkPrefab == null)
-                                    {
-                                        Plugin.logger.LogDebug("Network prefab is null");
-                                        break;
-                                    }
-                                    Plugin.logger.LogDebug("Created custom gameobject " + networkPrefab.name + " with hash " + customGO_packet.PrefabHash);
-                                }
-                                break;
-                            case PacketType.NetworkGameObjectsHashes:
-                                {
-                                    NetworkGameObjectsHashesPacket syncGO_packet = dataStream.ReadSyncNetworkGameObjectsPacket();
-                                    Plugin.logger.LogInfo("Got syncGO packet with hashes: " + syncGO_packet.NetworkGameObjectHashes);
-                                    WLobby.RefreshHashes(syncGO_packet.NetworkGameObjectHashes);
-
-                                    //var actor = ClientActors[customGO_packet.];
-                                    //if(actor == ActorManager.instance.player)
-                                    //{
-                                    //    Plugin.logger.LogInfo("Did not create objects for current player because it already has been created");
-                                    //    break;
-                                    //}
-                                }
-                                break;
+                            
                         }
                     }
                     // SR7, pls update Steamworks.NET.

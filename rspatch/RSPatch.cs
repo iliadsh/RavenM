@@ -4,6 +4,7 @@ using Lua.Proxy;
 using Lua.Wrapper;
 using MoonSharp.Interpreter;
 using RavenM.RSPatch.Proxy;
+using RavenM.RSPatch.Wrapper;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -181,7 +182,52 @@ namespace RavenM.RSPatch
             Plugin.logger.LogInfo("Added RavenscriptEventsManagerPatch to " + __instance.gameObject.name);
         }
     }
-  
+    public class RSPatch
+    {
+        public static void FixedUpdate(Packet packet, ProtocolReader dataStream)
+        {
+            switch (packet.Id)
+            {
+                case PacketType.CreateCustomGameObject:
+                    {
+                        SpawnCustomGameObjectPacket customGO_packet = dataStream.ReadSpawnCustomGameObjectPacket();
+                        Plugin.logger.LogInfo("Create Custom Game Object Packet: " + WLobby.GetNetworkPrefabByHash(customGO_packet.PrefabHash).name);
+                        //var actor = ClientActors[customGO_packet.];
+                        //if(actor == ActorManager.instance.player)
+                        //{
+                        //    Plugin.logger.LogInfo("Did not create objects for current player because it already has been created");
+                        //    break;
+                        //}
+                        GameObject networkPrefab = WLobby.GetNetworkPrefabByHash(customGO_packet.PrefabHash);
+                        GameObject instantiaedPrefab = GameObject.Instantiate(networkPrefab);
+                        instantiaedPrefab.transform.position = customGO_packet.Position;
+                        instantiaedPrefab.transform.eulerAngles = customGO_packet.Rotation;
+                        Plugin.logger.LogInfo("ianstantiatedPrefab at " + instantiaedPrefab.transform.position);
+                        if (networkPrefab == null)
+                        {
+                            Plugin.logger.LogDebug("Network prefab is null");
+                            break;
+                        }
+                        Plugin.logger.LogDebug("Created custom gameobject " + networkPrefab.name + " with hash " + customGO_packet.PrefabHash);
+                    }
+                    break;
+                case PacketType.NetworkGameObjectsHashes:
+                    {
+                        NetworkGameObjectsHashesPacket syncGO_packet = dataStream.ReadSyncNetworkGameObjectsPacket();
+                        Plugin.logger.LogInfo("Got syncGO packet with hashes: " + syncGO_packet.NetworkGameObjectHashes);
+                        WLobby.RefreshHashes(syncGO_packet.NetworkGameObjectHashes);
+
+                        //var actor = ClientActors[customGO_packet.];
+                        //if(actor == ActorManager.instance.player)
+                        //{
+                        //    Plugin.logger.LogInfo("Did not create objects for current player because it already has been created");
+                        //    break;
+                        //}
+                    }
+                    break;
+            }
+        }
+    }
 
 
 
