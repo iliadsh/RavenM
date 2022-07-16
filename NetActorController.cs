@@ -77,8 +77,8 @@ namespace RavenM
                 if (!actor.IsSeated())
                 {
                     // Fully teleport the actor if they are far away from the target.
-                    var new_pos = (actor.transform.position - Targets.Position).magnitude > 5 
-                                    ? Targets.Position 
+                    var new_pos = (actor.transform.position - Targets.Position).magnitude > 5
+                                    ? Targets.Position
                                     : Vector3.Lerp(actor.transform.position, Targets.Position, 10f * Time.deltaTime);
 
                     actor.SetPositionAndRotation(new_pos, actor.transform.rotation);
@@ -93,7 +93,7 @@ namespace RavenM
                 var weaponWithName = GetWeaponEntryByHash(Targets.ActiveWeaponHash);
 
                 // ? Perhaps MountedWeapons are sometimes sent?
-                if (weaponWithName != null && actor.activeWeapon != null)
+                if (weaponWithName != null)
                 {
                     Plugin.logger.LogInfo($"Changing weapon to: {weaponWithName.name}. current weapon: {actor.activeWeapon?.name}");
                     actor.EquipNewWeaponEntry(weaponWithName, actor.activeWeapon?.slot ?? 0, true);

@@ -104,75 +104,6 @@ namespace RavenM.RSPatch
             }
         }
     }
-
-
-    //[HarmonyPatch(typeof(RavenscriptManager))]
-    //[HarmonyPatch("events", MethodType.Getter)]
-    //public sealed class RSPatchRavenscriptManagerEvents
-    //{
-    //    static AccessTools.FieldRef<RavenscriptManager, ScriptEngine> _engine =
-    //AccessTools.FieldRefAccess<RavenscriptManager, ScriptEngine>("_engine");
-
-    //    private static RSPatchRavenscriptManagerEvents instance = null;
-    //    private static readonly object padlock = new object();
-    //    [HarmonyPrefix]
-    //    public static bool returnEvents(ref RavenscriptEvents __result)
-    //    {
-    //        //Replace get with my event Class that has the same events as the default one
-    //        //lock (padlock)
-    //        //{
-    //        //    if (instance == null)
-    //        //    {
-    //        //        instance = new RSPatchRavenscriptManagerEvents();
-
-
-    //        //    }
-    //        //}
-    //        //Plugin.logger.LogMessage(" awdw " + RSPatchRavenscriptManagerAwake._events2.ToString());
-    //        //__result = RSPatchRavenscriptManagerAwake._events2;
-    //        return true;
-    //    }
-    //    //RSPatchRavenscriptManagerEvents()
-    //    //{
-    //    //}
-    //    //public static RSPatchRavenscriptManagerEvents Instance
-    //    //{
-    //    //    get
-    //    //    {
-    //    //        lock (padlock)
-    //    //        {
-    //    //            if (instance == null)
-    //    //            {
-    //    //                instance = new RSPatchRavenscriptManagerEvents();
-    //    //            }
-    //    //            return instance;
-    //    //        }
-    //    //    }
-    //    //}
-
-    //    //public static RavenscriptMultiplayerEvents events
-    //    //{
-    //    //    get
-    //    //    {
-    //    //        return RSPatchRavenscriptManagerEvents.instance._events2;
-    //    //    }
-    //    //}
-
-    //    //static void Postfix(RavenscriptManager __instance) {
-    //    //    lock (padlock)
-    //    //    {
-    //    //        if (instance == null)
-    //    //        {
-    //    //            instance = new RSPatchRavenscriptManagerEvents();
-    //    //        }
-    //    //    }
-    //    //    //Plugin.logger.LogInfo("before Events global value -> " + _engine(__instance).GetProcessorStats());
-    //    //    //RSPatchRavenscriptManagerEvents.Instance._events2 = _engine(__instance).gameObject.AddComponent<RavenscriptMultiplayerEvents>();
-    //    //    //Plugin.instance.printConsole("_events " + RSPatchRavenscriptManagerEvents.Instance._events2.gameObject);
-    //    //    //_engine(__instance).Set(NameAttribute.GetName(typeof(RavenscriptMultiplayerEvents)), RSPatchRavenscriptManagerEvents.events);
-    //    //    //Plugin.logger.LogInfo("after Events global value -> " + _engine(__instance).GetProcessorStats());
-    //    //}
-    //}
     [HarmonyPatch(typeof(RavenscriptManager), "Awake")]
     public class RSPatchRavenscriptManagerAwake
     {
@@ -228,7 +159,4 @@ namespace RavenM.RSPatch
             }
         }
     }
-
-
-
 }

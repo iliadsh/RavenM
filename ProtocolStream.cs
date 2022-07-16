@@ -2,7 +2,6 @@
 using System.IO;
 using UnityEngine;
 using System.Collections.Generic;
-using RavenM.RSPatch.Packets;
 
 namespace RavenM
 {
@@ -207,13 +206,6 @@ namespace RavenM
             Write(value.Velocity);
             Write(value.Boom);
         }
-        public void Write(CustomObjectUpdatePacket value)
-        {
-            Write(value.Id);
-            Write(value.Position);
-            Write(value.Rotation);
-            Write(value.Active);
-        }
 
         public void Write(BulkProjectileUpdate value)
         {
@@ -258,7 +250,6 @@ namespace RavenM
             Write(value.Voice.Length);
             Write(value.Voice);
         }
-
         public void Write(SpawnCustomGameObjectPacket value)
         {
             Write(value.SourceID);
@@ -538,7 +529,6 @@ namespace RavenM
             };
         }
 
-
         public VehiclePacket ReadVehiclePacket()
         {
             return new VehiclePacket
@@ -586,6 +576,8 @@ namespace RavenM
                 Voice = ReadBytes(ReadInt32()),
             };
         }
+
+
         public SpawnCustomGameObjectPacket ReadSpawnCustomGameObjectPacket()
         {
             return new SpawnCustomGameObjectPacket
