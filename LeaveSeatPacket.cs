@@ -88,7 +88,10 @@ namespace RavenM
             var actorId = actorGuid.guid;
 
             if (!IngameNetManager.instance.OwnedActors.Contains(actorId))
+            {
+                (__instance.controller as NetActorController).SeatResolverCooldown.Start();
                 return;
+            }
 
             Plugin.logger.LogInfo($"Leaving vehicle from: {__instance.name}");
 

@@ -122,6 +122,8 @@ namespace RavenM
             Write(value.Flags);
             Write(value.Ammo);
             Write(value.Health);
+            Write(value.VehicleId);
+            Write(value.Seat);
         }
 
         public void Write(ActorFlagsPacket value)
@@ -384,6 +386,8 @@ namespace RavenM
                 Flags = ReadInt32(),
                 Ammo = ReadInt32(),
                 Health = ReadSingle(),
+                VehicleId = ReadInt32(),
+                Seat = ReadInt32(),
             };
         }
 

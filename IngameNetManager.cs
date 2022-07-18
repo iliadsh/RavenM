@@ -1258,6 +1258,8 @@ namespace RavenM
                                     }
 
                                     actor.EnterSeat(seat, true);
+                                    if (!OwnedActors.Contains(enterSeatPacket.ActorId))
+                                        (actor.controller as NetActorController).SeatResolverCooldown.Start();
 
                                     // If an Actor that we do not own wants to take control of a vehicle,
                                     // then let's give up ownership temporarily.
@@ -1286,10 +1288,11 @@ namespace RavenM
                                     if (actor.seat.IsDriverSeat() && IsHost)
                                     {
                                         OwnedVehicles.Add(actor.seat.vehicle.GetComponent<GuidComponent>().guid);
-                                        actor.seat.vehicle.isInvulnerable = false;
                                     }   
 
                                     actor.LeaveSeat(false);
+                                    if (!OwnedActors.Contains(leaveSeatPacket.Id))
+                                        (actor.controller as NetActorController).SeatResolverCooldown.Start();
                                 }
                                 break;
                             case PacketType.GameStateUpdate:
@@ -1712,6 +1715,8 @@ namespace RavenM
                     Flags = GenerateFlags(actor),
                     Ammo = !actor.dead && actor.activeWeapon != null ? actor.activeWeapon.ammo : 0,
                     Health = actor.health,
+                    VehicleId = actor.IsSeated() && actor.seat.vehicle.TryGetComponent(out GuidComponent vguid) ? vguid.guid : 0,
+                    Seat = actor.IsSeated() ? actor.seat.vehicle.seats.IndexOf(actor.seat) : -1,
                 };
 
                 bulkActorUpdate.Updates.Add(net_actor);
