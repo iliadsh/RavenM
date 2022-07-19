@@ -1111,6 +1111,7 @@ namespace RavenM
 
                                             var prefab = PrefabCache[tag];
                                             vehicle = Instantiate(prefab, vehiclePacket.Position, vehiclePacket.Rotation).GetComponent<Vehicle>();
+                                            vehicle.gameObject.SetActive(true);
 
                                             vehicle.isTurret = vehiclePacket.IsTurret;
 
