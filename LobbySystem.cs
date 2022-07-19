@@ -272,6 +272,15 @@ namespace RavenM
             Callback<LobbyChatMsg_t>.Create(OnLobbyChatMessage);
             Callback<DownloadItemResult_t>.Create(OnItemDownload);
             Callback<LobbyMatchList_t>.Create(OnLobbyList);
+            Callback<LobbyDataUpdate_t>.Create(OnLobbyData);
+        }
+
+        private void OnLobbyData(LobbyDataUpdate_t pCallback)
+        {
+            var lobby = new CSteamID(pCallback.m_ulSteamIDLobby);
+
+            if (pCallback.m_bSuccess == 0 || SteamMatchmaking.GetLobbyDataCount(lobby) == 0)
+                OpenLobbies.Remove(lobby);
         }
 
         private void OnLobbyEnter(LobbyEnter_t pCallback)
