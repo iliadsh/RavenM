@@ -135,7 +135,7 @@ namespace RavenM
     }
 
     [HarmonyPatch(typeof(ModManager), "LoadModContentFromObject")]
-    public class ModdedVehicleTagPatch
+    public class ModdedPrefabTagPatch
     {
         static void Postfix(ModContentInformation contentInfo)
         {
@@ -145,21 +145,31 @@ namespace RavenM
             {
                 var prefab = vehicle.gameObject;
 
-                if (prefab.TryGetComponent(out Vehicle _) && !prefab.TryGetComponent(out PrefabTag _))
+                if (!prefab.TryGetComponent(out PrefabTag _))
                 {
                     Plugin.logger.LogInfo($"Detected vehicle prefab with name: {prefab.name}, and from mod: {contentInfo.sourceMod.workshopItemId}");
 
-                    var tag = prefab.AddComponent<PrefabTag>();
-                    tag.NameHash = prefab.name.GetHashCode();
-                    tag.Mod = (ulong)contentInfo.sourceMod.workshopItemId;
-                    IngameNetManager.PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = prefab;
+                    IngameNetManager.TagPrefab(prefab, (ulong)contentInfo.sourceMod.workshopItemId);
+                }
+            }
+
+            // We also do the projectiles.
+            foreach (var vehicle in Resources.FindObjectsOfTypeAll<Projectile>())
+            {
+                var prefab = vehicle.gameObject;
+
+                if (!prefab.TryGetComponent(out PrefabTag _))
+                {
+                    Plugin.logger.LogInfo($"Detected projectile prefab with name: {prefab.name}, and from mod: {contentInfo.sourceMod.workshopItemId}");
+
+                    IngameNetManager.TagPrefab(prefab, (ulong)contentInfo.sourceMod.workshopItemId);
                 }
             }
         }
     }
 
     [HarmonyPatch(typeof(ActorManager), "Awake")]
-    public class DefaultVehiclesPatch
+    public class DefaultPrefabsPatch
     {
         static void Postfix(ActorManager __instance)
         {
@@ -167,20 +177,22 @@ namespace RavenM
             {
                 Plugin.logger.LogInfo($"Tagging default vehicle: {vehicle.name}");
 
-                var tag = vehicle.AddComponent<PrefabTag>();
-                tag.NameHash = vehicle.name.GetHashCode();
-                tag.Mod = 0;
-                IngameNetManager.PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = vehicle;
+                IngameNetManager.TagPrefab(vehicle);
             }
 
             foreach (var turret in __instance.defaultTurretPrefabs)
             {
                 Plugin.logger.LogInfo($"Tagging default turret: {turret.name}");
 
-                var tag = turret.AddComponent<PrefabTag>();
-                tag.NameHash = turret.name.GetHashCode();
-                tag.Mod = 0;
-                IngameNetManager.PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = turret;
+                IngameNetManager.TagPrefab(turret);
+            }
+
+            foreach (var projectile in Resources.FindObjectsOfTypeAll<Projectile>())
+            {
+                var prefab = projectile.gameObject;
+                Plugin.logger.LogInfo($"Tagging default projectile: {prefab.name}");
+
+                IngameNetManager.TagPrefab(prefab);
             }
         }
     }
@@ -213,6 +225,72 @@ namespace RavenM
             {
                 Plugin.logger.LogInfo($"Cleaning up unwanted vehicle with name: {__instance.name}");
                 typeof(Vehicle).GetMethod("Cleanup", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(__instance, new object[] { });
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(Projectile), "StartTravelling")]
+    public class ProjectileCreatedPatch
+    {
+        static bool Prefix(Projectile __instance)
+        {
+            if (!IngameNetManager.instance.IsClient)
+                return true;
+
+            var sourceId = -1;
+            if (__instance.source != null && __instance.source.TryGetComponent(out GuidComponent aguid))
+                sourceId = aguid.guid;
+
+            if (IngameNetManager.instance.OwnedActors.Contains(sourceId) || (sourceId == -1 && IngameNetManager.instance.IsHost))
+            {
+                int id = IngameNetManager.instance.RandomGen.Next(0, int.MaxValue);
+
+                if (__instance.TryGetComponent(out GuidComponent guid))
+                    id = guid.guid;
+                else
+                    __instance.gameObject.AddComponent<GuidComponent>().guid = id;
+
+                IngameNetManager.instance.ClientProjectiles.Add(id, __instance);
+                IngameNetManager.instance.OwnedProjectiles.Add(id);
+
+                var tag = __instance.gameObject.GetComponent<PrefabTag>();
+
+                if (tag == null)
+                {
+                    Plugin.logger.LogError($"Projectile {__instance.name} is somehow untagged!");
+                    return true;
+                }
+
+                using MemoryStream memoryStream = new MemoryStream();
+                var spawnPacket = new SpawnProjectilePacket
+                {
+                    SourceId = sourceId,
+                    NameHash = tag.NameHash,
+                    Mod = tag.Mod,
+                    Position = __instance.transform.position,
+                    Rotation = __instance.transform.rotation,
+                    performInfantryInitialMuzzleTravel = __instance.performInfantryInitialMuzzleTravel,
+                    initialMuzzleTravelDistance  = __instance.initialMuzzleTravelDistance,
+                    ProjectileId = id,
+                };
+
+                using (var writer = new ProtocolWriter(memoryStream))
+                {
+                    writer.Write(spawnPacket);
+                }
+                byte[] data = memoryStream.ToArray();
+
+                IngameNetManager.instance.SendPacketToServer(data, PacketType.SpawnProjectile, Constants.k_nSteamNetworkingSend_Reliable);
+
+                Plugin.logger.LogInfo($"Registered new spawned projectile with name: {__instance.name} and id: {id}");
+            }
+            else if (!__instance.TryGetComponent(out GuidComponent guid) || !IngameNetManager.instance.ClientProjectiles.ContainsKey(guid.guid))
+            {
+                Plugin.logger.LogInfo($"Cleaning up unwanted projectile with name: {__instance.name}");
+                typeof(Projectile).GetMethod("Cleanup", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(__instance, new object[] { false });
                 return false;
             }
 
@@ -297,8 +375,6 @@ namespace RavenM
         public HashSet<int> OwnedProjectiles = new HashSet<int>();
 
         public Dictionary<int, Projectile> ClientProjectiles = new Dictionary<int, Projectile>();
-
-        public bool ClientCanSpawnProjectile = false;
 
         public bool ClientCanSpawnBot = false;
 
@@ -476,6 +552,14 @@ namespace RavenM
             }
 
             SendVoiceData();
+        }
+
+        public static void TagPrefab(GameObject prefab, ulong mod = 0)
+        {
+            var tag = prefab.gameObject.AddComponent<PrefabTag>();
+            tag.NameHash = prefab.name.GetHashCode();
+            tag.Mod = mod;
+            PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = prefab;
         }
 
         private void DrawMarker(Vector3 worldPos)
@@ -669,7 +753,6 @@ namespace RavenM
             OwnedProjectiles.Clear();
             ClientProjectiles.Clear();
 
-            ClientCanSpawnProjectile = false;
             ClientCanSpawnBot = false;
 
             IsHost = false;
@@ -1348,19 +1431,21 @@ namespace RavenM
                                     if (actor == null)
                                         break;
 
-                                    var weapon = actor.activeWeapon;
+                                    var tag = new Tuple<int, ulong>(spawnPacket.NameHash, spawnPacket.Mod);
 
-                                    if (weapon == null)
-                                        break;
-
-                                    // Maybe move to a scope guard?
-                                    ClientCanSpawnProjectile = true;
-
-                                    var projectile = (Projectile)weapon.GetType().GetMethod("SpawnProjectile", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(weapon, new object[] 
+                                    if (!PrefabCache.ContainsKey(tag))
                                     {
-                                        spawnPacket.Direction,
-                                        spawnPacket.MuzzlePosition,
-                                    });
+                                        Plugin.logger.LogError($"Cannot find projectile prefab with this tagging.");
+                                        continue;
+                                    }
+
+                                    var prefab = PrefabCache[tag];
+                                    var projectile = ProjectilePoolManager.InstantiateProjectile(prefab, spawnPacket.Position, spawnPacket.Rotation);
+
+                                    projectile.source = actor;
+                                    projectile.sourceWeapon = null;
+                                    projectile.performInfantryInitialMuzzleTravel = spawnPacket.performInfantryInitialMuzzleTravel;
+                                    projectile.initialMuzzleTravelDistance = spawnPacket.initialMuzzleTravelDistance;
 
                                     // Save the old configuration for when the object is pooled.
                                     ReleaseProjectilePatch.ConfigCache[projectile] = new ReleaseProjectilePatch.Config
@@ -1377,14 +1462,14 @@ namespace RavenM
                                     projectile.autoAssignArmorDamage = false;
                                     projectile.armorDamage = Vehicle.ArmorRating.SmallArms;
 
-                                    ClientCanSpawnProjectile = false;
-
                                     if (projectile.gameObject.TryGetComponent(out GuidComponent guid))
                                         guid.guid = spawnPacket.ProjectileId;
                                     else
                                         projectile.gameObject.AddComponent<GuidComponent>().guid = spawnPacket.ProjectileId;
 
                                     ClientProjectiles[spawnPacket.ProjectileId] = projectile;
+
+                                    projectile.StartTravelling();
                                 }
                                 break;
                             case PacketType.UpdateProjectile:
@@ -1413,10 +1498,21 @@ namespace RavenM
                                         if (projectilePacket.Boom && projectile.enabled)
                                         {
                                             var Explode = projectile.GetType().GetMethod("Explode", BindingFlags.Instance | BindingFlags.NonPublic);
-                                            // This shouldn't ever not exist, since we send only for Rockets++
+                                            // This shouldn't ever not exist, since we send only for ExplodingProjectiles.
                                             if (Explode != null)
                                             {
-                                                Explode.Invoke(projectile, new object[] { projectile.transform.position, projectile.transform.up });
+                                                var up = -projectile.transform.forward;
+
+                                                if (projectile.velocity != Vector3.zero &&
+                                                    projectile.ProjectileRaycast(new Ray(projectile.transform.position, projectile.velocity.normalized),
+                                                    out var hitInfo,
+                                                    Mathf.Infinity,
+                                                    (int)projectile.GetType().GetField("hitMask", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(projectile)))
+                                                {
+                                                    up = hitInfo.normal;
+                                                }
+
+                                                Explode.Invoke(projectile, new object[] { projectile.transform.position, up });
                                             }
                                         }
                                     }
@@ -1805,8 +1901,9 @@ namespace RavenM
                 }
 
                 // We should only update projectiles where it is obvious
-                // there is a desync, like rockets++
-                if (!typeof(Rocket).IsAssignableFrom(projectile.GetType()))
+                // there is a desync, like rockets++. OR the one's that
+                // explode. It's hard to predict how they behave.
+                if (!typeof(ExplodingProjectile).IsAssignableFrom(projectile.GetType()))
                     continue;
 
                 var net_projectile = new UpdateProjectilePacket

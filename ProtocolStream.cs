@@ -196,8 +196,12 @@ namespace RavenM
         public void Write(SpawnProjectilePacket value)
         {
             Write(value.SourceId);
-            Write(value.Direction);
-            Write(value.MuzzlePosition);
+            Write(value.NameHash);
+            Write(value.Mod);
+            Write(value.Position);
+            Write(value.Rotation);
+            Write(value.performInfantryInitialMuzzleTravel);
+            Write(value.initialMuzzleTravelDistance);
             Write(value.ProjectileId);
         }
 
@@ -490,8 +494,12 @@ namespace RavenM
             return new SpawnProjectilePacket
             {
                 SourceId = ReadInt32(),
-                Direction = ReadVector3(),
-                MuzzlePosition = ReadVector3(),
+                NameHash = ReadInt32(),
+                Mod = ReadUInt64(),
+                Position = ReadVector3(),
+                Rotation = ReadQuaternion(),
+                performInfantryInitialMuzzleTravel = ReadBoolean(),
+                initialMuzzleTravelDistance = ReadSingle(),
                 ProjectileId = ReadInt32(),
             };
         }
