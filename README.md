@@ -29,11 +29,9 @@ Afterwards, you should be able to build the project as normal. Visual Studio 201
 
 This mod depends on [BepInEx](https://github.com/BepInEx/BepInEx), a cross-platform Unity modding framework. First, install BepInEx into Ravenfield following the installation instructions [here](https://docs.bepinex.dev/articles/user_guide/installation/index.html). As per the instructions, make sure to run the game at least once with BepInEx installed before adding the mod to generate config files.
 
-Next, place `RavenM.dll` and `protobuf-net.dll` into `Ravenfield/BepInEx/plugins/`. Optionally, you may also place `RavenM.pdb` to generate better debug information in the logs.
+Next, place `RavenM.dll` into `Ravenfield/BepInEx/plugins/`. Optionally, you may also place `RavenM.pdb` to generate better debug information in the logs.
 
 Run the game and RavenM should now be installed.
-
-### Note: you will see no Workshop mods loaded. <b>This is normal!</b> There is no content mod support in RavenM. Yes, this is a planned feature.
 
 # Playing
 <b>Tl;dr</b>: The connection menu is opened with `M` while in the `Instant Action` menu.
