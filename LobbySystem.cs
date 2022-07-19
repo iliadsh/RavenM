@@ -250,6 +250,10 @@ namespace RavenM
 
         public Texture2D ProgressTexture = new Texture2D(1, 1);
 
+        public List<CSteamID> OpenLobbies = new List<CSteamID>();
+
+        public CSteamID LobbyView = CSteamID.Nil;
+
         private void Awake()
         {
             instance = this;
@@ -267,6 +271,7 @@ namespace RavenM
             Callback<LobbyChatUpdate_t>.Create(OnLobbyChatUpdate);
             Callback<LobbyChatMsg_t>.Create(OnLobbyChatMessage);
             Callback<DownloadItemResult_t>.Create(OnItemDownload);
+            Callback<LobbyMatchList_t>.Create(OnLobbyList);
         }
 
         private void OnLobbyEnter(LobbyEnter_t pCallback)
@@ -466,6 +471,19 @@ namespace RavenM
             else if (chat == ":ready")
             {
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "ready_" + user, "yes");
+            }
+        }
+
+        private void OnLobbyList(LobbyMatchList_t pCallback)
+        {
+            Plugin.logger.LogInfo("Got lobby list.");
+
+            OpenLobbies.Clear();
+            for (int i = 0; i < pCallback.m_nLobbiesMatching; i++)
+            {
+                var lobby = SteamMatchmaking.GetLobbyByIndex(i);
+                Plugin.logger.LogInfo($"Requesting lobby data for {lobby} -- {SteamMatchmaking.RequestLobbyData(lobby)}");
+                OpenLobbies.Add(lobby);
             }
         }
 
@@ -791,12 +809,44 @@ namespace RavenM
                         IsLobbyOwner = true;
                         LobbyDataReady = false;
                     }
+
+                    GUILayout.Space(3f);
+
+                    if (GUILayout.Button("<color=#888888>BACK</color>"))
+                        GUIStack.Pop();
                 }
                 else if (GUIStack.Peek() == "Join")
                 {
                     GUILayout.BeginHorizontal();
                         GUILayout.FlexibleSpace();
                             GUILayout.Label($"JOIN");
+                        GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.Space(10f);
+
+                    if (GUILayout.Button("BROWSE"))
+                    {
+                        OpenLobbies.Clear();
+                        SteamMatchmaking.RequestLobbyList();
+                        GUIStack.Push("Browse");
+                    }
+
+                    GUILayout.Space(5f);
+
+                    if (GUILayout.Button("DIRECT CONNECT"))
+                        GUIStack.Push("Direct");
+
+                    GUILayout.Space(3f);
+
+                    if (GUILayout.Button("<color=#888888>BACK</color>"))
+                        GUIStack.Pop();
+                }
+                else if (GUIStack.Peek() == "Direct")
+                {
+                    GUILayout.BeginHorizontal();
+                        GUILayout.FlexibleSpace();
+                            GUILayout.Label($"DIRECT CONNECT");
                         GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
@@ -823,6 +873,125 @@ namespace RavenM
                             LobbyDataReady = false;
                         }
                     }
+
+                    GUILayout.Space(3f);
+
+                    if (GUILayout.Button("<color=#888888>BACK</color>"))
+                        GUIStack.Pop();
+                }
+                else if (GUIStack.Peek() == "Browse")
+                {
+                    GUILayout.BeginHorizontal();
+                        GUILayout.FlexibleSpace();
+                            GUILayout.Label($"BROWSE");
+                        GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.Space(10f);
+
+                    if (GUILayout.Button("REFRESH"))
+                    {
+                        OpenLobbies.Clear();
+                        SteamMatchmaking.RequestLobbyList();
+                    }
+
+                    GUILayout.Space(10f);
+
+                    GUILayout.BeginHorizontal();
+                        GUILayout.FlexibleSpace();
+                            GUILayout.Label($"LOBBIES - ({OpenLobbies.Count})");
+                        GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    foreach (var lobby in OpenLobbies)
+                    {
+                        var owner = SteamMatchmaking.GetLobbyData(lobby, "owner");
+
+                        bool hasData = false;
+                        string name = "<color=#777777>Loading...</color>";
+                        if (owner != string.Empty)
+                        {
+                            var ownerId = new CSteamID(ulong.Parse(owner));
+                            hasData = !SteamFriends.RequestUserInformation(ownerId, true);
+                            if (hasData)
+                            {
+                                name = SteamFriends.GetFriendPersonaName(ownerId);
+                                if (name.Length > 10)
+                                {
+                                    name = name.Substring(0, 10) + "...";
+                                }
+                                name += $" - ({SteamMatchmaking.GetNumLobbyMembers(lobby)}/{SteamMatchmaking.GetLobbyMemberLimit(lobby)})";
+                            }  
+                        }
+
+                        if (GUILayout.Button($"{name}") && hasData)
+                        {
+                            LobbyView = lobby;
+                            GUIStack.Push("Lobby View");
+                        }
+                    }
+
+                    GUILayout.Space(3f);
+
+                    if (GUILayout.Button("<color=#888888>BACK</color>"))
+                        GUIStack.Pop();
+                }
+                else if (GUIStack.Peek() == "Lobby View")
+                {
+                    var owner = new CSteamID(ulong.Parse(SteamMatchmaking.GetLobbyData(LobbyView, "owner")));
+                    var name = SteamFriends.GetFriendPersonaName(owner);
+
+                    GUILayout.BeginHorizontal();
+                        GUILayout.FlexibleSpace();
+                            GUILayout.Label($"{name}'s");
+                        GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                        GUILayout.FlexibleSpace();
+                            GUILayout.Label($"LOBBY");
+                        GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.Space(10f);
+
+                    if (GUILayout.Button("REFRESH"))
+                    {
+                        SteamMatchmaking.RequestLobbyData(LobbyView);
+                    }
+
+                    GUILayout.Space(10f);
+
+                    GUILayout.Label($"MEMBERS: {SteamMatchmaking.GetNumLobbyMembers(LobbyView)}/{SteamMatchmaking.GetLobbyMemberLimit(LobbyView)}");
+
+                    var modList = SteamMatchmaking.GetLobbyData(LobbyView, "mods");
+                    var modCount = modList != string.Empty ? modList.Split(',').Length : 0;
+                    GUILayout.Label($"MODS: {modCount}");
+
+                    GUILayout.Label($"BOTS: {SteamMatchmaking.GetLobbyData(LobbyView, "botNumberField")}");
+
+                    var map = SteamMatchmaking.GetLobbyData(LobbyView, "customMap");
+                    map = map != string.Empty ? map : "Default";
+                    GUILayout.Label($"MAP: {map}");
+
+                    GUILayout.Space(10f);
+
+                    if (Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString() != SteamMatchmaking.GetLobbyData(LobbyView, "build_id"))
+                    {
+                        GUILayout.Label("<color=red>This lobby is running on a different version of RavenM!</color>");
+                    }
+                    else if (GUILayout.Button("JOIN"))
+                    {
+                        SteamMatchmaking.JoinLobby(LobbyView);
+                        InLobby = true;
+                        IsLobbyOwner = false;
+                        LobbyDataReady = false;
+                    }
+
+                    GUILayout.Space(3f);
+
+                    if (GUILayout.Button("<color=#888888>BACK</color>"))
+                        GUIStack.Pop();
                 }
 
                 GUILayout.EndVertical();
