@@ -916,6 +916,24 @@ namespace RavenM
                     case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_Connecting:
                         Plugin.logger.LogInfo($"Connection request from: {info.m_identityRemote.GetSteamID()}");
 
+                        bool inLobby = false;
+                        int len = SteamMatchmaking.GetNumLobbyMembers(LobbySystem.instance.ActualLobbyID);
+                        for (int i = 0; i < len; i++)
+                        {
+                            if (info.m_identityRemote.GetSteamID() == SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i))
+                            {
+                                inLobby = true;
+                                break;
+                            }
+                        }
+
+                        if (!inLobby)
+                        {
+                            SteamNetworkingSockets.CloseConnection(pCallback.m_hConn, 0, null, false);
+                            Plugin.logger.LogError("This user is not part of the lobby! Rejecting the connection.");
+                            break;
+                        }
+
                         if (SteamNetworkingSockets.AcceptConnection(pCallback.m_hConn) != EResult.k_EResultOK)
                         {
                             SteamNetworkingSockets.CloseConnection(pCallback.m_hConn, 0, null, false);
