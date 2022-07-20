@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
@@ -352,6 +353,10 @@ namespace RavenM
         public int _bytesOut = 0;
         public int _totalBytesOut = 0;
 
+        public bool _showSpecificOutbound = false;
+        public Dictionary<PacketType, int> _savedBytesOuts = new Dictionary<PacketType, int>();
+        public Dictionary<PacketType, int> _specificBytesOut = new Dictionary<PacketType, int>();
+
         public int BotIdGen = 0;
 
         public Guid OwnGUID = Guid.NewGuid();
@@ -481,6 +486,9 @@ namespace RavenM
 
         private void Update()
         {
+            if (Input.GetKeyDown(KeyCode.F7))
+                _showSpecificOutbound = !_showSpecificOutbound;
+
             // AKA Tilde Key.
             if (Input.GetKeyDown(KeyCode.BackQuote) 
                 && GameManager.instance != null && GameManager.IsIngame() 
@@ -537,6 +545,9 @@ namespace RavenM
 
                 _bytesOut = _totalBytesOut;
                 _totalBytesOut = 0;
+
+                _savedBytesOuts = _specificBytesOut.ToDictionary(entry => entry.Key, entry => entry.Value);
+                _specificBytesOut.Clear();
             }
 
             if (Input.GetKeyDown(KeyCode.CapsLock))
@@ -594,6 +605,17 @@ namespace RavenM
 
             SteamNetworkingSockets.GetQuickConnectionStatus(C2SConnection, out SteamNetworkingQuickConnectionStatus pStats);
             GUI.Label(new Rect(10, 80, 200, 40), $"Ping: {pStats.m_nPing} ms");
+
+            if (_showSpecificOutbound)
+            {
+                var ordered = _savedBytesOuts.OrderBy(x => -x.Value).ToDictionary(x => x.Key, x => x.Value);
+                int i = 0;
+                foreach (var kv in ordered)
+                {
+                    GUI.Label(new Rect(10, 110 + i * 30, 200, 40), $"{kv.Key} - {kv.Value}B");
+                    i++;
+                }
+            }
 
             DrawMarker(MarkerPosition);
 
@@ -891,6 +913,11 @@ namespace RavenM
             byte[] packet_data = packetStream.ToArray();
 
             _totalBytesOut += packet_data.Length;
+
+            if (_specificBytesOut.ContainsKey(type))
+                _specificBytesOut[type] += packet_data.Length;
+            else
+                _specificBytesOut[type] = packet_data.Length;
 
             // This is safe. We are only pinning the array.
             unsafe
@@ -1924,6 +1951,14 @@ namespace RavenM
                 if (!typeof(ExplodingProjectile).IsAssignableFrom(projectile.GetType()))
                     continue;
 
+                // There are a lot of these to be honest. It's probably better to only
+                // update these when they actually do something (i.e. explode)
+                if (projectile.GetType() == typeof(ExplodingProjectile) && projectile.enabled)
+                    continue;
+                
+                if (!projectile.enabled)
+                    cleanup.Add(owned_projectile);
+
                 var net_projectile = new UpdateProjectilePacket
                 {
                     Id = owned_projectile,
@@ -1949,7 +1984,10 @@ namespace RavenM
             }
             byte[] data = memoryStream.ToArray();
 
-            SendPacketToServer(data, PacketType.UpdateProjectile, Constants.k_nSteamNetworkingSend_Unreliable);
+            // TODO: This needs to be reliable because of the explosion state.
+            // But, the rest of the data does not. Therefore we should have a seperate
+            // packet like the ActorFlags just for this state change.
+            SendPacketToServer(data, PacketType.UpdateProjectile, Constants.k_nSteamNetworkingSend_Reliable);
         }
 
         public void SendVoiceData()
