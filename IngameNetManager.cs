@@ -1239,7 +1239,6 @@ namespace RavenM
 
                                             var prefab = PrefabCache[tag];
                                             vehicle = Instantiate(prefab, vehiclePacket.Position, vehiclePacket.Rotation).GetComponent<Vehicle>();
-                                            vehicle.gameObject.SetActive(true);
 
                                             vehicle.isTurret = vehiclePacket.IsTurret;
 
@@ -1258,8 +1257,7 @@ namespace RavenM
                                             continue;
                                         }
 
-                                        if (!vehicle.gameObject.activeSelf)
-                                            continue;
+                                        vehicle.gameObject.SetActive(vehiclePacket.Active);
 
                                         TargetVehicleStates[vehiclePacket.Id] = vehiclePacket;
 
@@ -1907,6 +1905,7 @@ namespace RavenM
                     Health = vehicle.health,
                     Dead = vehicle.dead,
                     IsTurret = vehicle.isTurret,
+                    Active = vehicle.gameObject.activeSelf,
                 };
 
                 bulkVehicleUpdate.Updates.Add(net_vehicle);

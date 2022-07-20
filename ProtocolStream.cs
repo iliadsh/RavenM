@@ -232,6 +232,7 @@ namespace RavenM
             Write(value.Health);
             Write(value.Dead);
             Write(value.IsTurret);
+            Write(value.Active);
         }
 
         public void Write(BulkVehicleUpdate value)
@@ -541,6 +542,7 @@ namespace RavenM
                 Health = ReadSingle(),
                 Dead = ReadBoolean(),
                 IsTurret = ReadBoolean(),
+                Active = ReadBoolean(),
             };
         }
 
