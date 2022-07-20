@@ -34,8 +34,6 @@ namespace RavenM
 
             if (LobbySystem.instance.IsLobbyOwner)
             {
-                SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "freeze", "true");
-
                 IngameNetManager.instance.OpenRelay();
                 LobbySystem.instance.SendLobbyChat(":start");
 
@@ -63,6 +61,10 @@ namespace RavenM
         {
             if (LobbySystem.instance.InLobby)
             {
+                // Ignore players who joined mid-game.
+                if ((bool)typeof(LoadoutUi).GetField("hasAcceptedLoadoutOnce", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(LoadoutUi.instance))
+                    return true;
+
                 // Wait for everyone to load in first.
                 int len = SteamMatchmaking.GetNumLobbyMembers(LobbySystem.instance.ActualLobbyID);
 
@@ -194,13 +196,7 @@ namespace RavenM
 
         static void Postfix()
         {
-            if (LobbySystem.instance.InLobby 
-                && LobbySystem.instance.IsLobbyOwner 
-                && !(bool)typeof(GameManager).GetField("restartArmed", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(GameManager.instance))
-            {
-                SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "freeze", "false");
-                SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "started", "false");
-            }
+            SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "started", "false");
         }
     }
 
@@ -385,13 +381,6 @@ namespace RavenM
                     }
                 }
                 TriggerModRefresh();
-                
-                if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "started") == "yes")
-                {
-                    Plugin.logger.LogInfo("The game has already started :( Leaving lobby.");
-                    SteamMatchmaking.LeaveLobby(ActualLobbyID);
-                    return;
-                }
             }
         }
 
@@ -448,10 +437,17 @@ namespace RavenM
             // Anything other than a join...
             if ((pCallback.m_rgfChatMemberStateChange & (uint)EChatMemberStateChange.k_EChatMemberStateChangeEntered) == 0)
             {
+                var id = new CSteamID(pCallback.m_ulSteamIDUserChanged);
+
                 // ...means the owner left.
-                if (OwnerID == new CSteamID(pCallback.m_ulSteamIDUserChanged))
+                if (OwnerID == id)
                 {
                     SteamMatchmaking.LeaveLobby(ActualLobbyID);
+                }
+                else if (IsLobbyOwner)
+                {
+                    // In case they join back.
+                    SteamMatchmaking.SetLobbyData(ActualLobbyID, "ready_" + id.ToString(), "no");
                 }
             }
         }
@@ -489,15 +485,20 @@ namespace RavenM
 
             if (chat == ":start")
             {
-                ReadyToPlay = true;
-                //No initial bots! Many errors otherwise!
-                InstantActionMaps.instance.botNumberField.text = "0";
-                InstantActionMaps.instance.StartGame();
+                StartAsClient();
             }
             else if (chat == ":ready")
             {
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "ready_" + user, "yes");
             }
+        }
+
+        private void StartAsClient()
+        {
+            ReadyToPlay = true;
+            //No initial bots! Many errors otherwise!
+            InstantActionMaps.instance.botNumberField.text = "0";
+            InstantActionMaps.instance.StartGame();
         }
 
         private void OnLobbyList(LobbyMatchList_t pCallback)
@@ -625,7 +626,7 @@ namespace RavenM
                 }
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "mutators", string.Join(",", enabledMutators.ToArray()));
             }
-            else if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "freeze") != "true" && SteamMatchmaking.GetLobbyData(ActualLobbyID, "ready_" + SteamUser.GetSteamID()) == "yes")
+            else if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "ready_" + SteamUser.GetSteamID()) == "yes")
             {
                 // InstantActionMaps.instance.gameModeDropdown.value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "gameMode"));
                 InstantActionMaps.instance.nightToggle.isOn = bool.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nightMode"));
@@ -774,6 +775,11 @@ namespace RavenM
                         continue;
 
                     ModManager.instance.loadedMutators[i].isEnabled = bool.Parse(enabled_str);
+                }
+
+                if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "started") == "yes")
+                {
+                    StartAsClient();
                 }
             }
         }
@@ -1025,6 +1031,9 @@ namespace RavenM
                     var map = SteamMatchmaking.GetLobbyData(LobbyView, "customMap");
                     map = map != string.Empty ? map : "Default";
                     GUILayout.Label($"MAP: {map}");
+
+                    var status = SteamMatchmaking.GetLobbyData(LobbyView, "started") == "yes" ? "<color=green>In-game</color>" : "Configuring";
+                    GUILayout.Label($"STATUS: {status}");
 
                     GUILayout.Space(10f);
 
