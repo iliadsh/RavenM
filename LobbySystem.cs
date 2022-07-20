@@ -5,6 +5,7 @@ using Steamworks;
 using HarmonyLib;
 using System;
 using System.Text;
+using System.Diagnostics;
 
 namespace RavenM
 {
@@ -181,6 +182,16 @@ namespace RavenM
     [HarmonyPatch(typeof(GameManager), nameof(GameManager.ReturnToMenu))]
     public class LeaveOnEndGame
     {
+        static void Prefix()
+        {
+            if (!LobbySystem.instance.InLobby || LobbySystem.instance.IsLobbyOwner)
+                return;
+
+            // Exit the lobby if we actually want to leave.
+            if (new StackFrame(2).GetMethod().Name == "Menu")
+                SteamMatchmaking.LeaveLobby(LobbySystem.instance.ActualLobbyID);
+        }
+
         static void Postfix()
         {
             if (LobbySystem.instance.InLobby 
