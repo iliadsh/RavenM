@@ -391,6 +391,10 @@ namespace RavenM
         public HSteamNetPollGroup PollGroup;
 
         public List<HSteamNetConnection> ServerConnections = new List<HSteamNetConnection>();
+
+        public Dictionary<HSteamNetConnection, Guid> ConnectionGuidMap = new Dictionary<HSteamNetConnection, Guid>();
+
+        public Dictionary<Guid, List<int>> GuidActorOwnership = new Dictionary<Guid, List<int>>();
         /// Server owned
 
         public readonly System.Random RandomGen = new System.Random();
@@ -745,9 +749,15 @@ namespace RavenM
             if (!global && GameManager.PlayerTeam() != team)
                 return;
 
-            string color = !global ? "green" : (team == 0 ? "blue" : "red");
+            if (team == -1)
+                FullChatLink += $"<color=#eeeeee>{message}</color>";
+            else
+            {
+                string color = !global ? "green" : (team == 0 ? "blue" : "red");
 
-            FullChatLink += $"<color={color}><b><{name}></b></color> {message}\n";
+                FullChatLink += $"<color={color}><b><{name}></b></color> {message}\n";
+            }
+            
             ChatScrollPosition.y = Mathf.Infinity;
         }
 
@@ -801,6 +811,8 @@ namespace RavenM
             Plugin.logger.LogInfo("Starting server socket for connections.");
 
             ServerConnections.Clear();
+            ConnectionGuidMap.Clear();
+            GuidActorOwnership.Clear();
             ServerSocket = SteamNetworkingSockets.CreateListenSocketP2P(0, 0, null);
 
             PollGroup = SteamNetworkingSockets.CreatePollGroup();
@@ -992,8 +1004,59 @@ namespace RavenM
                         Plugin.logger.LogInfo($"Killing connection from {info.m_identityRemote.GetSteamID()}.");
                         SteamNetworkingSockets.CloseConnection(pCallback.m_hConn, 0, null, false);
 
+                        // We take ownership of and kill all the actors that were left behind.
                         if (ServerConnections.Contains(pCallback.m_hConn))
+                        {
                             ServerConnections.Remove(pCallback.m_hConn);
+
+                            if (!ConnectionGuidMap.ContainsKey(pCallback.m_hConn))
+                                break;
+
+                            var guid = ConnectionGuidMap[pCallback.m_hConn];
+
+                            if (!GuidActorOwnership.ContainsKey(guid))
+                                break;
+
+                            var actors = GuidActorOwnership[guid];
+
+                            foreach (var id in actors)
+                            {
+                                if (!ClientActors.ContainsKey(id))
+                                    continue;
+
+                                var actor = ClientActors[id];
+
+                                var controller = actor.controller as NetActorController;
+
+                                if ((controller.Flags & (int)ActorStateFlags.AiControlled) == 0)
+                                {
+                                    var leaveMsg = $"{actor.name} has left the match.\n";
+
+                                    PushChatMessage(string.Empty, leaveMsg, true, -1);
+
+                                    using MemoryStream memoryStream = new MemoryStream();
+                                    var chatPacket = new ChatPacket
+                                    {
+                                        Id = -1,
+                                        Message = leaveMsg,
+                                        TeamOnly = false,
+                                    };
+
+                                    using (var writer = new ProtocolWriter(memoryStream))
+                                    {
+                                        writer.Write(chatPacket);
+                                    }
+                                    byte[] data = memoryStream.ToArray();
+
+                                    SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
+                                }
+
+                                controller.Flags |= (int)ActorStateFlags.Dead;
+                                controller.Targets.Position = Vector3.zero;
+
+                                OwnedActors.Add(id);
+                            }
+                        }
 
                         break;
                 }
@@ -1069,6 +1132,37 @@ namespace RavenM
                                         else
                                         {
                                             Plugin.logger.LogInfo($"New actor registered with ID {actor_packet.Id} name {actor_packet.Name}");
+
+                                            if (IsHost)
+                                            {
+                                                if (!GuidActorOwnership.ContainsKey(packet.sender))
+                                                    GuidActorOwnership[packet.sender] = new List<int>();
+
+                                                GuidActorOwnership[packet.sender].Add(actor_packet.Id);
+
+                                                if ((actor_packet.Flags & (int)ActorStateFlags.AiControlled) == 0)
+                                                {
+                                                    var enterMsg = $"{actor_packet.Name} has joined the match.\n";
+
+                                                    PushChatMessage(string.Empty, enterMsg, true, -1);
+
+                                                    using MemoryStream memoryStream = new MemoryStream();
+                                                    var chatPacket = new ChatPacket
+                                                    {
+                                                        Id = -1,
+                                                        Message = enterMsg,
+                                                        TeamOnly = false,
+                                                    };
+
+                                                    using (var writer = new ProtocolWriter(memoryStream))
+                                                    {
+                                                        writer.Write(chatPacket);
+                                                    }
+                                                    byte[] data = memoryStream.ToArray();
+
+                                                    SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
+                                                }
+                                            }
 
                                             // FIXME: Another better lock needed.
                                             ClientCanSpawnBot = true;
@@ -1565,12 +1659,12 @@ namespace RavenM
                                 {
                                     var chatPacket = dataStream.ReadChatPacket();
 
-                                    var actor = ClientActors[chatPacket.Id];
+                                    var actor = ClientActors.ContainsKey(chatPacket.Id) ? ClientActors[chatPacket.Id] : null;
 
                                     if (actor == null)
-                                        break;
-
-                                    PushChatMessage(actor.name, chatPacket.Message, !chatPacket.TeamOnly, actor.team);
+                                        PushChatMessage(string.Empty, chatPacket.Message, true, -1);
+                                    else
+                                        PushChatMessage(actor.name, chatPacket.Message, !chatPacket.TeamOnly, actor.team);
                                 }
                                 break;
                             case PacketType.Voip:
@@ -1661,6 +1755,19 @@ namespace RavenM
                 for (int msg_index = 0; msg_index < msg_count; msg_index++)
                 {
                     var msg = Marshal.PtrToStructure<SteamNetworkingMessage_t>(msg_ptr[msg_index]);
+
+                    if (!ConnectionGuidMap.ContainsKey(msg.m_conn))
+                    {
+                        // We do a really quick read of the packet data.
+                        unsafe
+                        {
+                            using var memoryStream = new UnmanagedMemoryStream((byte*)msg.m_pData.ToPointer(), msg.m_cbSize);
+                            using var reader = new ProtocolReader(memoryStream);
+                            reader.ReadInt32();
+                            var guid = new Guid(reader.ReadBytes(16));
+                            ConnectionGuidMap[msg.m_conn] = guid;
+                        }
+                    }
 
                     for (int i = ServerConnections.Count - 1; i >= 0; i--)
                     {
