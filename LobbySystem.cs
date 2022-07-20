@@ -96,7 +96,7 @@ namespace RavenM
 
             foreach (var vehicle in Resources.FindObjectsOfTypeAll<Vehicle>())
             {
-                if (vehicle.TryGetComponent(out Vehicle _) && !vehicle.TryGetComponent(out PrefabTag _) && !Array.Exists(ignore, x => x == vehicle))
+                if (!vehicle.TryGetComponent(out PrefabTag _) && !Array.Exists(ignore, x => x == vehicle))
                 {
                     Plugin.logger.LogInfo($"Detected map vehicle with name: {vehicle.name}, and from map: {map.name}.");
 
@@ -221,11 +221,15 @@ namespace RavenM
 
         public bool PrivateLobby = false;
 
+        public bool ShowOnList = true;
+
         public string JoinLobbyID = string.Empty;
 
         public bool InLobby = false;
 
         public bool LobbyDataReady = false;
+
+        public string LobbyMemberCap = "250";
 
         public CSteamID ActualLobbyID = CSteamID.Nil;
 
@@ -279,7 +283,7 @@ namespace RavenM
         {
             var lobby = new CSteamID(pCallback.m_ulSteamIDLobby);
 
-            if (pCallback.m_bSuccess == 0 || SteamMatchmaking.GetLobbyDataCount(lobby) == 0)
+            if (pCallback.m_bSuccess == 0 || SteamMatchmaking.GetLobbyDataCount(lobby) == 0 || SteamMatchmaking.GetLobbyData(lobby, "hidden") == "true")
                 OpenLobbies.Remove(lobby);
         }
 
@@ -303,6 +307,8 @@ namespace RavenM
                 OwnerID = SteamUser.GetSteamID();
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "owner", OwnerID.ToString());
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "build_id", Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString());
+                if (!ShowOnList)
+                    SteamMatchmaking.SetLobbyData(ActualLobbyID, "hidden", "true");
 
                 bool needsToReload = false;
                 List<PublishedFileId_t> mods = new List<PublishedFileId_t>();
@@ -807,13 +813,39 @@ namespace RavenM
 
                     GUILayout.Space(5f);
 
+                    GUILayout.BeginHorizontal();
+                        GUILayout.FlexibleSpace();
+                            GUILayout.Label($"MEMBER LIMIT: ");
+                            LobbyMemberCap = GUILayout.TextField(LobbyMemberCap);
+                        GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    // Ensure we are working with a valid (positive) integer.
+                    for (int i = LobbyMemberCap.Length - 1; i >= 0; i--)
+                        if (LobbyMemberCap[i] < '0' || LobbyMemberCap[i] > '9')
+                            LobbyMemberCap = LobbyMemberCap.Remove(i, 1);
+
+                    // Trim to max 3 characters.
+                    if (LobbyMemberCap.Length > 3)
+                        LobbyMemberCap = LobbyMemberCap.Remove(3);
+
                     PrivateLobby = GUILayout.Toggle(PrivateLobby, "FRIENDS ONLY");
+
+                    ShowOnList = GUILayout.Toggle(ShowOnList, "BROWSABLE");
 
                     GUILayout.Space(10f);
 
                     if (GUILayout.Button("START"))
                     {
-                        SteamMatchmaking.CreateLobby(PrivateLobby ? ELobbyType.k_ELobbyTypeFriendsOnly : ELobbyType.k_ELobbyTypePublic, 250);
+                        // No friends?
+                        if (LobbyMemberCap.Length == 0 || int.Parse(LobbyMemberCap) < 2)
+                            LobbyMemberCap = "2";
+
+                        // Maximum possible allowed by steam.
+                        if (int.Parse(LobbyMemberCap) > 250)
+                            LobbyMemberCap = "250";
+
+                        SteamMatchmaking.CreateLobby(PrivateLobby ? ELobbyType.k_ELobbyTypeFriendsOnly : ELobbyType.k_ELobbyTypePublic, int.Parse(LobbyMemberCap));
                         InLobby = true;
                         IsLobbyOwner = true;
                         LobbyDataReady = false;
@@ -1023,7 +1055,7 @@ namespace RavenM
 
                 GUILayout.BeginHorizontal();
                     GUILayout.FlexibleSpace();
-                        GUILayout.Label($"LOBBY - {len}/250");
+                        GUILayout.Label($"LOBBY - {len}/{SteamMatchmaking.GetLobbyMemberLimit(ActualLobbyID)}");
                     GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
 
