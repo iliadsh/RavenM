@@ -6,6 +6,7 @@ using HarmonyLib;
 using System;
 using System.Text;
 using System.Diagnostics;
+using System.Linq;
 
 namespace RavenM
 {
@@ -592,7 +593,9 @@ namespace RavenM
                         if (idx == -1)
                         {
                             isDefault = false;
-                            idx = ModManager.instance.vehiclePrefabs[type].IndexOf(prefab);
+                            var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
+                            moddedVehicles.Sort((x, y) => x.name.CompareTo(y.name));
+                            idx = moddedVehicles.IndexOf(prefab);
                         }
 
                         SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "vehicle_" + type, prefab == null ? "NULL" : isDefault + "," + idx);
@@ -609,7 +612,9 @@ namespace RavenM
                         if (idx == -1)
                         {
                             isDefault = false;
-                            idx = ModManager.instance.turretPrefabs[type].IndexOf(prefab);
+                            var moddedTurrets = ModManager.AllTurretPrefabs().ToList();
+                            moddedTurrets.Sort((x, y) => x.name.CompareTo(y.name));
+                            idx = moddedTurrets.IndexOf(prefab);
                         }
 
                         SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "turret_" + type, prefab == null ? "NULL" : isDefault + "," + idx);
@@ -715,7 +720,9 @@ namespace RavenM
                             }
                             else
                             {
-                                newPrefab = ModManager.instance.vehiclePrefabs[type][idx];
+                                var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
+                                moddedVehicles.Sort((x, y) => x.name.CompareTo(y.name));
+                                newPrefab = moddedVehicles[idx];
                             }
                         }
 
@@ -746,7 +753,9 @@ namespace RavenM
                             }
                             else
                             {
-                                newPrefab = ModManager.instance.turretPrefabs[type][idx];
+                                var moddedTurrets = ModManager.AllTurretPrefabs().ToList();
+                                moddedTurrets.Sort((x, y) => x.name.CompareTo(y.name));
+                                newPrefab = moddedTurrets[idx];
                             }
                         }
 
