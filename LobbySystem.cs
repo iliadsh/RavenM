@@ -26,7 +26,7 @@ namespace RavenM
                 for (int i = 0; i < len; i++)
                 {
                     var memberId = SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i);
-                    if (SteamMatchmaking.GetLobbyData(LobbySystem.instance.ActualLobbyID, "ready_" + memberId) != "yes")
+                    if (SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, memberId, "loaded") != "yes")
                     {
                         return false;
                     }
@@ -36,16 +36,6 @@ namespace RavenM
             if (LobbySystem.instance.IsLobbyOwner)
             {
                 IngameNetManager.instance.OpenRelay();
-                LobbySystem.instance.SendLobbyChat(":start");
-
-                // Reset the ready states for when everyone has actually loaded in.
-                int len = SteamMatchmaking.GetNumLobbyMembers(LobbySystem.instance.ActualLobbyID);
-
-                for (int i = 0; i < len; i++)
-                {
-                    var memberId = SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i);
-                    SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "ready_" + memberId, "no");
-                }
 
                 SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "started", "yes");
             }
@@ -72,8 +62,12 @@ namespace RavenM
                 for (int i = 0; i < len; i++)
                 {
                     var memberId = SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i);
-                    if (SteamMatchmaking.GetLobbyData(LobbySystem.instance.ActualLobbyID, "ready_" + memberId) != "yes")
+                    if (SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, memberId, "ready") != "yes")
                     {
+                        // Ignore players that just joined and are loading mods.
+                        if (SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, memberId, "loaded") != "yes")
+                            continue;
+
                         return false;
                     }
                 }
@@ -118,15 +112,11 @@ namespace RavenM
                 return;
             
             if (LobbySystem.instance.IsLobbyOwner)
-            {
                 IngameNetManager.instance.StartAsServer();
-                SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "ready_" + SteamUser.GetSteamID(), "yes");
-            }  
             else
-            {
-                IngameNetManager.instance.StartAsClient(LobbySystem.instance.OwnerID);
-                LobbySystem.instance.SendLobbyChat(":ready");
-            }
+                IngameNetManager.instance.StartAsClient(LobbySystem.instance.OwnerID); 
+
+            SteamMatchmaking.SetLobbyMemberData(LobbySystem.instance.ActualLobbyID, "ready", "yes");
         }
     }
 
@@ -163,8 +153,8 @@ namespace RavenM
 
             if (!LobbySystem.instance.InLobby || !LobbySystem.instance.LobbyDataReady || LobbySystem.instance.IsLobbyOwner || LobbySystem.instance.ModsToDownload.Count > 0)
                 return;
-            
-            LobbySystem.instance.SendLobbyChat(":ready");
+
+            SteamMatchmaking.SetLobbyMemberData(LobbySystem.instance.ActualLobbyID, "loaded", "yes");
         }
     }
 
@@ -197,7 +187,13 @@ namespace RavenM
 
         static void Postfix()
         {
-            SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "started", "false");
+            if (!LobbySystem.instance.InLobby)
+                return;
+
+            if (LobbySystem.instance.IsLobbyOwner)
+                SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "started", "false");
+
+            SteamMatchmaking.SetLobbyMemberData(LobbySystem.instance.ActualLobbyID, "ready", "no");
         }
     }
 
@@ -335,7 +331,7 @@ namespace RavenM
                     ModManager.instance.ReloadModContent();
 
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "mods", string.Join(",", mods.ToArray()));
-                SteamMatchmaking.SetLobbyData(ActualLobbyID, "ready_" + SteamUser.GetSteamID(), "yes");
+                SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "loaded", "yes");
             }
             else
             {
@@ -445,11 +441,6 @@ namespace RavenM
                 {
                     SteamMatchmaking.LeaveLobby(ActualLobbyID);
                 }
-                else if (IsLobbyOwner)
-                {
-                    // In case they join back.
-                    SteamMatchmaking.SetLobbyData(ActualLobbyID, "ready_" + id.ToString(), "no");
-                }
             }
         }
 
@@ -483,15 +474,6 @@ namespace RavenM
 
             if (OwnerID != user && !IsLobbyOwner)
                 return;
-
-            if (chat == ":start")
-            {
-                StartAsClient();
-            }
-            else if (chat == ":ready")
-            {
-                SteamMatchmaking.SetLobbyData(ActualLobbyID, "ready_" + user, "yes");
-            }
         }
 
         private void StartAsClient()
@@ -631,7 +613,7 @@ namespace RavenM
                 }
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "mutators", string.Join(",", enabledMutators.ToArray()));
             }
-            else if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "ready_" + SteamUser.GetSteamID()) == "yes")
+            else if (SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, SteamUser.GetSteamID(), "loaded") == "yes")
             {
                 // InstantActionMaps.instance.gameModeDropdown.value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "gameMode"));
                 InstantActionMaps.instance.nightToggle.isOn = bool.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nightMode"));
@@ -1115,7 +1097,9 @@ namespace RavenM
 
                     string name = SteamFriends.GetFriendPersonaName(memberId);
 
-                    var readyColor = SteamMatchmaking.GetLobbyData(ActualLobbyID, "ready_" + memberId) == "yes" ? "green" : "red";
+                    var readyColor = (GameManager.IsInMainMenu() ? SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "loaded") == "yes" 
+                                                                    : SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "ready") == "yes") 
+                                                                    ? "green" : "red";
                     GUILayout.Box($"<color={readyColor}>{name}</color>");
                 }
 
