@@ -350,6 +350,11 @@ namespace RavenM
 
         public static readonly Dictionary<Tuple<int, ulong>, GameObject> PrefabCache = new Dictionary<Tuple<int, ulong>, GameObject>();
 
+
+        public Type Steamworks_NativeMethods;
+
+        public MethodInfo SteamAPI_SteamNetworkingMessage_t_Release;
+
         private void Awake()
         {
             instance = this;
@@ -384,6 +389,9 @@ namespace RavenM
             imageBytes = resourceMemory.ToArray();
 
             RightMarker.LoadImage(imageBytes);
+
+            Steamworks_NativeMethods = Type.GetType("Steamworks.NativeMethods, Assembly-CSharp-firstpass, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
+            SteamAPI_SteamNetworkingMessage_t_Release = Steamworks_NativeMethods.GetMethod("SteamAPI_SteamNetworkingMessage_t_Release", BindingFlags.Static | BindingFlags.Public);
         }
 
         private void Start()
@@ -808,7 +816,7 @@ namespace RavenM
             byte[] packet_data = packetStream.ToArray();
 
             _totalBytesOut += packet_data.Length;
-
+            RavenM.RSPatch.RavenscriptEventsManagerPatch.events.onSendPacket.Invoke("" + BitConverter.ToString(data), type.ToString());
             // This is safe. We are only pinning the array.
             unsafe
             {
@@ -855,7 +863,6 @@ namespace RavenM
                                 (IntPtr)pCallback.m_hConn.m_HSteamNetConnection, ESteamNetworkingConfigDataType.k_ESteamNetworkingConfig_Int32,
                                 (IntPtr)(&_2mb));
                         }
-
                         Plugin.logger.LogInfo("Accepted the connection");
                         break;
 
@@ -920,7 +927,7 @@ namespace RavenM
                         using MemoryStream compressedStream = new MemoryStream(packet.data);
                         using DeflateStream decompressStream = new DeflateStream(compressedStream, CompressionMode.Decompress);
                         using var dataStream = new ProtocolReader(decompressStream);
-
+                        RSPatch.RSPatch.FixedUpdate(packet, dataStream);
                         switch (packet.Id)
                         {
                             case PacketType.ActorUpdate:
@@ -1040,7 +1047,7 @@ namespace RavenM
                                                 voiceSource.outputAudioMixerGroup = GameManager.instance.sfxMixer.outputAudioMixerGroup;
                                                 voiceSource.Play();
                                             }
-
+                                            RavenM.RSPatch.RavenscriptEventsManagerPatch.events.onPlayerJoin.Invoke(actor);
                                             ClientActors[actor_packet.Id] = actor;
                                         }
 
@@ -1111,10 +1118,10 @@ namespace RavenM
 
                                             var prefab = PrefabCache[tag];
                                             vehicle = Instantiate(prefab, vehiclePacket.Position, vehiclePacket.Rotation).GetComponent<Vehicle>();
-
                                             vehicle.isTurret = vehiclePacket.IsTurret;
 
                                             vehicle.gameObject.AddComponent<GuidComponent>().guid = vehiclePacket.Id;
+                                            //RavenM.RSPatch.Wrapper.WLobby.networkGameObjects.Add(prefab.GetHashCode().ToString(), prefab);
 
                                             ClientVehicles[vehiclePacket.Id] = vehicle;
                                         }
@@ -1504,8 +1511,7 @@ namespace RavenM
                     }
 
                     // SR7, pls update Steamworks.NET.
-                    var NativeMethods = Type.GetType("Steamworks.NativeMethods, Assembly-CSharp-firstpass, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
-                    NativeMethods.GetMethod("SteamAPI_SteamNetworkingMessage_t_Release", BindingFlags.Static | BindingFlags.Public).Invoke(null, new object[] { msg_ptr[msg_index] });
+                    SteamAPI_SteamNetworkingMessage_t_Release.Invoke(null, new object[] { msg_ptr[msg_index] });
                 }
             }
 
@@ -1662,7 +1668,7 @@ namespace RavenM
             }
             byte[] data = memoryStream.ToArray();
 
-            SendPacketToServer(data, PacketType.ActorFlags, Constants.k_nSteamNetworkingSend_Reliable);
+            SendPacketToServer(data, PacketType.ActorFlags, Constants.k_nSteamNetworkingSend_Unreliable);
         }
 
         public void SendActorStates()

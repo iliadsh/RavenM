@@ -113,6 +113,24 @@ namespace RavenM.RSPatch
             Plugin.logger.LogInfo("Added RavenscriptEventsManagerPatch to " + __instance.gameObject.name);
         }
     }
+    [HarmonyPatch(typeof(ModManager),nameof(ModManager.FinalizeLoadedModContent))]
+    public class RSPatchMutatorToBuildIn
+    {
+        static bool Prefix(ModManager __instance)
+        {
+            if (Plugin.addToBuiltInMutators)
+            {
+                foreach (MutatorEntry entry in __instance.loadedMutators)
+                {
+                    if (!__instance.builtInMutators.Contains(entry))
+                    {
+                        __instance.builtInMutators.Add(entry);
+                    }
+                }
+            }
+            return true;
+        }
+    }
     public class RSPatch
     {
         public static void FixedUpdate(Packet packet, ProtocolReader dataStream)
@@ -130,10 +148,10 @@ namespace RavenM.RSPatch
                         //    break;
                         //}
                         GameObject networkPrefab = WLobby.GetNetworkPrefabByHash(customGO_packet.PrefabHash);
-                        GameObject instantiaedPrefab = GameObject.Instantiate(networkPrefab);
-                        instantiaedPrefab.transform.position = customGO_packet.Position;
-                        instantiaedPrefab.transform.eulerAngles = customGO_packet.Rotation;
-                        Plugin.logger.LogInfo("ianstantiatedPrefab at " + instantiaedPrefab.transform.position);
+                        GameObject InstantiatedPrefab = GameObject.Instantiate(networkPrefab);
+                        InstantiatedPrefab.transform.position = customGO_packet.Position;
+                        InstantiatedPrefab.transform.eulerAngles = customGO_packet.Rotation;
+                        Plugin.logger.LogInfo("InstantiatedPrefab at " + InstantiatedPrefab.transform.position);
                         if (networkPrefab == null)
                         {
                             Plugin.logger.LogDebug("Network prefab is null");
@@ -147,13 +165,6 @@ namespace RavenM.RSPatch
                         NetworkGameObjectsHashesPacket syncGO_packet = dataStream.ReadSyncNetworkGameObjectsPacket();
                         Plugin.logger.LogInfo("Got syncGO packet with hashes: " + syncGO_packet.NetworkGameObjectHashes);
                         WLobby.RefreshHashes(syncGO_packet.NetworkGameObjectHashes);
-
-                        //var actor = ClientActors[customGO_packet.];
-                        //if(actor == ActorManager.instance.player)
-                        //{
-                        //    Plugin.logger.LogInfo("Did not create objects for current player because it already has been created");
-                        //    break;
-                        //}
                     }
                     break;
             }

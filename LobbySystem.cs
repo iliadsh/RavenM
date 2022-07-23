@@ -337,7 +337,6 @@ namespace RavenM
                     if (mod_str == string.Empty)
                         continue;
                     PublishedFileId_t mod_id = new PublishedFileId_t(ulong.Parse(mod_str));
-
                     if (mod_id.ToString() == "0")
                         continue;
 

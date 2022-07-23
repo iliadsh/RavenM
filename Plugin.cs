@@ -2,6 +2,7 @@
 using BepInEx.Configuration;
 using HarmonyLib;
 using Steamworks;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 namespace RavenM
@@ -14,8 +15,15 @@ namespace RavenM
     {
         static bool Prefix(ModManager __instance)
         {
-            __instance.modStagingPathOverride = "NOT_REAL";
-            typeof(MapEditor.MapDescriptor).GetField("DATA_PATH", BindingFlags.Static | BindingFlags.Public).SetValue(null, "NOT_REAL");
+            string path = "NOT_REAL";
+            if (Plugin.addToBuiltInMutators)
+            {
+                path = Plugin.customBuildInMutators;
+                __instance.noContentMods = false;
+                __instance.noWorkshopMods = true;
+            }
+            __instance.modStagingPathOverride = path;
+            typeof(MapEditor.MapDescriptor).GetField("DATA_PATH", BindingFlags.Static | BindingFlags.Public).SetValue(null, path);
             return true;
         }
     }
@@ -37,6 +45,10 @@ namespace RavenM
 
         public static bool changeGUID = false;
 
+        public static bool addToBuiltInMutators = false;
+        public static string customBuildInMutators;
+        public static List<string> customMutatorsDirectories = new List<string>();
+        
         public static string BuildGUID
         {
             get
@@ -51,8 +63,9 @@ namespace RavenM
                 }
             }
         }
-        private ConfigEntry<bool> configDisplayGreeting;
-
+        private ConfigEntry<bool> configRavenMDevMod;
+        private ConfigEntry<bool> configRavenMAddToBuiltInMutators;
+        private ConfigEntry<string> configRavenMBuiltInMutatorsDirectory;
         private void Awake()
         {
             instance = this;
@@ -60,18 +73,38 @@ namespace RavenM
 
             Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
 
-            var harmony = new Harmony("patch.ravenm");
-            harmony.PatchAll();
-           
-
-            configDisplayGreeting = Config.Bind("General.Toggles",
+            configRavenMDevMod = Config.Bind("General.Toggles",
                                                 "Enable Dev Mode",
                                                 false,
-                                                "Change GUID to aaaa");
-            changeGUID = configDisplayGreeting.Value;
+                                                "Change GUID to bb3ef199-df63-4e99-a8a1-89a27d9e2fcb");
+            configRavenMAddToBuiltInMutators = Config.Bind("General.Toggles",
+                "Enable Custom Build In Mutators",
+                false,
+                "Add Directory in General.BuildInMutators");
+
+            configRavenMBuiltInMutatorsDirectory = Config.Bind("General.BuildInMutators",
+                                                                "Directory",
+                                                                "",
+                                                                "The mutators in the folder will be added automatically as Build In Mutators, this is for testing mutators without having to start the game with mods.");
+
+            changeGUID = configRavenMDevMod.Value;
+            addToBuiltInMutators = configRavenMAddToBuiltInMutators.Value;
+            customBuildInMutators = configRavenMBuiltInMutatorsDirectory.Value;
+            if (System.IO.Directory.Exists(customBuildInMutators))
+            {
+                Plugin.logger.LogInfo("Added Custom Build In Mutator Directory " + customBuildInMutators);
+            }
+            else
+            {
+                customBuildInMutators = "NOT_REAL";
+                Plugin.logger.LogError($"Directory {customBuildInMutators} could not be found.");
+            }
+            var harmony = new Harmony("patch.ravenm");
+            harmony.PatchAll();
+
+
             // Test code
         }
-
         private void OnGUI()
         {
             GUI.Label(new Rect(10, Screen.height - 20, 400, 40), $"RavenM ID: {BuildGUID}");

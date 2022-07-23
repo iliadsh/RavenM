@@ -12,8 +12,8 @@ namespace RavenM.RSPatch.Wrapper
 {
     public static class WLobby
     {
-        public static Dictionary<string,GameObject> networkGameObjects = new Dictionary<string, GameObject>();
-        private static bool setupVehicles = false;
+        private static Dictionary<string,GameObject> networkGameObjects = new Dictionary<string, GameObject>();
+        public static bool setupVehicles = false;
         [Getter]
         public static string[] GetLobbyMembers()
         {
@@ -46,17 +46,6 @@ namespace RavenM.RSPatch.Wrapper
             newGUID = prefab.GetHashCode().ToString();
             if (!networkGameObjects.ContainsValue(prefab))
             {
-                if (!setupVehicles)
-                {
-                    foreach(VehicleSpawner.VehicleSpawnType vehicleType in VehicleSpawner.ALL_VEHICLE_TYPES)
-                    {
-                        GameObject vehiclePrefab = VehicleSpawner.GetPrefab(0, vehicleType);
-                        networkGameObjects.Add(vehiclePrefab.GetHashCode().ToString(), vehiclePrefab);
-                        GameObject vehiclePrefab2 = VehicleSpawner.GetPrefab(1, vehicleType);
-                        networkGameObjects.Add(vehiclePrefab2.GetHashCode().ToString(), vehiclePrefab2);
-                    }
-                    setupVehicles = true;
-                }
                 networkGameObjects.Add(newGUID, prefab);
             }
             Plugin.logger.LogInfo("Added network prefab " + prefab.name + " with GUID " + newGUID);
@@ -71,7 +60,6 @@ namespace RavenM.RSPatch.Wrapper
                 tempList.Add(pair.Value);
 
             }
-            // Fix this stuff messing up
             networkGameObjects.Clear();
             for(int i = 0; i < hashes.Length; i++)
             {
@@ -83,11 +71,20 @@ namespace RavenM.RSPatch.Wrapper
 
         // Sends Packet from host to clients to send prefab hashes
         public static void SendNetworkGameObjectsHashesPacket()
-        { 
+        {
+            if (!IngameNetManager.instance.IsHost || !LobbySystem.instance.IsLobbyOwner)
+            {
+                return;
+            }
             string hashes = "";
             foreach (KeyValuePair<string, GameObject> pair in networkGameObjects)
             {
                 hashes += pair.Key + ",";
+            }
+            if(hashes.Length <= 0)
+            {
+                Plugin.logger.LogInfo("No NetworkGameObjectsHashes Packet send!");
+                return;
             }
             hashes = hashes.Substring(0, hashes.Length - 1);
             using MemoryStream memoryStream = new MemoryStream();
@@ -141,6 +138,15 @@ namespace RavenM.RSPatch.Wrapper
                   //.FirstOrDefault(c => c.Value == prefab);
             return output;
         }
-
+        public static void AddVehiclesToNetworkPrefab()
+        {
+            foreach (VehicleSpawner.VehicleSpawnType vehicleType in VehicleSpawner.ALL_VEHICLE_TYPES) {
+            
+                GameObject vehiclePrefab = VehicleSpawner.GetPrefab(0, vehicleType);
+                networkGameObjects.Add(vehiclePrefab.GetHashCode().ToString(), vehiclePrefab);
+            }
+            SendNetworkGameObjectsHashesPacket();
+            setupVehicles = true;
+        }
     }
 }
