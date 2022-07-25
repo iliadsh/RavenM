@@ -9,11 +9,13 @@ Discord: https://discord.gg/63zE4gY
 ## This mod is very <b>W.I.P.</b> There are a lot of bugs and opportunities to crash, so please report anything you find!
 
 # Building
-There are several dependencies on game assemblies located in `Ravenfield/ravenfield_Data/Managed/`. To resolve them, place the following assemblies in `libs/`:
+There are several dependencies on game assemblies located in `Ravenfield/ravenfield_Data/Managed/`. To resolve them, create a `libs/` in the root folder and place the following assemblies there:
 - Assembly-CSharp.dll
 - Assembly-CSharp-firstpass.dll
 - netstandard.dll
 - UnityEngine.dll
+- UnityEngine.AnimationModule.dll
+- UnityEngine.AssetBundleModule.dll
 - UnityEngine.AudioModule.dll
 - UnityEngine.CoreModule.dll
 - UnityEngine.ImageConversionModule.dll
