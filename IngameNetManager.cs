@@ -1737,6 +1737,21 @@ namespace RavenM
                                     targetVehicle.Damage(damage_info);
                                 }
                                 break;
+                            case PacketType.KickAnimation:
+                                {
+                                    Plugin.logger.LogDebug("Kick Animation Packet");
+                                    var kickPacket = dataStream.ReadKickAnimationPacket();
+
+                                    var actor = ClientActors[kickPacket.Id];
+                                    
+                                    if (actor == null)
+                                        break;
+                                    
+                                    Plugin.logger.LogDebug($"Receiving Kick Animation Packet from: {actor.name}");
+                                    
+                                    //animation stuff
+                                }
+                                break;
                         }
                     }
 
