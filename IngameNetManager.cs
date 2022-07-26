@@ -816,7 +816,7 @@ namespace RavenM
             byte[] packet_data = packetStream.ToArray();
 
             _totalBytesOut += packet_data.Length;
-            RavenM.RSPatch.RavenscriptEventsManagerPatch.events.onSendPacket.Invoke("" + BitConverter.ToString(data), type.ToString());
+            //RavenM.RSPatch.RavenscriptEventsManagerPatch.events.onSendPacket.Invoke("" + BitConverter.ToString(data), type.ToString());
             // This is safe. We are only pinning the array.
             unsafe
             {
@@ -927,7 +927,6 @@ namespace RavenM
                         using MemoryStream compressedStream = new MemoryStream(packet.data);
                         using DeflateStream decompressStream = new DeflateStream(compressedStream, CompressionMode.Decompress);
                         using var dataStream = new ProtocolReader(decompressStream);
-                        RSPatch.RSPatch.FixedUpdate(packet, dataStream);
                         switch (packet.Id)
                         {
                             case PacketType.ActorUpdate:
@@ -1506,6 +1505,9 @@ namespace RavenM
 
                                     targetVehicle.Damage(damage_info);
                                 }
+                                break;
+                            default:
+                                RSPatch.RSPatch.FixedUpdate(packet, dataStream);
                                 break;
                         }
                     }

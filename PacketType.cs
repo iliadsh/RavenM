@@ -20,6 +20,7 @@
         Voip,
         VehicleDamage,
         CreateCustomGameObject,
-        NetworkGameObjectsHashes
+        NetworkGameObjectsHashes,
+        ScriptedPacket
     }
 }

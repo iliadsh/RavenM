@@ -154,7 +154,7 @@ namespace RavenM.RSPatch
                         Plugin.logger.LogInfo("InstantiatedPrefab at " + InstantiatedPrefab.transform.position);
                         if (networkPrefab == null)
                         {
-                            Plugin.logger.LogDebug("Network prefab is null");
+                            Plugin.logger.LogError("Network prefab is null");
                             break;
                         }
                         Plugin.logger.LogDebug("Created custom gameobject " + networkPrefab.name + " with hash " + customGO_packet.PrefabHash);
@@ -166,6 +166,11 @@ namespace RavenM.RSPatch
                         Plugin.logger.LogInfo("Got syncGO packet with hashes: " + syncGO_packet.NetworkGameObjectHashes);
                         WLobby.RefreshHashes(syncGO_packet.NetworkGameObjectHashes);
                     }
+                    break;
+                case PacketType.ScriptedPacket:
+                    ScriptedPacket scriptedPacket = dataStream.ReadScriptedPacket();
+                    Plugin.logger.LogInfo("Received scripted packet " + scriptedPacket.Id + " | " + scriptedPacket.Data);
+                    RavenscriptEventsManagerPatch.events.onReceivePacket.Invoke(scriptedPacket.Id, scriptedPacket.Data);
                     break;
             }
         }

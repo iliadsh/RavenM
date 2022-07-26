@@ -58,7 +58,6 @@ namespace RavenM.RSPatch.Wrapper
             foreach(KeyValuePair<string, GameObject> pair in networkGameObjects)
             {
                 tempList.Add(pair.Value);
-
             }
             networkGameObjects.Clear();
             for(int i = 0; i < hashes.Length; i++)
@@ -104,6 +103,7 @@ namespace RavenM.RSPatch.Wrapper
         public static void RemoveNetworkPrefab(GameObject prefab)
         {
             KeyValuePair<string, GameObject> dictionaryPrefab = networkGameObjects
+
                    .FirstOrDefault(c => c.Value == prefab);
             networkGameObjects.Remove(dictionaryPrefab.Key);
             Plugin.logger.LogInfo("Removed network prefab " + prefab.name);
@@ -124,10 +124,10 @@ namespace RavenM.RSPatch.Wrapper
             string output = "null";
             foreach (KeyValuePair<string, GameObject> kvp in networkGameObjects)
             {
-                Plugin.logger.LogInfo("GetNetworkPrefabByValue() -> " + kvp.Value + " == " + prefab.name);
                 if(kvp.Value == prefab)
                 {
                     output = kvp.Key;
+                    break;
                 }
             }
             if(output == "null")

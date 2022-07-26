@@ -262,6 +262,12 @@ namespace RavenM
             Write(value.Id);
             Write(value.NetworkGameObjectHashes);
         }
+        public void Write(ScriptedPacket value)
+        {
+            Write(value.Id);
+            Write(value.ScriptId);
+            Write(value.Data);
+        }
     }
 
     public class ProtocolReader : BinaryReader
@@ -594,6 +600,15 @@ namespace RavenM
             {
                 Id = ReadInt32(),
                 NetworkGameObjectHashes = ReadString()
+            };
+        }
+        public ScriptedPacket ReadScriptedPacket()
+        {
+            return new ScriptedPacket
+            {
+                ScriptId = ReadInt32(),
+                Id = ReadInt32(),
+                Data = ReadString()
             };
         }
     }

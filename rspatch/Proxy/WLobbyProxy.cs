@@ -24,6 +24,20 @@ namespace RavenM.RSPatch.Proxy
         //{
         //    return WLobby.GetNetworkPrefabs();
         //}
+        public static bool isHost
+        {
+            get
+            {
+                return IngameNetManager.instance.IsHost;
+            }
+        }
+        public static bool IsClient
+        {
+            get
+            {
+                return IngameNetManager.instance.IsClient;
+            }
+        }
         public static GameObject GetNetworkPrefabByHash(string hash)
         {
             return WLobby.GetNetworkPrefabByHash(hash);

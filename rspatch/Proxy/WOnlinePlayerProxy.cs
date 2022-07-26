@@ -15,9 +15,9 @@ namespace RavenM.RSPatch.Proxy
     [Proxy(typeof(WOnlinePlayer))]
     public class WOnlinePlayerProxy : IProxy
     {
-        public static void SendPacketToServer(string data,int packetType, int send_flags)
+        public static void SendPacketToServer(string data,int packetType, bool reliable)
         {
-            WOnlinePlayer.SendPacketToServer(data, packetType, send_flags);
+            WOnlinePlayer.SendPacketToServer(data, packetType, reliable);
         }
         public static string OwnGUID
         {
@@ -26,7 +26,7 @@ namespace RavenM.RSPatch.Proxy
                 return WOnlinePlayer.GetOwnGUID();
             }
         }
-
+       
         public static void SendChatMessage(string input, bool global)
         {
             IngameNetManager.instance.PushChatMessage(ActorManager.instance.player.name, input, global, GameManager.PlayerTeam());

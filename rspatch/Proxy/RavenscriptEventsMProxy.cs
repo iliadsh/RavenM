@@ -25,7 +25,7 @@ namespace RavenM.RSPatch.Proxy
 		{
 			this._value = new RavenscriptMultiplayerEvents();
 		}
-		public ScriptEventProxy onPacketReceived
+		public ScriptEventProxy onReceivePacket
 		{
 			get
 			{
