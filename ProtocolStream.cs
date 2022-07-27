@@ -257,6 +257,11 @@ namespace RavenM
             Write(value.Voice.Length);
             Write(value.Voice);
         }
+
+        public void Write(KickAnimationPacket value)
+        {
+            Write(value.Id);
+        }
     }
 
     public class ProtocolReader : BinaryReader
@@ -576,6 +581,14 @@ namespace RavenM
             {
                 Id = ReadInt32(),
                 Voice = ReadBytes(ReadInt32()),
+            };
+        }
+
+        public KickAnimationPacket ReadKickAnimationPacket()
+        {
+            return new KickAnimationPacket
+            {
+                Id = ReadInt32(),
             };
         }
     }

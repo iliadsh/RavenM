@@ -433,6 +433,8 @@ namespace RavenM
 
         public Dictionary<int, AudioContainer> PlayVoiceQueue = new Dictionary<int, AudioContainer>();
 
+        public RuntimeAnimatorController kickController;
+
         public static readonly Dictionary<Tuple<int, ulong>, GameObject> PrefabCache = new Dictionary<Tuple<int, ulong>, GameObject>();
 
         private void Awake()
@@ -469,6 +471,13 @@ namespace RavenM
             imageBytes = resourceMemory.ToArray();
 
             RightMarker.LoadImage(imageBytes);
+            
+            var kickAnimationBundleStream =
+                Assembly.GetExecutingAssembly().GetManifestResourceStream("RavenM.assets.kickanimcontroller");
+            var kickAnimationBundle =
+                AssetBundle.LoadFromStream(kickAnimationBundleStream);
+            kickController = kickAnimationBundle.LoadAsset<RuntimeAnimatorController>("kickWeaponPreview");
+            Plugin.logger.LogWarning(kickController == null ? "Kick AssetBundle couldn't be loaded" : "Kick AssetBundle loaded");
         }
 
         private void Start()
@@ -904,7 +913,7 @@ namespace RavenM
             _totalOut++;
 
             using MemoryStream compressOut = new MemoryStream();
-            using (DeflateStream deflateStream = new DeflateStream(compressOut, CompressionLevel.Optimal))
+            using (DeflateStream deflateStream = new DeflateStream(compressOut, System.IO.Compression.CompressionLevel.Optimal))
             {
                 deflateStream.Write(data, 0, data.Length);
             }
@@ -1737,6 +1746,21 @@ namespace RavenM
                                     targetVehicle.Damage(damage_info);
                                 }
                                 break;
+                            case PacketType.KickAnimation:
+                                {
+                                    Plugin.logger.LogDebug("Kick Animation Packet");
+                                    var kickPacket = dataStream.ReadKickAnimationPacket();
+
+                                    var actor = ClientActors[kickPacket.Id];
+                                    
+                                    if (actor == null)
+                                        break;
+                                    
+                                    Plugin.logger.LogDebug($"Receiving Kick Animation Packet from: {actor.name}");
+
+                                    StartCoroutine(PerformKick(actor));
+                                }
+                                break;
                         }
                     }
 
@@ -2165,6 +2189,28 @@ namespace RavenM
             ActorManager.Drop(actor);
             Destroy(actor.controller);
             Destroy(actor);
+        }
+        
+        /// <summary>
+        /// Change Temporarily the animator controller for one that contains the kick animation
+        /// </summary>
+        private IEnumerator PerformKick(Actor actor)
+        {
+            if (kickController == null)
+            {
+                Plugin.logger.LogError("Kick Animation Failed!");
+                yield break;
+            }
+            
+            var actorAnimator = actor.animator;
+            var preKickController = actorAnimator.runtimeAnimatorController;
+
+            actorAnimator.runtimeAnimatorController = kickController;
+            actorAnimator.SetTrigger("kick");
+
+            yield return new WaitForSeconds(1);
+
+            actorAnimator.runtimeAnimatorController = preKickController;
         }
     }
 }

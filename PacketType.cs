@@ -19,5 +19,6 @@
         Chat,
         Voip,
         VehicleDamage,
+        KickAnimation,
     }
 }
