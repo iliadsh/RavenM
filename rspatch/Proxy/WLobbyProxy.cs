@@ -48,6 +48,10 @@ namespace RavenM.RSPatch.Proxy
                 throw new ScriptRuntimeException("argument 'prefab' is nil");
             WLobby.AddNetworkPrefab(prefab);
         }
+        public static void PushNetworkPrefabs()
+        {
+            WLobby.SendNetworkGameObjectsHashesPacket();
+        }
         public static void RemoveNetworkPrefab(GameObject prefab)
         {
             if (prefab == null)

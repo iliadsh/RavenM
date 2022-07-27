@@ -1055,6 +1055,7 @@ namespace RavenM
                                     }
                                     byte[] data = memoryStream.ToArray();
 
+                                    RavenM.RSPatch.RavenscriptEventsManagerPatch.events.onPlayerDisconnect.Invoke(actor);
                                     SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
                                 }
 
@@ -1268,7 +1269,6 @@ namespace RavenM
                                                 voiceSource.outputAudioMixerGroup = GameManager.instance.sfxMixer.outputAudioMixerGroup;
                                                 voiceSource.Play();
                                             }
-                                            RavenM.RSPatch.RavenscriptEventsManagerPatch.events.onPlayerJoin.Invoke(actor);
                                             ClientActors[actor_packet.Id] = actor;
                                         }
 
@@ -1281,6 +1281,7 @@ namespace RavenM
 
                                         controller.Targets = actor_packet;
                                         controller.Flags = actor_packet.Flags;
+                                         RavenM.RSPatch.RavenscriptEventsManagerPatch.events.onPlayerJoin.Invoke(actor);
                                     }
                                 }
                                 break;

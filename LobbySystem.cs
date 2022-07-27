@@ -5,6 +5,8 @@ using Steamworks;
 using HarmonyLib;
 using System;
 using System.Text;
+using System.Diagnostics;
+using System.Linq;
 using RavenM.RSPatch.Wrapper;
 
 namespace RavenM
