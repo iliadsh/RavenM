@@ -67,7 +67,6 @@ namespace RavenM.RSPatch.Proxy
 				Position = pos,
 				Rotation = rot
 			};
-			// RS: onSendPacket() get's called so custom events can be implemented by a scripter
 			using (var writer = new ProtocolWriter(memoryStream))
 			{
 				writer.Write(spawnCustomGameObjectPacket);

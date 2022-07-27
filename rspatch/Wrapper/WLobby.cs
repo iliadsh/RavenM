@@ -111,11 +111,13 @@ namespace RavenM.RSPatch.Wrapper
         public static GameObject GetNetworkPrefabByHash(string guid)
         {
             Plugin.logger.LogInfo("GetNetworkPrefabHash() " + guid);
-            foreach(KeyValuePair<string, GameObject> kvp in networkGameObjects)
+            GameObject result = networkGameObjects[guid];
+            if(result == null)
             {
-                Plugin.logger.LogInfo("GetNetworkPrefabByHash() -> " + kvp.Key+ " == " + guid);
+                Plugin.logger.LogError("The GameObject with GUID " + guid + " could not be found.");
+                return null;
             }
-            return networkGameObjects[guid];
+            return result;
 
         }
         public static string GetNetworkPrefabByValue(GameObject prefab)

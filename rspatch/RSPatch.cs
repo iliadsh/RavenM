@@ -141,12 +141,6 @@ namespace RavenM.RSPatch
                     {
                         SpawnCustomGameObjectPacket customGO_packet = dataStream.ReadSpawnCustomGameObjectPacket();
                         Plugin.logger.LogInfo("Create Custom Game Object Packet: " + WLobby.GetNetworkPrefabByHash(customGO_packet.PrefabHash).name);
-                        //var actor = ClientActors[customGO_packet.];
-                        //if(actor == ActorManager.instance.player)
-                        //{
-                        //    Plugin.logger.LogInfo("Did not create objects for current player because it already has been created");
-                        //    break;
-                        //}
                         GameObject networkPrefab = WLobby.GetNetworkPrefabByHash(customGO_packet.PrefabHash);
                         GameObject InstantiatedPrefab = GameObject.Instantiate(networkPrefab);
                         InstantiatedPrefab.transform.position = customGO_packet.Position;
