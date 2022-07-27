@@ -55,11 +55,12 @@ namespace RavenM
         public Transform FakeWeaponParent;
         public WeaponManager.LoadoutSet FakeLoadout;
 
-        public TimedAction respawn_action = new TimedAction(3.0f);
+        public TimedAction RespawnCooldown = new TimedAction(3.0f);
+        public TimedAction SeatResolverCooldown = new TimedAction(1.5f);
 
         private void Update()
         {
-            if (respawn_action.TrueDone())
+            if (RespawnCooldown.TrueDone())
             {
                 if ((Flags & (int)ActorStateFlags.Dead) != 0 && !actor.dead)
                     actor.Kill(DamageInfo.Default);
@@ -86,6 +87,55 @@ namespace RavenM
             }
 
             ActualRotation = Vector3.Slerp(ActualRotation, Targets.FacingDirection, 5f * Time.deltaTime);
+
+            // Resolve the current seat if we missed the Enter/Leave packets.
+            if (SeatResolverCooldown.TrueDone())
+            {
+                SeatResolverCooldown.Start();
+
+                if (Targets.Seat == -1)
+                {
+                    if (actor.IsSeated())
+                    {
+                        if (actor.seat.IsDriverSeat() && IngameNetManager.instance.IsHost && actor.seat.vehicle.TryGetComponent(out GuidComponent guid))
+                            IngameNetManager.instance.OwnedVehicles.Add(guid.guid);
+
+                        actor.LeaveSeat(false);
+                    }
+                }
+                else
+                {
+                    // Are we seated?
+                    // Are we in the right vehicle?
+                    // Are we in the right seat?
+                    if (!actor.IsSeated() || (actor.seat.vehicle.TryGetComponent(out GuidComponent guid) &&
+                                                (guid.guid != Targets.VehicleId || actor.seat.vehicle.seats.IndexOf(actor.seat) != Targets.Seat)))
+                    {
+                        if (actor.IsSeated())
+                        {
+                            if (actor.seat.IsDriverSeat() && IngameNetManager.instance.IsHost && actor.seat.vehicle.TryGetComponent(out GuidComponent vguid))
+                                IngameNetManager.instance.OwnedVehicles.Add(vguid.guid);
+
+                            actor.LeaveSeat(false);
+                        }
+
+                        if (IngameNetManager.instance.ClientVehicles.ContainsKey(Targets.VehicleId))
+                        {
+                            Vehicle vehicle = IngameNetManager.instance.ClientVehicles[Targets.VehicleId];
+
+                            if (vehicle != null && Targets.Seat < vehicle.seats.Count)
+                            {
+                                var seat = vehicle.seats[Targets.Seat];
+
+                                if (seat.IsDriverSeat())
+                                    IngameNetManager.instance.OwnedVehicles.Remove(Targets.VehicleId);
+
+                                actor.EnterSeat(seat, true);
+                            }
+                        }
+                    }
+                }
+            }
 
             // For normal hand-held weapons.
             if (!actor.dead && !actor.IsSeated() && Targets.ActiveWeaponHash != 0 && (actor.activeWeapon == null || actor.activeWeapon.name.GetHashCode() != Targets.ActiveWeaponHash))
@@ -193,7 +243,7 @@ namespace RavenM
 
         public override void Die(Actor killer)
         {
-            respawn_action.Start();
+            RespawnCooldown.Start();
         }
 
         public override void DisableInput()
@@ -443,7 +493,7 @@ namespace RavenM
 
         public override bool ProjectToGround()
         {
-            return respawn_action.TrueDone() && (Flags & (int)ActorStateFlags.ProjectToGround) != 0;
+            return RespawnCooldown.TrueDone() && (Flags & (int)ActorStateFlags.ProjectToGround) != 0;
         }
 
         public override bool Prone()
@@ -472,7 +522,7 @@ namespace RavenM
 
         public override void SpawnAt(Vector3 position, Quaternion rotation)
         {
-            respawn_action.Start();
+            RespawnCooldown.Start();
         }
 
         public override void StartClimbingSlope()

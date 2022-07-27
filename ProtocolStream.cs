@@ -122,6 +122,8 @@ namespace RavenM
             Write(value.Flags);
             Write(value.Ammo);
             Write(value.Health);
+            Write(value.VehicleId);
+            Write(value.Seat);
         }
 
         public void Write(ActorFlagsPacket value)
@@ -194,8 +196,12 @@ namespace RavenM
         public void Write(SpawnProjectilePacket value)
         {
             Write(value.SourceId);
-            Write(value.Direction);
-            Write(value.MuzzlePosition);
+            Write(value.NameHash);
+            Write(value.Mod);
+            Write(value.Position);
+            Write(value.Rotation);
+            Write(value.performInfantryInitialMuzzleTravel);
+            Write(value.initialMuzzleTravelDistance);
             Write(value.ProjectileId);
         }
 
@@ -226,6 +232,7 @@ namespace RavenM
             Write(value.Health);
             Write(value.Dead);
             Write(value.IsTurret);
+            Write(value.Active);
         }
 
         public void Write(BulkVehicleUpdate value)
@@ -402,6 +409,8 @@ namespace RavenM
                 Flags = ReadInt32(),
                 Ammo = ReadInt32(),
                 Health = ReadSingle(),
+                VehicleId = ReadInt32(),
+                Seat = ReadInt32(),
             };
         }
 
@@ -504,8 +513,12 @@ namespace RavenM
             return new SpawnProjectilePacket
             {
                 SourceId = ReadInt32(),
-                Direction = ReadVector3(),
-                MuzzlePosition = ReadVector3(),
+                NameHash = ReadInt32(),
+                Mod = ReadUInt64(),
+                Position = ReadVector3(),
+                Rotation = ReadQuaternion(),
+                performInfantryInitialMuzzleTravel = ReadBoolean(),
+                initialMuzzleTravelDistance = ReadSingle(),
                 ProjectileId = ReadInt32(),
             };
         }
@@ -547,6 +560,7 @@ namespace RavenM
                 Health = ReadSingle(),
                 Dead = ReadBoolean(),
                 IsTurret = ReadBoolean(),
+                Active = ReadBoolean(),
             };
         }
 

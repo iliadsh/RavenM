@@ -46,6 +46,10 @@ namespace RavenM
         public int Ammo;
 
         public float Health;
+
+        public int VehicleId;
+
+        public int Seat;
     }
 
     public enum ActorStateFlags

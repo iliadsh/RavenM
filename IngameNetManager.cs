@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
@@ -135,7 +136,7 @@ namespace RavenM
     }
 
     [HarmonyPatch(typeof(ModManager), "LoadModContentFromObject")]
-    public class ModdedVehicleTagPatch
+    public class ModdedPrefabTagPatch
     {
         static void Postfix(ModContentInformation contentInfo)
         {
@@ -145,21 +146,31 @@ namespace RavenM
             {
                 var prefab = vehicle.gameObject;
 
-                if (prefab.TryGetComponent(out Vehicle _) && !prefab.TryGetComponent(out PrefabTag _))
+                if (!prefab.TryGetComponent(out PrefabTag _))
                 {
                     Plugin.logger.LogInfo($"Detected vehicle prefab with name: {prefab.name}, and from mod: {contentInfo.sourceMod.workshopItemId}");
 
-                    var tag = prefab.AddComponent<PrefabTag>();
-                    tag.NameHash = prefab.name.GetHashCode();
-                    tag.Mod = (ulong)contentInfo.sourceMod.workshopItemId;
-                    IngameNetManager.PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = prefab;
+                    IngameNetManager.TagPrefab(prefab, (ulong)contentInfo.sourceMod.workshopItemId);
+                }
+            }
+
+            // We also do the projectiles.
+            foreach (var vehicle in Resources.FindObjectsOfTypeAll<Projectile>())
+            {
+                var prefab = vehicle.gameObject;
+
+                if (!prefab.TryGetComponent(out PrefabTag _))
+                {
+                    Plugin.logger.LogInfo($"Detected projectile prefab with name: {prefab.name}, and from mod: {contentInfo.sourceMod.workshopItemId}");
+
+                    IngameNetManager.TagPrefab(prefab, (ulong)contentInfo.sourceMod.workshopItemId);
                 }
             }
         }
     }
 
     [HarmonyPatch(typeof(ActorManager), "Awake")]
-    public class DefaultVehiclesPatch
+    public class DefaultPrefabsPatch
     {
         static void Postfix(ActorManager __instance)
         {
@@ -167,20 +178,22 @@ namespace RavenM
             {
                 Plugin.logger.LogInfo($"Tagging default vehicle: {vehicle.name}");
 
-                var tag = vehicle.AddComponent<PrefabTag>();
-                tag.NameHash = vehicle.name.GetHashCode();
-                tag.Mod = 0;
-                IngameNetManager.PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = vehicle;
+                IngameNetManager.TagPrefab(vehicle);
             }
 
             foreach (var turret in __instance.defaultTurretPrefabs)
             {
                 Plugin.logger.LogInfo($"Tagging default turret: {turret.name}");
 
-                var tag = turret.AddComponent<PrefabTag>();
-                tag.NameHash = turret.name.GetHashCode();
-                tag.Mod = 0;
-                IngameNetManager.PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = turret;
+                IngameNetManager.TagPrefab(turret);
+            }
+
+            foreach (var projectile in Resources.FindObjectsOfTypeAll<Projectile>())
+            {
+                var prefab = projectile.gameObject;
+                Plugin.logger.LogInfo($"Tagging default projectile: {prefab.name}");
+
+                IngameNetManager.TagPrefab(prefab);
             }
         }
     }
@@ -213,6 +226,72 @@ namespace RavenM
             {
                 Plugin.logger.LogInfo($"Cleaning up unwanted vehicle with name: {__instance.name}");
                 typeof(Vehicle).GetMethod("Cleanup", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(__instance, new object[] { });
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(Projectile), "StartTravelling")]
+    public class ProjectileCreatedPatch
+    {
+        static bool Prefix(Projectile __instance)
+        {
+            if (!IngameNetManager.instance.IsClient)
+                return true;
+
+            var sourceId = -1;
+            if (__instance.source != null && __instance.source.TryGetComponent(out GuidComponent aguid))
+                sourceId = aguid.guid;
+
+            if (IngameNetManager.instance.OwnedActors.Contains(sourceId) || (sourceId == -1 && IngameNetManager.instance.IsHost))
+            {
+                int id = IngameNetManager.instance.RandomGen.Next(0, int.MaxValue);
+
+                if (__instance.TryGetComponent(out GuidComponent guid))
+                    id = guid.guid;
+                else
+                    __instance.gameObject.AddComponent<GuidComponent>().guid = id;
+
+                IngameNetManager.instance.ClientProjectiles.Add(id, __instance);
+                IngameNetManager.instance.OwnedProjectiles.Add(id);
+
+                var tag = __instance.gameObject.GetComponent<PrefabTag>();
+
+                if (tag == null)
+                {
+                    Plugin.logger.LogError($"Projectile {__instance.name} is somehow untagged!");
+                    return true;
+                }
+
+                using MemoryStream memoryStream = new MemoryStream();
+                var spawnPacket = new SpawnProjectilePacket
+                {
+                    SourceId = sourceId,
+                    NameHash = tag.NameHash,
+                    Mod = tag.Mod,
+                    Position = __instance.transform.position,
+                    Rotation = __instance.transform.rotation,
+                    performInfantryInitialMuzzleTravel = __instance.performInfantryInitialMuzzleTravel,
+                    initialMuzzleTravelDistance  = __instance.initialMuzzleTravelDistance,
+                    ProjectileId = id,
+                };
+
+                using (var writer = new ProtocolWriter(memoryStream))
+                {
+                    writer.Write(spawnPacket);
+                }
+                byte[] data = memoryStream.ToArray();
+
+                IngameNetManager.instance.SendPacketToServer(data, PacketType.SpawnProjectile, Constants.k_nSteamNetworkingSend_Reliable);
+
+                Plugin.logger.LogInfo($"Registered new spawned projectile with name: {__instance.name} and id: {id}");
+            }
+            else if (!__instance.TryGetComponent(out GuidComponent guid) || !IngameNetManager.instance.ClientProjectiles.ContainsKey(guid.guid))
+            {
+                Plugin.logger.LogInfo($"Cleaning up unwanted projectile with name: {__instance.name}");
+                typeof(Projectile).GetMethod("Cleanup", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(__instance, new object[] { false });
                 return false;
             }
 
@@ -274,6 +353,10 @@ namespace RavenM
         public int _bytesOut = 0;
         public int _totalBytesOut = 0;
 
+        public bool _showSpecificOutbound = false;
+        public Dictionary<PacketType, int> _savedBytesOuts = new Dictionary<PacketType, int>();
+        public Dictionary<PacketType, int> _specificBytesOut = new Dictionary<PacketType, int>();
+
         public int BotIdGen = 0;
 
         public Guid OwnGUID = Guid.NewGuid();
@@ -298,8 +381,6 @@ namespace RavenM
 
         public Dictionary<int, Projectile> ClientProjectiles = new Dictionary<int, Projectile>();
 
-        public bool ClientCanSpawnProjectile = false;
-
         public bool ClientCanSpawnBot = false;
 
         public HSteamNetConnection C2SConnection;
@@ -310,6 +391,10 @@ namespace RavenM
         public HSteamNetPollGroup PollGroup;
 
         public List<HSteamNetConnection> ServerConnections = new List<HSteamNetConnection>();
+
+        public Dictionary<HSteamNetConnection, Guid> ConnectionGuidMap = new Dictionary<HSteamNetConnection, Guid>();
+
+        public Dictionary<Guid, List<int>> GuidActorOwnership = new Dictionary<Guid, List<int>>();
         /// Server owned
 
         public readonly System.Random RandomGen = new System.Random();
@@ -413,6 +498,9 @@ namespace RavenM
 
         private void Update()
         {
+            if (Input.GetKeyDown(KeyCode.F7))
+                _showSpecificOutbound = !_showSpecificOutbound;
+
             // AKA Tilde Key.
             if (Input.GetKeyDown(KeyCode.BackQuote)
                 && GameManager.instance != null && GameManager.IsIngame()
@@ -469,6 +557,9 @@ namespace RavenM
 
                 _bytesOut = _totalBytesOut;
                 _totalBytesOut = 0;
+
+                _savedBytesOuts = _specificBytesOut.ToDictionary(entry => entry.Key, entry => entry.Value);
+                _specificBytesOut.Clear();
             }
 
             if (Input.GetKeyDown(KeyCode.CapsLock))
@@ -484,6 +575,14 @@ namespace RavenM
             }
 
             SendVoiceData();
+        }
+
+        public static void TagPrefab(GameObject prefab, ulong mod = 0)
+        {
+            var tag = prefab.gameObject.AddComponent<PrefabTag>();
+            tag.NameHash = prefab.name.GetHashCode();
+            tag.Mod = mod;
+            PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = prefab;
         }
 
         private void DrawMarker(Vector3 worldPos)
@@ -518,6 +617,17 @@ namespace RavenM
 
             SteamNetworkingSockets.GetQuickConnectionStatus(C2SConnection, out SteamNetworkingQuickConnectionStatus pStats);
             GUI.Label(new Rect(10, 80, 200, 40), $"Ping: {pStats.m_nPing} ms");
+
+            if (_showSpecificOutbound)
+            {
+                var ordered = _savedBytesOuts.OrderBy(x => -x.Value).ToDictionary(x => x.Key, x => x.Value);
+                int i = 0;
+                foreach (var kv in ordered)
+                {
+                    GUI.Label(new Rect(10, 110 + i * 30, 200, 40), $"{kv.Key} - {kv.Value}B");
+                    i++;
+                }
+            }
 
             DrawMarker(MarkerPosition);
 
@@ -647,9 +757,15 @@ namespace RavenM
             if (!global && GameManager.PlayerTeam() != team)
                 return;
 
-            string color = !global ? "green" : (team == 0 ? "blue" : "red");
+            if (team == -1)
+                FullChatLink += $"<color=#eeeeee>{message}</color>";
+            else
+            {
+                string color = !global ? "green" : (team == 0 ? "blue" : "red");
 
-            FullChatLink += $"<color={color}><b><{name}></b></color> {message}\n";
+                FullChatLink += $"<color={color}><b><{name}></b></color> {message}\n";
+            }
+            
             ChatScrollPosition.y = Mathf.Infinity;
         }
 
@@ -677,7 +793,6 @@ namespace RavenM
             OwnedProjectiles.Clear();
             ClientProjectiles.Clear();
 
-            ClientCanSpawnProjectile = false;
             ClientCanSpawnBot = false;
 
             IsHost = false;
@@ -704,6 +819,8 @@ namespace RavenM
             Plugin.logger.LogInfo("Starting server socket for connections.");
 
             ServerConnections.Clear();
+            ConnectionGuidMap.Clear();
+            GuidActorOwnership.Clear();
             ServerSocket = SteamNetworkingSockets.CreateListenSocketP2P(0, 0, null);
 
             PollGroup = SteamNetworkingSockets.CreatePollGroup();
@@ -816,7 +933,12 @@ namespace RavenM
             byte[] packet_data = packetStream.ToArray();
 
             _totalBytesOut += packet_data.Length;
-            //RavenM.RSPatch.RavenscriptEventsManagerPatch.events.onSendPacket.Invoke("" + BitConverter.ToString(data), type.ToString());
+
+            if (_specificBytesOut.ContainsKey(type))
+                _specificBytesOut[type] += packet_data.Length;
+            else
+                _specificBytesOut[type] = packet_data.Length;
+
             // This is safe. We are only pinning the array.
             unsafe
             {
@@ -840,6 +962,24 @@ namespace RavenM
                 {
                     case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_Connecting:
                         Plugin.logger.LogInfo($"Connection request from: {info.m_identityRemote.GetSteamID()}");
+
+                        bool inLobby = false;
+                        int len = SteamMatchmaking.GetNumLobbyMembers(LobbySystem.instance.ActualLobbyID);
+                        for (int i = 0; i < len; i++)
+                        {
+                            if (info.m_identityRemote.GetSteamID() == SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i))
+                            {
+                                inLobby = true;
+                                break;
+                            }
+                        }
+
+                        if (!inLobby)
+                        {
+                            SteamNetworkingSockets.CloseConnection(pCallback.m_hConn, 0, null, false);
+                            Plugin.logger.LogError("This user is not part of the lobby! Rejecting the connection.");
+                            break;
+                        }
 
                         if (SteamNetworkingSockets.AcceptConnection(pCallback.m_hConn) != EResult.k_EResultOK)
                         {
@@ -871,8 +1011,59 @@ namespace RavenM
                         Plugin.logger.LogInfo($"Killing connection from {info.m_identityRemote.GetSteamID()}.");
                         SteamNetworkingSockets.CloseConnection(pCallback.m_hConn, 0, null, false);
 
+                        // We take ownership of and kill all the actors that were left behind.
                         if (ServerConnections.Contains(pCallback.m_hConn))
+                        {
                             ServerConnections.Remove(pCallback.m_hConn);
+
+                            if (!ConnectionGuidMap.ContainsKey(pCallback.m_hConn))
+                                break;
+
+                            var guid = ConnectionGuidMap[pCallback.m_hConn];
+
+                            if (!GuidActorOwnership.ContainsKey(guid))
+                                break;
+
+                            var actors = GuidActorOwnership[guid];
+
+                            foreach (var id in actors)
+                            {
+                                if (!ClientActors.ContainsKey(id))
+                                    continue;
+
+                                var actor = ClientActors[id];
+
+                                var controller = actor.controller as NetActorController;
+
+                                if ((controller.Flags & (int)ActorStateFlags.AiControlled) == 0)
+                                {
+                                    var leaveMsg = $"{actor.name} has left the match.\n";
+
+                                    PushChatMessage(string.Empty, leaveMsg, true, -1);
+
+                                    using MemoryStream memoryStream = new MemoryStream();
+                                    var chatPacket = new ChatPacket
+                                    {
+                                        Id = -1,
+                                        Message = leaveMsg,
+                                        TeamOnly = false,
+                                    };
+
+                                    using (var writer = new ProtocolWriter(memoryStream))
+                                    {
+                                        writer.Write(chatPacket);
+                                    }
+                                    byte[] data = memoryStream.ToArray();
+
+                                    SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
+                                }
+
+                                controller.Flags |= (int)ActorStateFlags.Dead;
+                                controller.Targets.Position = Vector3.zero;
+
+                                OwnedActors.Add(id);
+                            }
+                        }
 
                         break;
                 }
@@ -947,6 +1138,37 @@ namespace RavenM
                                         else
                                         {
                                             Plugin.logger.LogInfo($"New actor registered with ID {actor_packet.Id} name {actor_packet.Name}");
+
+                                            if (IsHost)
+                                            {
+                                                if (!GuidActorOwnership.ContainsKey(packet.sender))
+                                                    GuidActorOwnership[packet.sender] = new List<int>();
+
+                                                GuidActorOwnership[packet.sender].Add(actor_packet.Id);
+
+                                                if ((actor_packet.Flags & (int)ActorStateFlags.AiControlled) == 0)
+                                                {
+                                                    var enterMsg = $"{actor_packet.Name} has joined the match.\n";
+
+                                                    PushChatMessage(string.Empty, enterMsg, true, -1);
+
+                                                    using MemoryStream memoryStream = new MemoryStream();
+                                                    var chatPacket = new ChatPacket
+                                                    {
+                                                        Id = -1,
+                                                        Message = enterMsg,
+                                                        TeamOnly = false,
+                                                    };
+
+                                                    using (var writer = new ProtocolWriter(memoryStream))
+                                                    {
+                                                        writer.Write(chatPacket);
+                                                    }
+                                                    byte[] data = memoryStream.ToArray();
+
+                                                    SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
+                                                }
+                                            }
 
                                             // FIXME: Another better lock needed.
                                             ClientCanSpawnBot = true;
@@ -1135,8 +1357,7 @@ namespace RavenM
                                             continue;
                                         }
 
-                                        if (!vehicle.gameObject.activeSelf)
-                                            continue;
+                                        vehicle.gameObject.SetActive(vehiclePacket.Active);
 
                                         TargetVehicleStates[vehiclePacket.Id] = vehiclePacket;
 
@@ -1264,6 +1485,8 @@ namespace RavenM
                                     }
 
                                     actor.EnterSeat(seat, true);
+                                    if (!OwnedActors.Contains(enterSeatPacket.ActorId))
+                                        (actor.controller as NetActorController).SeatResolverCooldown.Start();
 
                                     // If an Actor that we do not own wants to take control of a vehicle,
                                     // then let's give up ownership temporarily.
@@ -1292,10 +1515,11 @@ namespace RavenM
                                     if (actor.seat.IsDriverSeat() && IsHost)
                                     {
                                         OwnedVehicles.Add(actor.seat.vehicle.GetComponent<GuidComponent>().guid);
-                                        actor.seat.vehicle.isInvulnerable = false;
-                                    }
+                                    }   
 
                                     actor.LeaveSeat(false);
+                                    if (!OwnedActors.Contains(leaveSeatPacket.Id))
+                                        (actor.controller as NetActorController).SeatResolverCooldown.Start();
                                 }
                                 break;
                             case PacketType.GameStateUpdate:
@@ -1350,19 +1574,21 @@ namespace RavenM
                                     if (actor == null)
                                         break;
 
-                                    var weapon = actor.activeWeapon;
+                                    var tag = new Tuple<int, ulong>(spawnPacket.NameHash, spawnPacket.Mod);
 
-                                    if (weapon == null)
-                                        break;
-
-                                    // Maybe move to a scope guard?
-                                    ClientCanSpawnProjectile = true;
-
-                                    var projectile = (Projectile)weapon.GetType().GetMethod("SpawnProjectile", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(weapon, new object[]
+                                    if (!PrefabCache.ContainsKey(tag))
                                     {
-                                        spawnPacket.Direction,
-                                        spawnPacket.MuzzlePosition,
-                                    });
+                                        Plugin.logger.LogError($"Cannot find projectile prefab with this tagging.");
+                                        continue;
+                                    }
+
+                                    var prefab = PrefabCache[tag];
+                                    var projectile = ProjectilePoolManager.InstantiateProjectile(prefab, spawnPacket.Position, spawnPacket.Rotation);
+
+                                    projectile.source = actor;
+                                    projectile.sourceWeapon = null;
+                                    projectile.performInfantryInitialMuzzleTravel = spawnPacket.performInfantryInitialMuzzleTravel;
+                                    projectile.initialMuzzleTravelDistance = spawnPacket.initialMuzzleTravelDistance;
 
                                     // Save the old configuration for when the object is pooled.
                                     ReleaseProjectilePatch.ConfigCache[projectile] = new ReleaseProjectilePatch.Config
@@ -1379,14 +1605,14 @@ namespace RavenM
                                     projectile.autoAssignArmorDamage = false;
                                     projectile.armorDamage = Vehicle.ArmorRating.SmallArms;
 
-                                    ClientCanSpawnProjectile = false;
-
                                     if (projectile.gameObject.TryGetComponent(out GuidComponent guid))
                                         guid.guid = spawnPacket.ProjectileId;
                                     else
                                         projectile.gameObject.AddComponent<GuidComponent>().guid = spawnPacket.ProjectileId;
 
                                     ClientProjectiles[spawnPacket.ProjectileId] = projectile;
+
+                                    projectile.StartTravelling();
                                 }
                                 break;
                             case PacketType.UpdateProjectile:
@@ -1415,10 +1641,21 @@ namespace RavenM
                                         if (projectilePacket.Boom && projectile.enabled)
                                         {
                                             var Explode = projectile.GetType().GetMethod("Explode", BindingFlags.Instance | BindingFlags.NonPublic);
-                                            // This shouldn't ever not exist, since we send only for Rockets++
+                                            // This shouldn't ever not exist, since we send only for ExplodingProjectiles.
                                             if (Explode != null)
                                             {
-                                                Explode.Invoke(projectile, new object[] { projectile.transform.position, projectile.transform.up });
+                                                var up = -projectile.transform.forward;
+
+                                                if (projectile.velocity != Vector3.zero &&
+                                                    projectile.ProjectileRaycast(new Ray(projectile.transform.position, projectile.velocity.normalized),
+                                                    out var hitInfo,
+                                                    Mathf.Infinity,
+                                                    (int)projectile.GetType().GetField("hitMask", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(projectile)))
+                                                {
+                                                    up = hitInfo.normal;
+                                                }
+
+                                                Explode.Invoke(projectile, new object[] { projectile.transform.position, up });
                                             }
                                         }
                                     }
@@ -1428,12 +1665,12 @@ namespace RavenM
                                 {
                                     var chatPacket = dataStream.ReadChatPacket();
 
-                                    var actor = ClientActors[chatPacket.Id];
+                                    var actor = ClientActors.ContainsKey(chatPacket.Id) ? ClientActors[chatPacket.Id] : null;
 
                                     if (actor == null)
-                                        break;
-
-                                    PushChatMessage(actor.name, chatPacket.Message, !chatPacket.TeamOnly, actor.team);
+                                        PushChatMessage(string.Empty, chatPacket.Message, true, -1);
+                                    else
+                                        PushChatMessage(actor.name, chatPacket.Message, !chatPacket.TeamOnly, actor.team);
                                 }
                                 break;
                             case PacketType.Voip:
@@ -1526,6 +1763,19 @@ namespace RavenM
                 for (int msg_index = 0; msg_index < msg_count; msg_index++)
                 {
                     var msg = Marshal.PtrToStructure<SteamNetworkingMessage_t>(msg_ptr[msg_index]);
+
+                    if (!ConnectionGuidMap.ContainsKey(msg.m_conn))
+                    {
+                        // We do a really quick read of the packet data.
+                        unsafe
+                        {
+                            using var memoryStream = new UnmanagedMemoryStream((byte*)msg.m_pData.ToPointer(), msg.m_cbSize);
+                            using var reader = new ProtocolReader(memoryStream);
+                            reader.ReadInt32();
+                            var guid = new Guid(reader.ReadBytes(16));
+                            ConnectionGuidMap[msg.m_conn] = guid;
+                        }
+                    }
 
                     for (int i = ServerConnections.Count - 1; i >= 0; i--)
                     {
@@ -1720,6 +1970,8 @@ namespace RavenM
                     Flags = GenerateFlags(actor),
                     Ammo = !actor.dead && actor.activeWeapon != null ? actor.activeWeapon.ammo : 0,
                     Health = actor.health,
+                    VehicleId = actor.IsSeated() && actor.seat.vehicle.TryGetComponent(out GuidComponent vguid) ? vguid.guid : 0,
+                    Seat = actor.IsSeated() ? actor.seat.vehicle.seats.IndexOf(actor.seat) : -1,
                 };
 
                 bulkActorUpdate.Updates.Add(net_actor);
@@ -1768,6 +2020,7 @@ namespace RavenM
                     Health = vehicle.health,
                     Dead = vehicle.dead,
                     IsTurret = vehicle.isTurret,
+                    Active = vehicle.gameObject.activeSelf,
                 };
 
                 bulkVehicleUpdate.Updates.Add(net_vehicle);
@@ -1807,9 +2060,18 @@ namespace RavenM
                 }
 
                 // We should only update projectiles where it is obvious
-                // there is a desync, like rockets++
-                if (!typeof(Rocket).IsAssignableFrom(projectile.GetType()))
+                // there is a desync, like rockets++. OR the one's that
+                // explode. It's hard to predict how they behave.
+                if (!typeof(ExplodingProjectile).IsAssignableFrom(projectile.GetType()))
                     continue;
+
+                // There are a lot of these to be honest. It's probably better to only
+                // update these when they actually do something (i.e. explode)
+                if (projectile.GetType() == typeof(ExplodingProjectile) && projectile.enabled)
+                    continue;
+                
+                if (!projectile.enabled)
+                    cleanup.Add(owned_projectile);
 
                 var net_projectile = new UpdateProjectilePacket
                 {
@@ -1836,7 +2098,10 @@ namespace RavenM
             }
             byte[] data = memoryStream.ToArray();
 
-            SendPacketToServer(data, PacketType.UpdateProjectile, Constants.k_nSteamNetworkingSend_Unreliable);
+            // TODO: This needs to be reliable because of the explosion state.
+            // But, the rest of the data does not. Therefore we should have a seperate
+            // packet like the ActorFlags just for this state change.
+            SendPacketToServer(data, PacketType.UpdateProjectile, Constants.k_nSteamNetworkingSend_Reliable);
         }
 
         public void SendVoiceData()

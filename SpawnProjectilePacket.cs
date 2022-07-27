@@ -1,91 +1,22 @@
-﻿using HarmonyLib;
-using System.IO;
-using Steamworks;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace RavenM
-{
-    [HarmonyPatch(typeof(Weapon), "SpawnProjectile")]
-    public class SpawnProjectilePatch
-    {
-        static bool Prefix(Weapon __instance, ref Projectile __result)
-        {
-            if (!IngameNetManager.instance.IsClient)
-                return true;
-
-            var actor = __instance.user;
-
-            if (actor == null)
-                return true;
-
-            var guid = actor.GetComponent<GuidComponent>();
-
-            if (guid == null)
-                return true;
-
-            var id = guid.guid;
-
-            if (IngameNetManager.instance.OwnedActors.Contains(id))
-                return true;
-
-            if (IngameNetManager.instance.ClientCanSpawnProjectile)
-                return true;
-
-            __result = null;
-            return false;
-        }
-
-        static void Postfix(Vector3 direction, Vector3 muzzlePosition, Projectile __result)
-        {
-            if (!IngameNetManager.instance.IsClient)
-                return;
-
-            if (__result == null)
-                return;
-
-            var source = __result.source;
-
-            var actorId = source.GetComponent<GuidComponent>().guid;
-
-            if (!IngameNetManager.instance.OwnedActors.Contains(actorId))
-                return;
-
-            var projectileId = IngameNetManager.instance.RandomGen.Next(0, int.MaxValue);
-
-            if (__result.gameObject.TryGetComponent(out GuidComponent guid))
-                guid.guid = projectileId;
-            else
-                __result.gameObject.AddComponent<GuidComponent>().guid = projectileId;
-
-            IngameNetManager.instance.OwnedProjectiles.Add(projectileId);
-            IngameNetManager.instance.ClientProjectiles[projectileId] = __result;
-
-            using MemoryStream memoryStream = new MemoryStream();
-            var spawnPacket = new SpawnProjectilePacket
-            {
-                SourceId = actorId,
-                Direction = direction,
-                MuzzlePosition = muzzlePosition,
-                ProjectileId = projectileId,
-            };
-
-            using (var writer = new ProtocolWriter(memoryStream))
-            {
-                writer.Write(spawnPacket);
-            }
-            byte[] data = memoryStream.ToArray();
-
-            IngameNetManager.instance.SendPacketToServer(data, PacketType.SpawnProjectile, Constants.k_nSteamNetworkingSend_Reliable);
-        }
-    }
-    
+{    
     public class SpawnProjectilePacket
     {
         public int SourceId;
 
-        public Vector3 Direction;
+        public int NameHash;
 
-        public Vector3 MuzzlePosition;
+        public ulong Mod;
+
+        public Vector3 Position;
+
+        public Quaternion Rotation;
+
+        public bool performInfantryInitialMuzzleTravel;
+
+        public float initialMuzzleTravelDistance;
 
         /// <summary>
         /// Used for potential updates to position/rotation.
