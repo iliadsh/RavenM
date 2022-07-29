@@ -30,8 +30,6 @@ namespace RavenM.RSPatch.Proxy
 		{
 			return this._value;
 		}
-		// Because sending the prefab everytime would be way to bandwidth intensive,
-		// sending the name and looking it up in a list, which is send at the start of the round
 		public static GameObjectProxy Instantiate(GameObjectProxy prefab)
 		{
 			GameObject prefab2 = InstantiatePrefabWithPacket(prefab, Vector3.zero, Vector3.zero);
