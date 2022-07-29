@@ -275,6 +275,10 @@ namespace RavenM
             Write(value.ScriptId);
             Write(value.Data);
         }
+        public void Write(KickAnimationPacket value)
+        {
+            Write(value.Id);
+        }
     }
 
     public class ProtocolReader : BinaryReader
@@ -597,7 +601,6 @@ namespace RavenM
             };
         }
 
-
         public SpawnCustomGameObjectPacket ReadSpawnCustomGameObjectPacket()
         {
             return new SpawnCustomGameObjectPacket
@@ -623,6 +626,13 @@ namespace RavenM
                 ScriptId = ReadInt32(),
                 Id = ReadInt32(),
                 Data = ReadString()
+            };
+        }
+        public KickAnimationPacket ReadKickAnimationPacket()
+        {
+            return new KickAnimationPacket
+            {
+                Id = ReadInt32(),
             };
         }
     }

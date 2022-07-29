@@ -21,7 +21,8 @@
     <EmbeddedResource Include="assets\marker.png" />
     <EmbeddedResource Include="assets\marker_left.png" />
     <EmbeddedResource Include="assets\marker_right.png" />
-	<EmbeddedResource Include="assets\mic.png" />
+	  <EmbeddedResource Include="assets\mic.png" />
+    <EmbeddedResource Include="assets\kickanimcontroller" />
   </ItemGroup>
 
   <ItemGroup>
@@ -71,6 +72,12 @@
     </Reference>
     <Reference Include="UnityEngine.UIModule">
       <HintPath>libs\UnityEngine.UIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>libs\UnityEngine.AnimationModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.AssetBundleModule">
+      <HintPath>libs\UnityEngine.AssetBundleModule.dll</HintPath>
     </Reference>
   </ItemGroup>
   

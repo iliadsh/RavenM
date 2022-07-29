@@ -22,5 +22,7 @@
         CreateCustomGameObject,
         NetworkGameObjectsHashes,
         ScriptedPacket
+        KickAnimation,
+
     }
 }
