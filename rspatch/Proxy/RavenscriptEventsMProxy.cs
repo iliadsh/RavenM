@@ -59,7 +59,6 @@ namespace RavenM.RSPatch.Proxy
 			return this._value;
 		}
 
-		// Token: 0x06003B14 RID: 15124 RVA: 0x000FC918 File Offset: 0x000FAB18
 		[MoonSharpHidden]
 		public static RavenscriptEventsMProxy New(RavenscriptMultiplayerEvents value)
 		{
@@ -76,14 +75,12 @@ namespace RavenM.RSPatch.Proxy
 			return ravenscriptEventsMProxy;
 		}
 
-		// Token: 0x06003B15 RID: 15125 RVA: 0x000FC962 File Offset: 0x000FAB62
 		[MoonSharpUserDataMetamethod("__call")]
 		public static RavenscriptEventsMProxy Call(DynValue _)
 		{
 			return new RavenscriptEventsMProxy();
 		}
 
-		// Token: 0x06003B16 RID: 15126 RVA: 0x000FC969 File Offset: 0x000FAB69
 
 	}
 }
