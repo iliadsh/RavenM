@@ -1,7 +1,6 @@
 using System.IO;
 using HarmonyLib;
 using Steamworks;
-
 namespace RavenM
 {
     /// <summary>
@@ -34,7 +33,6 @@ namespace RavenM
             Plugin.logger.LogInfo($"Sending kick from {__instance.actor.name}");
         }
     }
-    
     /// <summary>
     /// Send when an actor kicks.
     /// </summary>
