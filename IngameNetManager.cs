@@ -433,11 +433,14 @@ namespace RavenM
 
         public Dictionary<int, AudioContainer> PlayVoiceQueue = new Dictionary<int, AudioContainer>();
 
-        public RuntimeAnimatorController kickController;
+        public RuntimeAnimatorController KickController;
+        
+        public RuntimeAnimatorController OldKickController;
 
-        public GameObject kickSoundSource;
+        public GameObject KickSoundSource;
 
-        public AudioClip kickSound;
+        public AudioClip KickSound;
+
 
         public static readonly Dictionary<Tuple<int, ulong>, GameObject> PrefabCache = new Dictionary<Tuple<int, ulong>, GameObject>();
 
@@ -481,11 +484,11 @@ namespace RavenM
             var kickAnimationBundle =
                 AssetBundle.LoadFromStream(kickAnimationBundleStream);
             
-            kickController = kickAnimationBundle.LoadAsset<RuntimeAnimatorController>("Actor NEW 1");
-            kickSound = kickAnimationBundle.LoadAsset<AudioClip>("kickSound");
+            KickController = kickAnimationBundle.LoadAsset<RuntimeAnimatorController>("Actor NEW 1");
+            KickSound = kickAnimationBundle.LoadAsset<AudioClip>("kickSound");
             
-            Plugin.logger.LogWarning(kickController == null ? "Kick AnimationController couldn't be loaded" : "Kick AnimationController loaded");
-            Plugin.logger.LogWarning(kickSound == null ? "Kick AudioClip couldn't be loaded" : "Kick AudioClip loaded");
+            Plugin.logger.LogWarning(KickController == null ? "Kick AnimationController couldn't be loaded" : "Kick AnimationController loaded");
+            Plugin.logger.LogWarning(KickSound == null ? "Kick AudioClip couldn't be loaded" : "Kick AudioClip loaded");
         }
 
         private void Start()
@@ -1452,6 +1455,11 @@ namespace RavenM
                                         targetActor.KillSilently();
                                     else
                                         targetActor.Kill(damage_info);
+                                    
+                                    // Reset the animator Controller in case the PerformKick Coroutine is Interrupted
+                                    if (OldKickController == null)
+                                        return;
+                                    targetActor.animator.runtimeAnimatorController = OldKickController;
                                 }
                                 break;
                             case PacketType.EnterSeat:
@@ -2204,30 +2212,34 @@ namespace RavenM
         /// </summary>
         private IEnumerator PerformKick(Actor actor)
         {
-            if (kickController == null)
+            if (KickController == null)
             {
                 Plugin.logger.LogError("Kick Animation Failed!");
                 yield break;
             }
             var actorAnimator = actor.animator;
-            var preKickController = actorAnimator.runtimeAnimatorController;
-
-            actorAnimator.runtimeAnimatorController = kickController;
-            actorAnimator.SetTrigger("kick");
             
-            // Create a new object in the scene and play the kickSound in the position of the actor
-            if (kickSoundSource == null)
+            if (OldKickController == null)
             {
-                kickSoundSource = new GameObject("kickSoundSource");
-                kickSoundSource.AddComponent<AudioSource>().clip = kickSound;
+                OldKickController = actorAnimator.runtimeAnimatorController;
+            }
+            
+            actorAnimator.runtimeAnimatorController = KickController;
+            actorAnimator.SetTrigger("kick");
+
+            // Create a new object in the scene and play the kickSound in the position of the actor
+            if (KickSoundSource == null)
+            {
+                KickSoundSource = new GameObject("kickSoundSource");
+                KickSoundSource.AddComponent<AudioSource>().clip = KickSound;
             }
 
-            kickSoundSource.transform.position = actor.transform.position;
-            kickSoundSource.GetComponent<AudioSource>().Play();
+            KickSoundSource.transform.position = actor.transform.position;
+            KickSoundSource.GetComponent<AudioSource>().Play();
 
             yield return new WaitForSeconds(1);
 
-            actorAnimator.runtimeAnimatorController = preKickController;
+            actorAnimator.runtimeAnimatorController = OldKickController;
         }
     }
 }
