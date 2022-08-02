@@ -435,7 +435,7 @@ namespace RavenM
 
         public RuntimeAnimatorController KickController;
         
-        public RuntimeAnimatorController OldKickController;
+        public static RuntimeAnimatorController OldKickController;
 
         public GameObject KickSoundSource;
 
@@ -1454,11 +1454,6 @@ namespace RavenM
                                         targetActor.KillSilently();
                                     else
                                         targetActor.Kill(damage_info);
-                                    
-                                    // Reset the animator Controller in case the PerformKick Coroutine is Interrupted
-                                    if (OldKickController == null)
-                                        return;
-                                    targetActor.animator.runtimeAnimatorController = OldKickController;
                                 }
                                 break;
                             case PacketType.EnterSeat:
