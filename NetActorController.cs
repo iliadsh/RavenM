@@ -244,6 +244,11 @@ namespace RavenM
         public override void Die(Actor killer)
         {
             RespawnCooldown.Start();
+            
+            // Reset the animator Controller in case the PerformKick Coroutine is Interrupted
+            if (IngameNetManager.OldKickController == null)
+                return;
+            killer.animator.runtimeAnimatorController = IngameNetManager.OldKickController;
         }
 
         public override void DisableInput()
