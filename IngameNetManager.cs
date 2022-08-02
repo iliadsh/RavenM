@@ -441,7 +441,6 @@ namespace RavenM
 
         public AudioClip KickSound;
 
-
         public static readonly Dictionary<Tuple<int, ulong>, GameObject> PrefabCache = new Dictionary<Tuple<int, ulong>, GameObject>();
 
         private void Awake()
