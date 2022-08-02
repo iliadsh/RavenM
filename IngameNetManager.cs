@@ -436,9 +436,7 @@ namespace RavenM
         public RuntimeAnimatorController KickController;
         
         public static RuntimeAnimatorController OldKickController;
-
-        public GameObject KickSoundSource;
-
+        
         public AudioClip KickSound;
 
         public static readonly Dictionary<Tuple<int, ulong>, GameObject> PrefabCache = new Dictionary<Tuple<int, ulong>, GameObject>();
@@ -2221,15 +2219,7 @@ namespace RavenM
             actorAnimator.runtimeAnimatorController = KickController;
             actorAnimator.SetTrigger("kick");
 
-            // Create a new object in the scene and play the kickSound in the position of the actor
-            if (KickSoundSource == null)
-            {
-                KickSoundSource = new GameObject("kickSoundSource");
-                KickSoundSource.AddComponent<AudioSource>().clip = KickSound;
-            }
-
-            KickSoundSource.transform.position = actor.transform.position;
-            KickSoundSource.GetComponent<AudioSource>().Play();
+            AudioSource.PlayClipAtPoint(KickSound, actor.transform.position);
 
             yield return new WaitForSeconds(1);
 
