@@ -1,6 +1,9 @@
+using System.Collections;
 using System.IO;
 using HarmonyLib;
 using Steamworks;
+using UnityEngine;
+
 namespace RavenM
 {
     /// <summary>
@@ -33,6 +36,42 @@ namespace RavenM
             Plugin.logger.LogInfo($"Sending kick from {__instance.actor.name}");
         }
     }
+
+    public static class KickAnimation
+    {
+        public static RuntimeAnimatorController KickController;
+        
+        public static RuntimeAnimatorController OldKickController;
+        
+        public static AudioClip KickSound;
+        /// <summary>
+        /// Change Temporarily the animator controller for one that contains the kick animation and reproduce a sound
+        /// </summary>
+        public static IEnumerator PerformKick(Actor actor)
+        {
+            if (KickController == null)
+            {
+                Plugin.logger.LogError("Kick Animation Failed!");
+                yield break;
+            }
+            var actorAnimator = actor.animator;
+            
+            if (OldKickController == null)
+            {
+                OldKickController = actorAnimator.runtimeAnimatorController;
+            }
+            
+            actorAnimator.runtimeAnimatorController = KickController;
+            actorAnimator.SetTrigger("kick");
+
+            AudioSource.PlayClipAtPoint(KickSound, actor.transform.position);
+
+            yield return new WaitForSeconds(1);
+
+            actorAnimator.runtimeAnimatorController = OldKickController;
+        }
+    }
+
     /// <summary>
     /// Send when an actor kicks.
     /// </summary>
