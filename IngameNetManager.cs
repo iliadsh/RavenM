@@ -1921,7 +1921,7 @@ namespace RavenM
             }
             byte[] data = memoryStream.ToArray();
 
-            SendPacketToServer(data, PacketType.ActorFlags, Constants.k_nSteamNetworkingSend_Unreliable);
+            SendPacketToServer(data, PacketType.ActorFlags, Constants.k_nSteamNetworkingSend_Reliable);
         }
 
         public void SendActorStates()

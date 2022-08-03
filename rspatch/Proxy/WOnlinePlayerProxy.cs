@@ -15,9 +15,9 @@ namespace RavenM.RSPatch.Proxy
     [Proxy(typeof(WOnlinePlayer))]
     public class WOnlinePlayerProxy : IProxy
     {
-        public static void SendPacketToServer(string data,int packetType, bool reliable)
+        public static bool SendPacketToServer(string data,int packetType, bool reliable)
         {
-            WOnlinePlayer.SendPacketToServer(data, packetType, reliable);
+            return WOnlinePlayer.SendPacketToServer(data, packetType, reliable);
         }
         public static string OwnGUID
         {

@@ -12,10 +12,11 @@ namespace RavenM.RSPatch.Wrapper
     [Lua.Name("OnlinePlayer")]
     public static class WOnlinePlayer
     {
-        public static void SendPacketToServer(string data, int packetType, bool reliable)
+        public static bool SendPacketToServer(string data, int packetType, bool reliable)
         {
             if (data == null)
             {
+                return false;
                 throw new ScriptRuntimeException("argument 'data' is nil");
             }
 
@@ -43,7 +44,9 @@ namespace RavenM.RSPatch.Wrapper
             }
             
             byte[] data2 = memoryStream.ToArray();
+            Plugin.logger.LogInfo("data " + data + " packetID " + packetType);
             IngameNetManager.instance.SendPacketToServer(data2, PacketType.ScriptedPacket, flag);
+            return true;
         }
         [Lua.Getter]
         public static string GetOwnGUID()

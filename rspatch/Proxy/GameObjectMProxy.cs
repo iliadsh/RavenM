@@ -30,8 +30,6 @@ namespace RavenM.RSPatch.Proxy
 		{
 			return this._value;
 		}
-		// Because sending the prefab everytime would be way to bandwidth intensive,
-		// sending the name and looking it up in a list, which is send at the start of the round
 		public static GameObjectProxy Instantiate(GameObjectProxy prefab)
 		{
 			GameObject prefab2 = InstantiatePrefabWithPacket(prefab, Vector3.zero, Vector3.zero);
@@ -76,25 +74,6 @@ namespace RavenM.RSPatch.Proxy
 			byte[] data = memoryStream.ToArray();
 			IngameNetManager.instance.SendPacketToServer(data, PacketType.CreateCustomGameObject, Constants.k_nSteamNetworkingSend_Reliable);
 			return prefab2;
-			//var bulkVehicleUpdate = new BulkVehicleUpdate
-			//{
-			//	Updates = new List<VehiclePacket>(),
-			//};
-
-
-
-			//if (bulkVehicleUpdate.Updates.Count == 0)
-			//	return;
-
-			//using MemoryStream memoryStream = new MemoryStream();
-
-			//using (var writer = new ProtocolWriter(memoryStream))
-			//{
-			//	writer.Write(bulkVehicleUpdate);
-			//}
-			//byte[] data = memoryStream.ToArray();
-
-			//SendPacketToServer(data, PacketType.VehicleUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
 		}
 	}
 }

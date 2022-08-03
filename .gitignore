@@ -398,6 +398,4 @@ FodyWeavers.xsd
 *.msp
 
 # JetBrains Rider
-*.sln.iml
-*.csproj
 RavenM.csproj
