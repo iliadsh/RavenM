@@ -433,7 +433,11 @@ namespace RavenM
 
         public Dictionary<int, AudioContainer> PlayVoiceQueue = new Dictionary<int, AudioContainer>();
 
-        public RuntimeAnimatorController kickController;
+        public RuntimeAnimatorController KickController;
+        
+        public static RuntimeAnimatorController OldKickController;
+        
+        public AudioClip KickSound;
 
         public static readonly Dictionary<Tuple<int, ulong>, GameObject> PrefabCache = new Dictionary<Tuple<int, ulong>, GameObject>();
 
@@ -483,8 +487,12 @@ namespace RavenM
                 Assembly.GetExecutingAssembly().GetManifestResourceStream("RavenM.assets.kickanimcontroller");
             var kickAnimationBundle =
                 AssetBundle.LoadFromStream(kickAnimationBundleStream);
-            kickController = kickAnimationBundle.LoadAsset<RuntimeAnimatorController>("kickWeaponPreview");
-            Plugin.logger.LogWarning(kickController == null ? "Kick AssetBundle couldn't be loaded" : "Kick AssetBundle loaded");
+            
+            KickController = kickAnimationBundle.LoadAsset<RuntimeAnimatorController>("Actor NEW 1");
+            KickSound = kickAnimationBundle.LoadAsset<AudioClip>("kickSound");
+            
+            Plugin.logger.LogWarning(KickController == null ? "Kick AnimationController couldn't be loaded" : "Kick AnimationController loaded");
+            Plugin.logger.LogWarning(KickSound == null ? "Kick AudioClip couldn't be loaded" : "Kick AudioClip loaded");
         }
 
         private void Start()
@@ -2199,25 +2207,30 @@ namespace RavenM
         }
         
         /// <summary>
-        /// Change Temporarily the animator controller for one that contains the kick animation
+        /// Change Temporarily the animator controller for one that contains the kick animation and reproduce a sound
         /// </summary>
         private IEnumerator PerformKick(Actor actor)
         {
-            if (kickController == null)
+            if (KickController == null)
             {
                 Plugin.logger.LogError("Kick Animation Failed!");
                 yield break;
             }
-            
             var actorAnimator = actor.animator;
-            var preKickController = actorAnimator.runtimeAnimatorController;
-
-            actorAnimator.runtimeAnimatorController = kickController;
+            
+            if (OldKickController == null)
+            {
+                OldKickController = actorAnimator.runtimeAnimatorController;
+            }
+            
+            actorAnimator.runtimeAnimatorController = KickController;
             actorAnimator.SetTrigger("kick");
+
+            AudioSource.PlayClipAtPoint(KickSound, actor.transform.position);
 
             yield return new WaitForSeconds(1);
 
-            actorAnimator.runtimeAnimatorController = preKickController;
+            actorAnimator.runtimeAnimatorController = OldKickController;
         }
     }
 }
