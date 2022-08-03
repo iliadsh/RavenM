@@ -24,7 +24,6 @@ namespace RavenM.RSPatch.Wrapper
             for (int i = 0; i < numPlayers; i++)
             {
                 members[i] = SteamFriends.GetFriendPersonaName(SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i));
-                Plugin.logger.LogInfo(members[i]);
             }
             return members;
         }
