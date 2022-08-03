@@ -1297,7 +1297,7 @@ namespace RavenM
 
                                         controller.Targets = actor_packet;
                                         controller.Flags = actor_packet.Flags;
-                                         RavenM.RSPatch.RavenscriptEventsManagerPatch.events.onPlayerJoin.Invoke(actor);
+                                        RavenM.RSPatch.RavenscriptEventsManagerPatch.events.onPlayerJoin.Invoke(actor);
                                     }
                                 }
                                 break;
@@ -1532,7 +1532,7 @@ namespace RavenM
                                     if (actor.seat.IsDriverSeat() && IsHost)
                                     {
                                         OwnedVehicles.Add(actor.seat.vehicle.GetComponent<GuidComponent>().guid);
-                                    }   
+                                    }
 
                                     actor.LeaveSeat(false);
                                     if (!OwnedActors.Contains(leaveSeatPacket.Id))
@@ -1766,17 +1766,18 @@ namespace RavenM
                                     var kickPacket = dataStream.ReadKickAnimationPacket();
 
                                     var actor = ClientActors[kickPacket.Id];
-                                    
+
                                     if (actor == null)
                                         break;
-                                    
+
                                     Plugin.logger.LogDebug($"Receiving Kick Animation Packet from: {actor.name}");
 
                                     StartCoroutine(PerformKick(actor));
                                 }
                                 break;
-                             default:
+                            default:
                                 RSPatch.RSPatch.FixedUpdate(packet, dataStream);
+                                break;
                         }
                     }
 
@@ -1951,7 +1952,7 @@ namespace RavenM
             }
             byte[] data = memoryStream.ToArray();
 
-            SendPacketToServer(data, PacketType.ActorFlags, Constants.k_nSteamNetworkingSend_Unreliable);
+            SendPacketToServer(data, PacketType.ActorFlags, Constants.k_nSteamNetworkingSend_Reliable);
         }
 
         public void SendActorStates()

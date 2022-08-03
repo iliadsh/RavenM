@@ -74,25 +74,6 @@ namespace RavenM.RSPatch.Proxy
 			byte[] data = memoryStream.ToArray();
 			IngameNetManager.instance.SendPacketToServer(data, PacketType.CreateCustomGameObject, Constants.k_nSteamNetworkingSend_Reliable);
 			return prefab2;
-			//var bulkVehicleUpdate = new BulkVehicleUpdate
-			//{
-			//	Updates = new List<VehiclePacket>(),
-			//};
-
-
-
-			//if (bulkVehicleUpdate.Updates.Count == 0)
-			//	return;
-
-			//using MemoryStream memoryStream = new MemoryStream();
-
-			//using (var writer = new ProtocolWriter(memoryStream))
-			//{
-			//	writer.Write(bulkVehicleUpdate);
-			//}
-			//byte[] data = memoryStream.ToArray();
-
-			//SendPacketToServer(data, PacketType.VehicleUpdate, Constants.k_nSteamNetworkingSend_Unreliable);
 		}
 	}
 }

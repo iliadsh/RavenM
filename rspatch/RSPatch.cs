@@ -127,6 +127,13 @@ namespace RavenM.RSPatch
                         __instance.builtInMutators.Add(entry);
                     }
                 }
+                foreach (WeaponManager.WeaponEntry weaponEntry in WeaponManager.instance.allWeapons)
+                {
+                    if (weaponEntry.sourceMod != ModInformation.OfficialContent)
+                    {
+                        WeaponManager.instance.weapons.Add(weaponEntry);
+                    }
+                }
             }
             return true;
         }

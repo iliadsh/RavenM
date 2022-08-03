@@ -21,7 +21,7 @@
         VehicleDamage,
         CreateCustomGameObject,
         NetworkGameObjectsHashes,
-        ScriptedPacket
+        ScriptedPacket,
         KickAnimation,
 
     }
