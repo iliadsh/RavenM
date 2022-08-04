@@ -246,9 +246,9 @@ namespace RavenM
             RespawnCooldown.Start();
             
             // Reset the animator Controller in case the PerformKick Coroutine is Interrupted
-            if (IngameNetManager.OldKickController == null)
+            if (KickAnimation.OldKickController == null)
                 return;
-            killer.animator.runtimeAnimatorController = IngameNetManager.OldKickController;
+            killer.animator.runtimeAnimatorController = KickAnimation.OldKickController;
         }
 
         public override void DisableInput()
