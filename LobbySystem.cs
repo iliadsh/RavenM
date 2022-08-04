@@ -109,6 +109,19 @@ namespace RavenM
                     IngameNetManager.PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = vehicle.gameObject;
                 }
             }
+
+            foreach (var projectile in Resources.FindObjectsOfTypeAll<Projectile>())
+            {
+                if (!projectile.TryGetComponent(out PrefabTag _))
+                {
+                    Plugin.logger.LogInfo($"Detected map projectile with name: {projectile.name}, and from map: {map.name}.");
+
+                    var tag = projectile.gameObject.AddComponent<PrefabTag>();
+                    tag.NameHash = projectile.name.GetHashCode();
+                    tag.Mod = (ulong)map.name.GetHashCode();
+                    IngameNetManager.PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = projectile.gameObject;
+                }
+            }
         }
 
         static void Postfix()

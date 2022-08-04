@@ -57,7 +57,7 @@ namespace RavenM
 
         public Vector3 Velocity;
 
-        public bool Boom;
+        public bool Enabled;
     }
 
     public class BulkProjectileUpdate

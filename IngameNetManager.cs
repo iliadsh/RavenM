@@ -1648,26 +1648,49 @@ namespace RavenM
 
                                         projectile.transform.position = projectilePacket.Position;
                                         projectile.velocity = projectilePacket.Velocity;
+                                        projectile.enabled = projectilePacket.Enabled;
+                                    }
+                                }
+                                break;
+                            case PacketType.Explode:
+                                {
+                                    var explodePacket = dataStream.ReadExplodeProjectilePacket();
 
-                                        if (projectilePacket.Boom && projectile.enabled)
+                                    if (OwnedProjectiles.Contains(explodePacket.Id))
+                                        continue;
+
+                                    if (!ClientProjectiles.ContainsKey(explodePacket.Id))
+                                        continue;
+
+                                    Projectile projectile = ClientProjectiles[explodePacket.Id];
+
+                                    if (projectile == null)
+                                        continue;
+
+                                    // RemoteDetonatedProjectiles don't explode like normal projectiles.
+                                    if (projectile.GetType() == typeof(RemoteDetonatedProjectile))
+                                    {
+                                        Plugin.logger.LogInfo($"Detonate.");
+                                        (projectile as RemoteDetonatedProjectile).Detonate();
+                                    }
+                                    else
+                                    {
+                                        var Explode = projectile.GetType().GetMethod("Explode", BindingFlags.Instance | BindingFlags.NonPublic);
+                                        // This shouldn't ever not exist, since we send only for ExplodingProjectiles.
+                                        if (Explode != null)
                                         {
-                                            var Explode = projectile.GetType().GetMethod("Explode", BindingFlags.Instance | BindingFlags.NonPublic);
-                                            // This shouldn't ever not exist, since we send only for ExplodingProjectiles.
-                                            if (Explode != null)
+                                            var up = -projectile.transform.forward;
+
+                                            if (projectile.velocity != Vector3.zero &&
+                                                projectile.ProjectileRaycast(new Ray(projectile.transform.position, projectile.velocity.normalized),
+                                                out var hitInfo,
+                                                Mathf.Infinity,
+                                                (int)projectile.GetType().GetField("hitMask", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(projectile)))
                                             {
-                                                var up = -projectile.transform.forward;
-
-                                                if (projectile.velocity != Vector3.zero &&
-                                                    projectile.ProjectileRaycast(new Ray(projectile.transform.position, projectile.velocity.normalized),
-                                                    out var hitInfo,
-                                                    Mathf.Infinity,
-                                                    (int)projectile.GetType().GetField("hitMask", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(projectile)))
-                                                {
-                                                    up = hitInfo.normal;
-                                                }
-
-                                                Explode.Invoke(projectile, new object[] { projectile.transform.position, up });
+                                                up = hitInfo.normal;
                                             }
+
+                                            Explode.Invoke(projectile, new object[] { projectile.transform.position, up });
                                         }
                                     }
                                 }
@@ -2093,18 +2116,15 @@ namespace RavenM
 
                 // There are a lot of these to be honest. It's probably better to only
                 // update these when they actually do something (i.e. explode)
-                if (projectile.GetType() == typeof(ExplodingProjectile) && projectile.enabled)
+                if (projectile.GetType() == typeof(ExplodingProjectile) || !projectile.enabled)
                     continue;
-                
-                if (!projectile.enabled)
-                    cleanup.Add(owned_projectile);
 
                 var net_projectile = new UpdateProjectilePacket
                 {
                     Id = owned_projectile,
                     Position = projectile.transform.position,
                     Velocity = projectile.velocity,
-                    Boom = !projectile.enabled,
+                    Enabled = projectile.enabled,
                 };
 
                 bulkProjectileUpdate.Updates.Add(net_projectile);

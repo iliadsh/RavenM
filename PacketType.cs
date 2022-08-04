@@ -23,6 +23,6 @@
         NetworkGameObjectsHashes,
         ScriptedPacket,
         KickAnimation,
-
+        Explode,
     }
 }

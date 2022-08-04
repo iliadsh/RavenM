@@ -210,7 +210,7 @@ namespace RavenM
             Write(value.Id);
             Write(value.Position);
             Write(value.Velocity);
-            Write(value.Boom);
+            Write(value.Enabled);
         }
 
         public void Write(BulkProjectileUpdate value)
@@ -257,6 +257,7 @@ namespace RavenM
             Write(value.Voice.Length);
             Write(value.Voice);
         }
+
         public void Write(SpawnCustomGameObjectPacket value)
         {
             Write(value.SourceID);
@@ -264,18 +265,26 @@ namespace RavenM
             Write(value.Position);
             Write(value.Rotation);
         }
+
         public void Write(NetworkGameObjectsHashesPacket value)
         {
             Write(value.Id);
             Write(value.NetworkGameObjectHashes);
         }
+
         public void Write(ScriptedPacket value)
         {
             Write(value.Id);
             Write(value.ScriptId);
             Write(value.Data);
         }
+
         public void Write(KickAnimationPacket value)
+        {
+            Write(value.Id);
+        }
+
+        public void Write(ExplodeProjectilePacket value)
         {
             Write(value.Id);
         }
@@ -534,7 +543,7 @@ namespace RavenM
                 Id = ReadInt32(),
                 Position = ReadVector3(),
                 Velocity = ReadVector3(),
-                Boom = ReadBoolean(),
+                Enabled = ReadBoolean(),
             };
         }
 
@@ -611,6 +620,7 @@ namespace RavenM
                 Rotation = ReadVector3()
             };
         }
+
         public NetworkGameObjectsHashesPacket ReadSyncNetworkGameObjectsPacket()
         {
             return new NetworkGameObjectsHashesPacket
@@ -619,6 +629,7 @@ namespace RavenM
                 NetworkGameObjectHashes = ReadString()
             };
         }
+
         public ScriptedPacket ReadScriptedPacket()
         {
             return new ScriptedPacket
@@ -628,9 +639,18 @@ namespace RavenM
                 Data = ReadString()
             };
         }
+
         public KickAnimationPacket ReadKickAnimationPacket()
         {
             return new KickAnimationPacket
+            {
+                Id = ReadInt32(),
+            };
+        }
+        
+        public ExplodeProjectilePacket ReadExplodeProjectilePacket()
+        {
+            return new ExplodeProjectilePacket
             {
                 Id = ReadInt32(),
             };
