@@ -611,9 +611,9 @@ namespace RavenM
                         GUI.DrawTexture(new Rect(10f, Mathf.Clamp(Screen.height - vector.y, 0, Screen.height - 50f), 50f, 50f), LeftMarker);
                 else
                     if (Vector3.Dot(camera.transform.right, worldPos - camera.transform.position) < 0)
-                    GUI.DrawTexture(new Rect(10f, 0f, 50f, 50f), LeftMarker);
-                else
-                    GUI.DrawTexture(new Rect(Screen.width - 60f, 0f, 50f, 50f), RightMarker);
+                        GUI.DrawTexture(new Rect(10f, 0f, 50f, 50f), LeftMarker);
+                    else
+                        GUI.DrawTexture(new Rect(Screen.width - 60f, 0f, 50f, 50f), RightMarker);
             }
         }
 
@@ -672,13 +672,13 @@ namespace RavenM
                 nameStyle.normal.background = GreyBackground;
                 GUILayout.BeginArea(new Rect(vector.x - 50f, Screen.height - vector.y, 110f, 20f), string.Empty);
                 GUILayout.BeginHorizontal(nameStyle);
-                GUILayout.FlexibleSpace();
-                GUILayout.BeginVertical();
-                GUILayout.FlexibleSpace();
-                GUILayout.Label(actor.name);
-                GUILayout.FlexibleSpace();
-                GUILayout.EndVertical();
-                GUILayout.FlexibleSpace();
+                    GUILayout.FlexibleSpace();
+                        GUILayout.BeginVertical();
+                            GUILayout.FlexibleSpace();
+                                GUILayout.Label(actor.name);
+                            GUILayout.FlexibleSpace();
+                        GUILayout.EndVertical();
+                    GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
                 GUILayout.EndArea();
             }
