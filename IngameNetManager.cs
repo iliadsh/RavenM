@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Steamworks;
 using System;
 using System.Collections;
@@ -306,7 +306,7 @@ namespace RavenM
         {
             if (!IngameNetManager.instance.IsClient)
                 return;
-            
+
             __instance.DisableMovement();
         }
     }
@@ -441,6 +441,11 @@ namespace RavenM
 
         public static readonly Dictionary<Tuple<int, ulong>, GameObject> PrefabCache = new Dictionary<Tuple<int, ulong>, GameObject>();
 
+
+        public Type Steamworks_NativeMethods;
+
+        public MethodInfo SteamAPI_SteamNetworkingMessage_t_Release;
+
         private void Awake()
         {
             instance = this;
@@ -475,7 +480,9 @@ namespace RavenM
             imageBytes = resourceMemory.ToArray();
 
             RightMarker.LoadImage(imageBytes);
-            
+            Steamworks_NativeMethods = Type.GetType("Steamworks.NativeMethods, Assembly-CSharp-firstpass, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
+            SteamAPI_SteamNetworkingMessage_t_Release = Steamworks_NativeMethods.GetMethod("SteamAPI_SteamNetworkingMessage_t_Release", BindingFlags.Static | BindingFlags.Public);
+
             var kickAnimationBundleStream =
                 Assembly.GetExecutingAssembly().GetManifestResourceStream("RavenM.assets.kickanimcontroller");
             var kickAnimationBundle =
@@ -511,9 +518,9 @@ namespace RavenM
                 _showSpecificOutbound = !_showSpecificOutbound;
 
             // AKA Tilde Key.
-            if (Input.GetKeyDown(KeyCode.BackQuote) 
-                && GameManager.instance != null && GameManager.IsIngame() 
-                && !ActorManager.instance.player.dead 
+            if (Input.GetKeyDown(KeyCode.BackQuote)
+                && GameManager.instance != null && GameManager.IsIngame()
+                && !ActorManager.instance.player.dead
                 && ActorManager.instance.player.activeWeapon != null)
             {
                 Physics.Raycast(ActorManager.instance.player.activeWeapon.transform.position, ActorManager.instance.player.activeWeapon.transform.forward, out RaycastHit hit, Mathf.Infinity, Physics.AllLayers);
@@ -526,7 +533,7 @@ namespace RavenM
                         MarkerPosition = hit.point;
                     else
                         MarkerPosition = Vector3.zero;
-                }          
+                }
             }
 
             SendActorFlags();
@@ -576,7 +583,7 @@ namespace RavenM
                 SteamUser.StartVoiceRecording();
                 UsingMicrophone = true;
             }
-                
+
             if (Input.GetKeyUp(KeyCode.CapsLock))
             {
                 SteamUser.StopVoiceRecording();
@@ -610,9 +617,9 @@ namespace RavenM
                         GUI.DrawTexture(new Rect(10f, Mathf.Clamp(Screen.height - vector.y, 0, Screen.height - 50f), 50f, 50f), LeftMarker);
                 else
                     if (Vector3.Dot(camera.transform.right, worldPos - camera.transform.position) < 0)
-                        GUI.DrawTexture(new Rect(10f, 0f, 50f, 50f), LeftMarker);
-                    else
-                        GUI.DrawTexture(new Rect(Screen.width - 60f, 0f, 50f, 50f), RightMarker);
+                    GUI.DrawTexture(new Rect(10f, 0f, 50f, 50f), LeftMarker);
+                else
+                    GUI.DrawTexture(new Rect(Screen.width - 60f, 0f, 50f, 50f), RightMarker);
             }
         }
 
@@ -671,13 +678,13 @@ namespace RavenM
                 nameStyle.normal.background = GreyBackground;
                 GUILayout.BeginArea(new Rect(vector.x - 50f, Screen.height - vector.y, 110f, 20f), string.Empty);
                 GUILayout.BeginHorizontal(nameStyle);
-                    GUILayout.FlexibleSpace();
-                        GUILayout.BeginVertical();
-                            GUILayout.FlexibleSpace();
-                                GUILayout.Label(actor.name);
-                            GUILayout.FlexibleSpace();
-                        GUILayout.EndVertical();
-                    GUILayout.FlexibleSpace();
+                GUILayout.FlexibleSpace();
+                GUILayout.BeginVertical();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label(actor.name);
+                GUILayout.FlexibleSpace();
+                GUILayout.EndVertical();
+                GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
                 GUILayout.EndArea();
             }
@@ -1012,7 +1019,6 @@ namespace RavenM
                                 (IntPtr)pCallback.m_hConn.m_HSteamNetConnection, ESteamNetworkingConfigDataType.k_ESteamNetworkingConfig_Int32,
                                 (IntPtr)(&_2mb));
                         }
-
                         Plugin.logger.LogInfo("Accepted the connection");
                         break;
 
@@ -1065,6 +1071,7 @@ namespace RavenM
                                     }
                                     byte[] data = memoryStream.ToArray();
 
+                                    RavenM.RSPatch.RavenscriptEventsManagerPatch.events.onPlayerDisconnect.Invoke(actor);
                                     SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
                                 }
 
@@ -1128,7 +1135,6 @@ namespace RavenM
                         using MemoryStream compressedStream = new MemoryStream(packet.data);
                         using DeflateStream decompressStream = new DeflateStream(compressedStream, CompressionMode.Decompress);
                         using var dataStream = new ProtocolReader(decompressStream);
-
                         switch (packet.Id)
                         {
                             case PacketType.ActorUpdate:
@@ -1279,7 +1285,6 @@ namespace RavenM
                                                 voiceSource.outputAudioMixerGroup = GameManager.instance.sfxMixer.outputAudioMixerGroup;
                                                 voiceSource.Play();
                                             }
-
                                             ClientActors[actor_packet.Id] = actor;
                                         }
 
@@ -1292,6 +1297,7 @@ namespace RavenM
 
                                         controller.Targets = actor_packet;
                                         controller.Flags = actor_packet.Flags;
+                                        RavenM.RSPatch.RavenscriptEventsManagerPatch.events.onPlayerJoin.Invoke(actor);
                                     }
                                 }
                                 break;
@@ -1341,7 +1347,7 @@ namespace RavenM
                                             Plugin.logger.LogInfo($"New vehicle registered with ID {vehiclePacket.Id} name {vehiclePacket.NameHash} mod {vehiclePacket.Mod}");
 
                                             var tag = new Tuple<int, ulong>(vehiclePacket.NameHash, vehiclePacket.Mod);
-                                            
+
                                             if (!PrefabCache.ContainsKey(tag))
                                             {
                                                 Plugin.logger.LogError($"Cannot find prefab with this tagging.");
@@ -1350,10 +1356,10 @@ namespace RavenM
 
                                             var prefab = PrefabCache[tag];
                                             vehicle = Instantiate(prefab, vehiclePacket.Position, vehiclePacket.Rotation).GetComponent<Vehicle>();
-
                                             vehicle.isTurret = vehiclePacket.IsTurret;
 
                                             vehicle.gameObject.AddComponent<GuidComponent>().guid = vehiclePacket.Id;
+                                            //RavenM.RSPatch.Wrapper.WLobby.networkGameObjects.Add(prefab.GetHashCode().ToString(), prefab);
 
                                             ClientVehicles[vehiclePacket.Id] = vehicle;
                                         }
@@ -1526,7 +1532,7 @@ namespace RavenM
                                     if (actor.seat.IsDriverSeat() && IsHost)
                                     {
                                         OwnedVehicles.Add(actor.seat.vehicle.GetComponent<GuidComponent>().guid);
-                                    }   
+                                    }
 
                                     actor.LeaveSeat(false);
                                     if (!OwnedActors.Contains(leaveSeatPacket.Id))
@@ -1553,7 +1559,7 @@ namespace RavenM
 
                                                 typeof(BattleMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(battleObj, gameUpdatePacket.RemainingBattalions);
                                                 typeof(BattleMode).GetField("tickets", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(battleObj, gameUpdatePacket.Tickets);
-                                                
+
                                                 for (int i = 0; i < 2; i++)
                                                 {
                                                     if (gameUpdatePacket.RemainingBattalions[i] != 0)
@@ -1698,7 +1704,7 @@ namespace RavenM
                                         voiceBuffer = new byte[bufferSize];
                                         res = SteamUser.DecompressVoice(voicePacket.Voice, (uint)voicePacket.Voice.Length, voiceBuffer, (uint)voiceBuffer.Length, out nBytesWritten, 11025);
                                     } while (res == EVoiceResult.k_EVoiceResultBufferTooSmall);
-                                    
+
                                     if (res != EVoiceResult.k_EVoiceResultOK)
                                     {
                                         Plugin.logger.LogError($"Failed to decompress voice. Reason: {res}");
@@ -1760,21 +1766,23 @@ namespace RavenM
                                     var kickPacket = dataStream.ReadKickAnimationPacket();
 
                                     var actor = ClientActors[kickPacket.Id];
-                                    
+
                                     if (actor == null)
                                         break;
-                                    
+
                                     Plugin.logger.LogDebug($"Receiving Kick Animation Packet from: {actor.name}");
 
                                     StartCoroutine(PerformKick(actor));
                                 }
                                 break;
+                            default:
+                                RSPatch.RSPatch.FixedUpdate(packet, dataStream);
+                                break;
                         }
                     }
 
                     // SR7, pls update Steamworks.NET.
-                    var NativeMethods = Type.GetType("Steamworks.NativeMethods, Assembly-CSharp-firstpass, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
-                    NativeMethods.GetMethod("SteamAPI_SteamNetworkingMessage_t_Release", BindingFlags.Static | BindingFlags.Public).Invoke(null, new object[] { msg_ptr[msg_index] });
+                    SteamAPI_SteamNetworkingMessage_t_Release.Invoke(null, new object[] { msg_ptr[msg_index] });
                 }
             }
 
@@ -1930,7 +1938,7 @@ namespace RavenM
 
                 bulkActorUpdate.Updates.Add(net_actor);
 
-                ActorStateCache[owned_actor] = flags; 
+                ActorStateCache[owned_actor] = flags;
             }
 
             if (bulkActorUpdate.Updates.Count == 0)
@@ -2192,7 +2200,7 @@ namespace RavenM
 
             var nextActorIndexF = typeof(ActorManager).GetField("nextActorIndex", BindingFlags.Instance | BindingFlags.NonPublic);
             int nextActorIndex = (int)nextActorIndexF.GetValue(ActorManager.instance);
-            nextActorIndexF.SetValue(ActorManager.instance,  nextActorIndex - 1);
+            nextActorIndexF.SetValue(ActorManager.instance, nextActorIndex - 1);
 
             ActorManager.Drop(actor);
             Destroy(actor.controller);

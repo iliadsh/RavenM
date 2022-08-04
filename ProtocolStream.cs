@@ -257,7 +257,24 @@ namespace RavenM
             Write(value.Voice.Length);
             Write(value.Voice);
         }
-
+        public void Write(SpawnCustomGameObjectPacket value)
+        {
+            Write(value.SourceID);
+            Write(value.PrefabHash);
+            Write(value.Position);
+            Write(value.Rotation);
+        }
+        public void Write(NetworkGameObjectsHashesPacket value)
+        {
+            Write(value.Id);
+            Write(value.NetworkGameObjectHashes);
+        }
+        public void Write(ScriptedPacket value)
+        {
+            Write(value.Id);
+            Write(value.ScriptId);
+            Write(value.Data);
+        }
         public void Write(KickAnimationPacket value)
         {
             Write(value.Id);
@@ -584,6 +601,33 @@ namespace RavenM
             };
         }
 
+        public SpawnCustomGameObjectPacket ReadSpawnCustomGameObjectPacket()
+        {
+            return new SpawnCustomGameObjectPacket
+            {
+                SourceID = ReadInt32(),
+                PrefabHash = ReadString(),
+                Position = ReadVector3(),
+                Rotation = ReadVector3()
+            };
+        }
+        public NetworkGameObjectsHashesPacket ReadSyncNetworkGameObjectsPacket()
+        {
+            return new NetworkGameObjectsHashesPacket
+            {
+                Id = ReadInt32(),
+                NetworkGameObjectHashes = ReadString()
+            };
+        }
+        public ScriptedPacket ReadScriptedPacket()
+        {
+            return new ScriptedPacket
+            {
+                ScriptId = ReadInt32(),
+                Id = ReadInt32(),
+                Data = ReadString()
+            };
+        }
         public KickAnimationPacket ReadKickAnimationPacket()
         {
             return new KickAnimationPacket

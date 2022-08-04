@@ -19,6 +19,10 @@
         Chat,
         Voip,
         VehicleDamage,
+        CreateCustomGameObject,
+        NetworkGameObjectsHashes,
+        ScriptedPacket,
         KickAnimation,
+
     }
 }
