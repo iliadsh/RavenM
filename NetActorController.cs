@@ -57,7 +57,23 @@ namespace RavenM
             if (__instance.thirdPersonTransform != null)
                 return;
 
-            __instance.thirdPersonTransform = __instance.transform.GetChild(__instance.transform.childCount - 1);
+            // Simple heuristic to pick the sub-mesh with the highest vertex count.
+            int bestVertexCount = 0;
+            foreach (Transform transform in __instance.transform)
+            {
+                var child = transform.gameObject;
+
+                if (child.TryGetComponent(out MeshFilter meshFilter))
+                {
+                    var mesh = meshFilter.mesh;
+
+                    if (mesh.vertexCount > bestVertexCount)
+                    {
+                        __instance.thirdPersonTransform = transform;
+                        bestVertexCount = mesh.vertexCount;
+                    }
+                }
+            }
         }
     }
 
