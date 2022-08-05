@@ -306,6 +306,13 @@ namespace RavenM
             Write(value.ActiveFlagSet);
             Write(value.TimeToStart);
         }
+
+        public void Write(PointMatchStatePacket value)
+        {
+            Write(value.BlueScore);
+            Write(value.RedScore);
+            Write(value.SpawnPointOwners);
+        }
     }
 
     public class ProtocolReader : BinaryReader
@@ -694,6 +701,16 @@ namespace RavenM
                 SpawnPointOwners = ReadIntArray(),
                 ActiveFlagSet = ReadIntArray(),
                 TimeToStart = ReadInt32(),
+            };
+        }
+
+        public PointMatchStatePacket ReadPointMatchStatePacket()
+        {
+            return new PointMatchStatePacket
+            {
+                BlueScore = ReadInt32(),
+                RedScore = ReadInt32(),
+                SpawnPointOwners = ReadIntArray(),
             };
         }
     }

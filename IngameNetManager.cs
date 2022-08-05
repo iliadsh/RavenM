@@ -1612,6 +1612,24 @@ namespace RavenM
                                                 }
                                             }
                                             break;
+                                        case GameModeType.PointMatch:
+                                            {
+                                                var gameUpdatePacket = dataStream.ReadPointMatchStatePacket();
+
+                                                var pointMatchObj = GameModeBase.instance as PointMatch;
+
+                                                typeof(PointMatch).GetField("blueScore", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(pointMatchObj, gameUpdatePacket.BlueScore);
+                                                typeof(PointMatch).GetField("redScore", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(pointMatchObj, gameUpdatePacket.RedScore);
+
+                                                for (int i = 0; i < gameUpdatePacket.SpawnPointOwners.Length; i++)
+                                                {
+                                                    if (ActorManager.instance.spawnPoints[i].owner != gameUpdatePacket.SpawnPointOwners[i])
+                                                        ActorManager.instance.spawnPoints[i].SetOwner(gameUpdatePacket.SpawnPointOwners[i]);
+                                                }
+
+                                                typeof(PointMatch).GetMethod("AddScore", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(pointMatchObj, new object[] { 0, 0 });
+                                            }
+                                            break;
                                         default:
                                             Plugin.logger.LogError("Got game mode update for unsupported type?");
                                             break;
@@ -1963,6 +1981,31 @@ namespace RavenM
                         for (int i = 0; i < flagSet.flags.Length; i++)
                         {
                             gamePacket.ActiveFlagSet[i] = Array.IndexOf(ActorManager.instance.spawnPoints, flagSet.flags[i]);
+                        }
+
+                        using MemoryStream memoryStream = new MemoryStream();
+
+                        using (var writer = new ProtocolWriter(memoryStream))
+                        {
+                            writer.Write(gamePacket);
+                        }
+                        data = memoryStream.ToArray();
+                    }
+                    break;
+                case GameModeType.PointMatch:
+                    {
+                        var pointMatchObj = GameModeBase.instance as PointMatch;
+
+                        var gamePacket = new PointMatchStatePacket
+                        {
+                            BlueScore = (int)typeof(PointMatch).GetField("blueScore", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(pointMatchObj),
+                            RedScore = (int)typeof(PointMatch).GetField("redScore", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(pointMatchObj),
+                            SpawnPointOwners = new int[ActorManager.instance.spawnPoints.Length],
+                        };
+
+                        for (int i = 0; i < ActorManager.instance.spawnPoints.Length; i++)
+                        {
+                            gamePacket.SpawnPointOwners[i] = ActorManager.instance.spawnPoints[i].owner;
                         }
 
                         using MemoryStream memoryStream = new MemoryStream();
