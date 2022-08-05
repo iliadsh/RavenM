@@ -43,6 +43,25 @@ namespace RavenM
     }
 
     /// <summary>
+    /// If a third person renderer does not exist, then we just
+    /// use the first person one.
+    /// </summary>
+    [HarmonyPatch(typeof(Weapon), nameof(Weapon.CullFpsObjects))]
+    public class WeaponRenderPatch
+    {
+        static void Prefix(Weapon __instance)
+        {
+            if (!IngameNetManager.instance.IsClient)
+                return;
+
+            if (__instance.thirdPersonTransform != null)
+                return;
+
+            __instance.thirdPersonTransform = __instance.transform.GetChild(__instance.transform.childCount - 1);
+        }
+    }
+
+    /// <summary>
     /// An ActorController for Actors controlled by a remote client. Nothing fancy, just copying
     /// the method results of the actual ActorController on the other end.
     /// </summary>
