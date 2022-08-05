@@ -1567,6 +1567,51 @@ namespace RavenM
                                                 }
                                             }
                                             break;
+                                        case GameModeType.Domination:
+                                            {
+                                                var gameUpdatePacket = dataStream.ReadDominationStatePacket();
+
+                                                var dominationObj = GameModeBase.instance as DominationMode;
+
+                                                var currentBattalions = (int[])typeof(DominationMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dominationObj);
+
+                                                for (int i = 0; i < 2; i++)
+                                                {
+                                                    if (currentBattalions[i] > gameUpdatePacket.RemainingBattalions[i])
+                                                    {
+                                                        EndDominationRoundPatch.CanEndRound = true;
+                                                        typeof(DominationMode).GetMethod("EndDominationRound", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(dominationObj, new object[] { 1 - i });
+                                                        EndDominationRoundPatch.CanEndRound = false;
+                                                    }
+                                                }
+
+                                                typeof(DominationMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(dominationObj, gameUpdatePacket.RemainingBattalions);
+                                                typeof(DominationMode).GetField("dominationRatio", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(dominationObj, gameUpdatePacket.DominationRatio);
+
+                                                for (int i = 0; i < gameUpdatePacket.SpawnPointOwners.Length; i++)
+                                                {
+                                                    if (ActorManager.instance.spawnPoints[i].owner != gameUpdatePacket.SpawnPointOwners[i])
+                                                        ActorManager.instance.spawnPoints[i].SetOwner(gameUpdatePacket.SpawnPointOwners[i]);
+                                                }
+
+                                                var spawns = new CapturePoint[gameUpdatePacket.ActiveFlagSet.Length];
+                                                for (int i = 0; i < gameUpdatePacket.ActiveFlagSet.Length; i++)
+                                                {
+                                                    spawns[i] = ActorManager.instance.spawnPoints[gameUpdatePacket.ActiveFlagSet[i]] as CapturePoint;
+                                                }
+
+                                                var flagSet = new DominationMode.FlagSet(spawns);
+                                                typeof(DominationMode).GetField("activeFlagSet", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(dominationObj, flagSet);
+
+                                                var startDominationAction = (TimedAction)typeof(DominationMode).GetField("startDominationAction", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dominationObj);
+
+                                                if (gameUpdatePacket.TimeToStart > 0 && startDominationAction.Remaining() != gameUpdatePacket.TimeToStart)
+                                                {
+                                                    startDominationAction.StartLifetime(gameUpdatePacket.TimeToStart);
+                                                    typeof(DominationMode).GetField("startDominationAction", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(dominationObj, startDominationAction);
+                                                }
+                                            }
+                                            break;
                                         default:
                                             Plugin.logger.LogError("Got game mode update for unsupported type?");
                                             break;
@@ -1884,6 +1929,40 @@ namespace RavenM
                         for (int i = 0; i < ActorManager.instance.spawnPoints.Length; i++)
                         {
                             gamePacket.SpawnPointOwners[i] = ActorManager.instance.spawnPoints[i].owner;
+                        }
+
+                        using MemoryStream memoryStream = new MemoryStream();
+
+                        using (var writer = new ProtocolWriter(memoryStream))
+                        {
+                            writer.Write(gamePacket);
+                        }
+                        data = memoryStream.ToArray();
+                    }
+                    break;
+                case GameModeType.Domination:
+                    {
+                        var dominationObj = GameModeBase.instance as DominationMode;
+
+                        var flagSet = (DominationMode.FlagSet)typeof(DominationMode).GetField("activeFlagSet", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dominationObj);
+
+                        var gamePacket = new DominationStatePacket
+                        {
+                            RemainingBattalions = (int[])typeof(DominationMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dominationObj),
+                            DominationRatio = (float[])typeof(DominationMode).GetField("dominationRatio", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dominationObj),
+                            SpawnPointOwners = new int[ActorManager.instance.spawnPoints.Length],
+                            ActiveFlagSet = new int[flagSet.flags.Length],
+                            TimeToStart = Mathf.CeilToInt(((TimedAction)typeof(DominationMode).GetField("startDominationAction", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dominationObj)).Remaining()),
+                        };
+
+                        for (int i = 0; i < ActorManager.instance.spawnPoints.Length; i++)
+                        {
+                            gamePacket.SpawnPointOwners[i] = ActorManager.instance.spawnPoints[i].owner;
+                        }
+
+                        for (int i = 0; i < flagSet.flags.Length; i++)
+                        {
+                            gamePacket.ActiveFlagSet[i] = Array.IndexOf(ActorManager.instance.spawnPoints, flagSet.flags[i]);
                         }
 
                         using MemoryStream memoryStream = new MemoryStream();

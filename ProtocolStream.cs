@@ -101,6 +101,15 @@ namespace RavenM
             }
         }
 
+        public void Write(float[] value)
+        {
+            Write(value.Length);
+            foreach (float n in value)
+            {
+                Write(n);
+            }
+        }
+
         public void Write(ActorPacket value)
         {
             Write(value.Id);
@@ -288,6 +297,15 @@ namespace RavenM
         {
             Write(value.Id);
         }
+
+        public void Write(DominationStatePacket value)
+        {
+            Write(value.RemainingBattalions);
+            Write(value.DominationRatio);
+            Write(value.SpawnPointOwners);
+            Write(value.ActiveFlagSet);
+            Write(value.TimeToStart);
+        }
     }
 
     public class ProtocolReader : BinaryReader
@@ -395,6 +413,17 @@ namespace RavenM
             for (int i = 0; i < len; i++)
             {
                 o[i] = ReadInt32();
+            }
+            return o;
+        }
+
+        public float[] ReadSingleArray()
+        {
+            int len = ReadInt32();
+            var o = new float[len];
+            for (int i = 0; i < len; i++)
+            {
+                o[i] = ReadSingle();
             }
             return o;
         }
@@ -653,6 +682,18 @@ namespace RavenM
             return new ExplodeProjectilePacket
             {
                 Id = ReadInt32(),
+            };
+        }
+
+        public DominationStatePacket ReadDominationStatePacket()
+        {
+            return new DominationStatePacket
+            {
+                RemainingBattalions = ReadIntArray(),
+                DominationRatio = ReadSingleArray(),
+                SpawnPointOwners = ReadIntArray(),
+                ActiveFlagSet = ReadIntArray(),
+                TimeToStart = ReadInt32(),
             };
         }
     }
