@@ -110,6 +110,15 @@ namespace RavenM
             }
         }
 
+        public void Write(bool[] value)
+        {
+            Write(value.Length);
+            foreach (bool n in value)
+            {
+                Write(n);
+            }
+        }
+
         public void Write(ActorPacket value)
         {
             Write(value.Id);
@@ -313,6 +322,15 @@ namespace RavenM
             Write(value.RedScore);
             Write(value.SpawnPointOwners);
         }
+
+        public void Write(SkirmishStatePacket value)
+        {
+            Write(value.Domination);
+            Write(value.SpawningReinforcements);
+            Write(value.WavesRemaining);
+            Write(value.SpawnPointOwners);
+            Write(value.TimeToDominate);
+        }
     }
 
     public class ProtocolReader : BinaryReader
@@ -431,6 +449,17 @@ namespace RavenM
             for (int i = 0; i < len; i++)
             {
                 o[i] = ReadSingle();
+            }
+            return o;
+        }
+
+        public bool[] ReadBoolArray()
+        {
+            int len = ReadInt32();
+            var o = new bool[len];
+            for (int i = 0; i < len; i++)
+            {
+                o[i] = ReadBoolean();
             }
             return o;
         }
@@ -711,6 +740,18 @@ namespace RavenM
                 BlueScore = ReadInt32(),
                 RedScore = ReadInt32(),
                 SpawnPointOwners = ReadIntArray(),
+            };
+        }
+
+        public SkirmishStatePacket ReadSkirmishStatePacket()
+        {
+            return new SkirmishStatePacket
+            {
+                Domination = ReadSingle(),
+                SpawningReinforcements = ReadBoolArray(),
+                WavesRemaining = ReadIntArray(),
+                SpawnPointOwners = ReadIntArray(),
+                TimeToDominate = ReadInt32(),
             };
         }
     }

@@ -1630,6 +1630,40 @@ namespace RavenM
                                                 typeof(PointMatch).GetMethod("AddScore", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(pointMatchObj, new object[] { 0, 0 });
                                             }
                                             break;
+                                        case GameModeType.Skirmish:
+                                            {
+                                                var gameUpdatePacket = dataStream.ReadSkirmishStatePacket();
+
+                                                var skirmishObj = GameModeBase.instance as SkirmishMode;
+
+                                                for (int i = 0; i < 2; i++)
+                                                {
+                                                    if (gameUpdatePacket.SpawningReinforcements[i])
+                                                    {
+                                                        SkirmishWavePatch.CanSpawnWave = true;
+                                                        typeof(SkirmishMode).GetMethod("SpawnReinforcementWave", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(skirmishObj, new object[] { i });
+                                                        SkirmishWavePatch.CanSpawnWave = false;
+                                                    }
+                                                }
+
+                                                typeof(SkirmishMode).GetField("domination", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(skirmishObj, gameUpdatePacket.Domination);
+                                                typeof(SkirmishMode).GetField("reinforcementWavesRemaining", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(skirmishObj, gameUpdatePacket.WavesRemaining);
+
+                                                for (int i = 0; i < gameUpdatePacket.SpawnPointOwners.Length; i++)
+                                                {
+                                                    if (ActorManager.instance.spawnPoints[i].owner != gameUpdatePacket.SpawnPointOwners[i])
+                                                        ActorManager.instance.spawnPoints[i].SetOwner(gameUpdatePacket.SpawnPointOwners[i]);
+                                                }
+
+                                                var lockDominationAction = (TimedAction)typeof(SkirmishMode).GetField("lockDominationAction", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(skirmishObj);
+
+                                                if (gameUpdatePacket.TimeToDominate > 0 && lockDominationAction.Remaining() != gameUpdatePacket.TimeToDominate)
+                                                {
+                                                    lockDominationAction.StartLifetime(gameUpdatePacket.TimeToDominate);
+                                                    typeof(SkirmishMode).GetField("lockDominationAction", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(skirmishObj, lockDominationAction);
+                                                }
+                                            }
+                                            break;
                                         default:
                                             Plugin.logger.LogError("Got game mode update for unsupported type?");
                                             break;
@@ -2001,6 +2035,33 @@ namespace RavenM
                             BlueScore = (int)typeof(PointMatch).GetField("blueScore", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(pointMatchObj),
                             RedScore = (int)typeof(PointMatch).GetField("redScore", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(pointMatchObj),
                             SpawnPointOwners = new int[ActorManager.instance.spawnPoints.Length],
+                        };
+
+                        for (int i = 0; i < ActorManager.instance.spawnPoints.Length; i++)
+                        {
+                            gamePacket.SpawnPointOwners[i] = ActorManager.instance.spawnPoints[i].owner;
+                        }
+
+                        using MemoryStream memoryStream = new MemoryStream();
+
+                        using (var writer = new ProtocolWriter(memoryStream))
+                        {
+                            writer.Write(gamePacket);
+                        }
+                        data = memoryStream.ToArray();
+                    }
+                    break;
+                case GameModeType.Skirmish:
+                    {
+                        var skirmishObj = GameModeBase.instance as SkirmishMode;
+
+                        var gamePacket = new SkirmishStatePacket
+                        {
+                            Domination = (float)typeof(SkirmishMode).GetField("domination", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(skirmishObj),
+                            SpawningReinforcements = (bool[])typeof(SkirmishMode).GetField("spawningReinforcements", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(skirmishObj),
+                            WavesRemaining = (int[])typeof(SkirmishMode).GetField("reinforcementWavesRemaining", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(skirmishObj),
+                            SpawnPointOwners = new int[ActorManager.instance.spawnPoints.Length],
+                            TimeToDominate = Mathf.CeilToInt(((TimedAction)typeof(SkirmishMode).GetField("lockDominationAction", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(skirmishObj)).Remaining()),
                         };
 
                         for (int i = 0; i < ActorManager.instance.spawnPoints.Length; i++)
