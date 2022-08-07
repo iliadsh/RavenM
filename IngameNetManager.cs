@@ -433,12 +433,6 @@ namespace RavenM
 
         public Dictionary<int, AudioContainer> PlayVoiceQueue = new Dictionary<int, AudioContainer>();
 
-        public RuntimeAnimatorController KickController;
-        
-        public static RuntimeAnimatorController OldKickController;
-        
-        public AudioClip KickSound;
-
         public static readonly Dictionary<Tuple<int, ulong>, GameObject> PrefabCache = new Dictionary<Tuple<int, ulong>, GameObject>();
 
 
@@ -488,11 +482,11 @@ namespace RavenM
             var kickAnimationBundle =
                 AssetBundle.LoadFromStream(kickAnimationBundleStream);
             
-            KickController = kickAnimationBundle.LoadAsset<RuntimeAnimatorController>("Actor NEW 1");
-            KickSound = kickAnimationBundle.LoadAsset<AudioClip>("kickSound");
+            KickAnimation.KickController = kickAnimationBundle.LoadAsset<RuntimeAnimatorController>("Actor NEW 1");
+            KickAnimation.KickSound = kickAnimationBundle.LoadAsset<AudioClip>("kickSound");
             
-            Plugin.logger.LogWarning(KickController == null ? "Kick AnimationController couldn't be loaded" : "Kick AnimationController loaded");
-            Plugin.logger.LogWarning(KickSound == null ? "Kick AudioClip couldn't be loaded" : "Kick AudioClip loaded");
+            Plugin.logger.LogWarning(KickAnimation.KickController == null ? "Kick AnimationController couldn't be loaded" : "Kick AnimationController loaded");
+            Plugin.logger.LogWarning(KickAnimation.KickSound == null ? "Kick AudioClip couldn't be loaded" : "Kick AudioClip loaded");
         }
 
         private void Start()
@@ -1573,6 +1567,103 @@ namespace RavenM
                                                 }
                                             }
                                             break;
+                                        case GameModeType.Domination:
+                                            {
+                                                var gameUpdatePacket = dataStream.ReadDominationStatePacket();
+
+                                                var dominationObj = GameModeBase.instance as DominationMode;
+
+                                                var currentBattalions = (int[])typeof(DominationMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dominationObj);
+
+                                                for (int i = 0; i < 2; i++)
+                                                {
+                                                    if (currentBattalions[i] > gameUpdatePacket.RemainingBattalions[i])
+                                                    {
+                                                        EndDominationRoundPatch.CanEndRound = true;
+                                                        typeof(DominationMode).GetMethod("EndDominationRound", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(dominationObj, new object[] { 1 - i });
+                                                        EndDominationRoundPatch.CanEndRound = false;
+                                                    }
+                                                }
+
+                                                typeof(DominationMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(dominationObj, gameUpdatePacket.RemainingBattalions);
+                                                typeof(DominationMode).GetField("dominationRatio", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(dominationObj, gameUpdatePacket.DominationRatio);
+
+                                                for (int i = 0; i < gameUpdatePacket.SpawnPointOwners.Length; i++)
+                                                {
+                                                    if (ActorManager.instance.spawnPoints[i].owner != gameUpdatePacket.SpawnPointOwners[i])
+                                                        ActorManager.instance.spawnPoints[i].SetOwner(gameUpdatePacket.SpawnPointOwners[i]);
+                                                }
+
+                                                var spawns = new CapturePoint[gameUpdatePacket.ActiveFlagSet.Length];
+                                                for (int i = 0; i < gameUpdatePacket.ActiveFlagSet.Length; i++)
+                                                {
+                                                    spawns[i] = ActorManager.instance.spawnPoints[gameUpdatePacket.ActiveFlagSet[i]] as CapturePoint;
+                                                }
+
+                                                var flagSet = new DominationMode.FlagSet(spawns);
+                                                typeof(DominationMode).GetField("activeFlagSet", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(dominationObj, flagSet);
+
+                                                var startDominationAction = (TimedAction)typeof(DominationMode).GetField("startDominationAction", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dominationObj);
+
+                                                if (gameUpdatePacket.TimeToStart > 0 && startDominationAction.Remaining() != gameUpdatePacket.TimeToStart)
+                                                {
+                                                    startDominationAction.StartLifetime(gameUpdatePacket.TimeToStart);
+                                                    typeof(DominationMode).GetField("startDominationAction", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(dominationObj, startDominationAction);
+                                                }
+                                            }
+                                            break;
+                                        case GameModeType.PointMatch:
+                                            {
+                                                var gameUpdatePacket = dataStream.ReadPointMatchStatePacket();
+
+                                                var pointMatchObj = GameModeBase.instance as PointMatch;
+
+                                                typeof(PointMatch).GetField("blueScore", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(pointMatchObj, gameUpdatePacket.BlueScore);
+                                                typeof(PointMatch).GetField("redScore", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(pointMatchObj, gameUpdatePacket.RedScore);
+
+                                                for (int i = 0; i < gameUpdatePacket.SpawnPointOwners.Length; i++)
+                                                {
+                                                    if (ActorManager.instance.spawnPoints[i].owner != gameUpdatePacket.SpawnPointOwners[i])
+                                                        ActorManager.instance.spawnPoints[i].SetOwner(gameUpdatePacket.SpawnPointOwners[i]);
+                                                }
+
+                                                typeof(PointMatch).GetMethod("AddScore", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(pointMatchObj, new object[] { 0, 0 });
+                                            }
+                                            break;
+                                        case GameModeType.Skirmish:
+                                            {
+                                                var gameUpdatePacket = dataStream.ReadSkirmishStatePacket();
+
+                                                var skirmishObj = GameModeBase.instance as SkirmishMode;
+
+                                                for (int i = 0; i < 2; i++)
+                                                {
+                                                    if (gameUpdatePacket.SpawningReinforcements[i])
+                                                    {
+                                                        SkirmishWavePatch.CanSpawnWave = true;
+                                                        typeof(SkirmishMode).GetMethod("SpawnReinforcementWave", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(skirmishObj, new object[] { i });
+                                                        SkirmishWavePatch.CanSpawnWave = false;
+                                                    }
+                                                }
+
+                                                typeof(SkirmishMode).GetField("domination", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(skirmishObj, gameUpdatePacket.Domination);
+                                                typeof(SkirmishMode).GetField("reinforcementWavesRemaining", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(skirmishObj, gameUpdatePacket.WavesRemaining);
+
+                                                for (int i = 0; i < gameUpdatePacket.SpawnPointOwners.Length; i++)
+                                                {
+                                                    if (ActorManager.instance.spawnPoints[i].owner != gameUpdatePacket.SpawnPointOwners[i])
+                                                        ActorManager.instance.spawnPoints[i].SetOwner(gameUpdatePacket.SpawnPointOwners[i]);
+                                                }
+
+                                                var lockDominationAction = (TimedAction)typeof(SkirmishMode).GetField("lockDominationAction", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(skirmishObj);
+
+                                                if (gameUpdatePacket.TimeToDominate > 0 && lockDominationAction.Remaining() != gameUpdatePacket.TimeToDominate)
+                                                {
+                                                    lockDominationAction.StartLifetime(gameUpdatePacket.TimeToDominate);
+                                                    typeof(SkirmishMode).GetField("lockDominationAction", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(skirmishObj, lockDominationAction);
+                                                }
+                                            }
+                                            break;
                                         default:
                                             Plugin.logger.LogError("Got game mode update for unsupported type?");
                                             break;
@@ -1654,26 +1745,49 @@ namespace RavenM
 
                                         projectile.transform.position = projectilePacket.Position;
                                         projectile.velocity = projectilePacket.Velocity;
+                                        projectile.enabled = projectilePacket.Enabled;
+                                    }
+                                }
+                                break;
+                            case PacketType.Explode:
+                                {
+                                    var explodePacket = dataStream.ReadExplodeProjectilePacket();
 
-                                        if (projectilePacket.Boom && projectile.enabled)
+                                    if (OwnedProjectiles.Contains(explodePacket.Id))
+                                        continue;
+
+                                    if (!ClientProjectiles.ContainsKey(explodePacket.Id))
+                                        continue;
+
+                                    Projectile projectile = ClientProjectiles[explodePacket.Id];
+
+                                    if (projectile == null)
+                                        continue;
+
+                                    // RemoteDetonatedProjectiles don't explode like normal projectiles.
+                                    if (projectile.GetType() == typeof(RemoteDetonatedProjectile))
+                                    {
+                                        Plugin.logger.LogInfo($"Detonate.");
+                                        (projectile as RemoteDetonatedProjectile).Detonate();
+                                    }
+                                    else
+                                    {
+                                        var Explode = projectile.GetType().GetMethod("Explode", BindingFlags.Instance | BindingFlags.NonPublic);
+                                        // This shouldn't ever not exist, since we send only for ExplodingProjectiles.
+                                        if (Explode != null)
                                         {
-                                            var Explode = projectile.GetType().GetMethod("Explode", BindingFlags.Instance | BindingFlags.NonPublic);
-                                            // This shouldn't ever not exist, since we send only for ExplodingProjectiles.
-                                            if (Explode != null)
+                                            var up = -projectile.transform.forward;
+
+                                            if (projectile.velocity != Vector3.zero &&
+                                                projectile.ProjectileRaycast(new Ray(projectile.transform.position, projectile.velocity.normalized),
+                                                out var hitInfo,
+                                                Mathf.Infinity,
+                                                (int)projectile.GetType().GetField("hitMask", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(projectile)))
                                             {
-                                                var up = -projectile.transform.forward;
-
-                                                if (projectile.velocity != Vector3.zero &&
-                                                    projectile.ProjectileRaycast(new Ray(projectile.transform.position, projectile.velocity.normalized),
-                                                    out var hitInfo,
-                                                    Mathf.Infinity,
-                                                    (int)projectile.GetType().GetField("hitMask", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(projectile)))
-                                                {
-                                                    up = hitInfo.normal;
-                                                }
-
-                                                Explode.Invoke(projectile, new object[] { projectile.transform.position, up });
+                                                up = hitInfo.normal;
                                             }
+
+                                            Explode.Invoke(projectile, new object[] { projectile.transform.position, up });
                                         }
                                     }
                                 }
@@ -1772,7 +1886,7 @@ namespace RavenM
 
                                     Plugin.logger.LogDebug($"Receiving Kick Animation Packet from: {actor.name}");
 
-                                    StartCoroutine(PerformKick(actor));
+                                    StartCoroutine(KickAnimation.PerformKick(actor));
                                 }
                                 break;
                             default:
@@ -1862,6 +1976,92 @@ namespace RavenM
                             RemainingBattalions = (int[])typeof(BattleMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(battleObj),
                             Tickets = (int[])typeof(BattleMode).GetField("tickets", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(battleObj),
                             SpawnPointOwners = new int[ActorManager.instance.spawnPoints.Length],
+                        };
+
+                        for (int i = 0; i < ActorManager.instance.spawnPoints.Length; i++)
+                        {
+                            gamePacket.SpawnPointOwners[i] = ActorManager.instance.spawnPoints[i].owner;
+                        }
+
+                        using MemoryStream memoryStream = new MemoryStream();
+
+                        using (var writer = new ProtocolWriter(memoryStream))
+                        {
+                            writer.Write(gamePacket);
+                        }
+                        data = memoryStream.ToArray();
+                    }
+                    break;
+                case GameModeType.Domination:
+                    {
+                        var dominationObj = GameModeBase.instance as DominationMode;
+
+                        var flagSet = (DominationMode.FlagSet)typeof(DominationMode).GetField("activeFlagSet", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dominationObj);
+
+                        var gamePacket = new DominationStatePacket
+                        {
+                            RemainingBattalions = (int[])typeof(DominationMode).GetField("remainingBattalions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dominationObj),
+                            DominationRatio = (float[])typeof(DominationMode).GetField("dominationRatio", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dominationObj),
+                            SpawnPointOwners = new int[ActorManager.instance.spawnPoints.Length],
+                            ActiveFlagSet = new int[flagSet.flags.Length],
+                            TimeToStart = Mathf.CeilToInt(((TimedAction)typeof(DominationMode).GetField("startDominationAction", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dominationObj)).Remaining()),
+                        };
+
+                        for (int i = 0; i < ActorManager.instance.spawnPoints.Length; i++)
+                        {
+                            gamePacket.SpawnPointOwners[i] = ActorManager.instance.spawnPoints[i].owner;
+                        }
+
+                        for (int i = 0; i < flagSet.flags.Length; i++)
+                        {
+                            gamePacket.ActiveFlagSet[i] = Array.IndexOf(ActorManager.instance.spawnPoints, flagSet.flags[i]);
+                        }
+
+                        using MemoryStream memoryStream = new MemoryStream();
+
+                        using (var writer = new ProtocolWriter(memoryStream))
+                        {
+                            writer.Write(gamePacket);
+                        }
+                        data = memoryStream.ToArray();
+                    }
+                    break;
+                case GameModeType.PointMatch:
+                    {
+                        var pointMatchObj = GameModeBase.instance as PointMatch;
+
+                        var gamePacket = new PointMatchStatePacket
+                        {
+                            BlueScore = (int)typeof(PointMatch).GetField("blueScore", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(pointMatchObj),
+                            RedScore = (int)typeof(PointMatch).GetField("redScore", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(pointMatchObj),
+                            SpawnPointOwners = new int[ActorManager.instance.spawnPoints.Length],
+                        };
+
+                        for (int i = 0; i < ActorManager.instance.spawnPoints.Length; i++)
+                        {
+                            gamePacket.SpawnPointOwners[i] = ActorManager.instance.spawnPoints[i].owner;
+                        }
+
+                        using MemoryStream memoryStream = new MemoryStream();
+
+                        using (var writer = new ProtocolWriter(memoryStream))
+                        {
+                            writer.Write(gamePacket);
+                        }
+                        data = memoryStream.ToArray();
+                    }
+                    break;
+                case GameModeType.Skirmish:
+                    {
+                        var skirmishObj = GameModeBase.instance as SkirmishMode;
+
+                        var gamePacket = new SkirmishStatePacket
+                        {
+                            Domination = (float)typeof(SkirmishMode).GetField("domination", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(skirmishObj),
+                            SpawningReinforcements = (bool[])typeof(SkirmishMode).GetField("spawningReinforcements", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(skirmishObj),
+                            WavesRemaining = (int[])typeof(SkirmishMode).GetField("reinforcementWavesRemaining", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(skirmishObj),
+                            SpawnPointOwners = new int[ActorManager.instance.spawnPoints.Length],
+                            TimeToDominate = Mathf.CeilToInt(((TimedAction)typeof(SkirmishMode).GetField("lockDominationAction", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(skirmishObj)).Remaining()),
                         };
 
                         for (int i = 0; i < ActorManager.instance.spawnPoints.Length; i++)
@@ -2099,18 +2299,15 @@ namespace RavenM
 
                 // There are a lot of these to be honest. It's probably better to only
                 // update these when they actually do something (i.e. explode)
-                if (projectile.GetType() == typeof(ExplodingProjectile) && projectile.enabled)
+                if (projectile.GetType() == typeof(ExplodingProjectile) || !projectile.enabled)
                     continue;
-                
-                if (!projectile.enabled)
-                    cleanup.Add(owned_projectile);
 
                 var net_projectile = new UpdateProjectilePacket
                 {
                     Id = owned_projectile,
                     Position = projectile.transform.position,
                     Velocity = projectile.velocity,
-                    Boom = !projectile.enabled,
+                    Enabled = projectile.enabled,
                 };
 
                 bulkProjectileUpdate.Updates.Add(net_projectile);
@@ -2205,33 +2402,6 @@ namespace RavenM
             ActorManager.Drop(actor);
             Destroy(actor.controller);
             Destroy(actor);
-        }
-        
-        /// <summary>
-        /// Change Temporarily the animator controller for one that contains the kick animation and reproduce a sound
-        /// </summary>
-        private IEnumerator PerformKick(Actor actor)
-        {
-            if (KickController == null)
-            {
-                Plugin.logger.LogError("Kick Animation Failed!");
-                yield break;
-            }
-            var actorAnimator = actor.animator;
-            
-            if (OldKickController == null)
-            {
-                OldKickController = actorAnimator.runtimeAnimatorController;
-            }
-            
-            actorAnimator.runtimeAnimatorController = KickController;
-            actorAnimator.SetTrigger("kick");
-
-            AudioSource.PlayClipAtPoint(KickSound, actor.transform.position);
-
-            yield return new WaitForSeconds(1);
-
-            actorAnimator.runtimeAnimatorController = OldKickController;
         }
     }
 }

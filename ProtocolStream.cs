@@ -101,6 +101,24 @@ namespace RavenM
             }
         }
 
+        public void Write(float[] value)
+        {
+            Write(value.Length);
+            foreach (float n in value)
+            {
+                Write(n);
+            }
+        }
+
+        public void Write(bool[] value)
+        {
+            Write(value.Length);
+            foreach (bool n in value)
+            {
+                Write(n);
+            }
+        }
+
         public void Write(ActorPacket value)
         {
             Write(value.Id);
@@ -210,7 +228,7 @@ namespace RavenM
             Write(value.Id);
             Write(value.Position);
             Write(value.Velocity);
-            Write(value.Boom);
+            Write(value.Enabled);
         }
 
         public void Write(BulkProjectileUpdate value)
@@ -278,6 +296,36 @@ namespace RavenM
         public void Write(KickAnimationPacket value)
         {
             Write(value.Id);
+        }
+
+        public void Write(ExplodeProjectilePacket value)
+        {
+            Write(value.Id);
+        }
+
+        public void Write(DominationStatePacket value)
+        {
+            Write(value.RemainingBattalions);
+            Write(value.DominationRatio);
+            Write(value.SpawnPointOwners);
+            Write(value.ActiveFlagSet);
+            Write(value.TimeToStart);
+        }
+
+        public void Write(PointMatchStatePacket value)
+        {
+            Write(value.BlueScore);
+            Write(value.RedScore);
+            Write(value.SpawnPointOwners);
+        }
+
+        public void Write(SkirmishStatePacket value)
+        {
+            Write(value.Domination);
+            Write(value.SpawningReinforcements);
+            Write(value.WavesRemaining);
+            Write(value.SpawnPointOwners);
+            Write(value.TimeToDominate);
         }
     }
 
@@ -386,6 +434,28 @@ namespace RavenM
             for (int i = 0; i < len; i++)
             {
                 o[i] = ReadInt32();
+            }
+            return o;
+        }
+
+        public float[] ReadSingleArray()
+        {
+            int len = ReadInt32();
+            var o = new float[len];
+            for (int i = 0; i < len; i++)
+            {
+                o[i] = ReadSingle();
+            }
+            return o;
+        }
+
+        public bool[] ReadBoolArray()
+        {
+            int len = ReadInt32();
+            var o = new bool[len];
+            for (int i = 0; i < len; i++)
+            {
+                o[i] = ReadBoolean();
             }
             return o;
         }
@@ -534,7 +604,7 @@ namespace RavenM
                 Id = ReadInt32(),
                 Position = ReadVector3(),
                 Velocity = ReadVector3(),
-                Boom = ReadBoolean(),
+                Enabled = ReadBoolean(),
             };
         }
 
@@ -633,6 +703,48 @@ namespace RavenM
             return new KickAnimationPacket
             {
                 Id = ReadInt32(),
+            };
+        }
+        
+        public ExplodeProjectilePacket ReadExplodeProjectilePacket()
+        {
+            return new ExplodeProjectilePacket
+            {
+                Id = ReadInt32(),
+            };
+        }
+
+        public DominationStatePacket ReadDominationStatePacket()
+        {
+            return new DominationStatePacket
+            {
+                RemainingBattalions = ReadIntArray(),
+                DominationRatio = ReadSingleArray(),
+                SpawnPointOwners = ReadIntArray(),
+                ActiveFlagSet = ReadIntArray(),
+                TimeToStart = ReadInt32(),
+            };
+        }
+
+        public PointMatchStatePacket ReadPointMatchStatePacket()
+        {
+            return new PointMatchStatePacket
+            {
+                BlueScore = ReadInt32(),
+                RedScore = ReadInt32(),
+                SpawnPointOwners = ReadIntArray(),
+            };
+        }
+
+        public SkirmishStatePacket ReadSkirmishStatePacket()
+        {
+            return new SkirmishStatePacket
+            {
+                Domination = ReadSingle(),
+                SpawningReinforcements = ReadBoolArray(),
+                WavesRemaining = ReadIntArray(),
+                SpawnPointOwners = ReadIntArray(),
+                TimeToDominate = ReadInt32(),
             };
         }
     }
