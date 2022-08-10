@@ -7,7 +7,8 @@
 
 A Ravenfield multiplayer mod.
 
-Discord: https://discord.gg/63zE4gY
+[![Discord](https://img.shields.io/discord/458403487982682113.svg?label=Discord&logo=Discord&colorB=7289da&style=for-the-badge)](https://discord.gg/63zE4gY)
+[![Downloads](https://img.shields.io/github/downloads/ABigPickle/RavenM/total.svg?label=Downloads&logo=GitHub&style=for-the-badge)](https://github.com/ABigPickle/RavenM/releases/latest)
 
 ## This mod is very <b>W.I.P.</b> There are a lot of bugs and opportunities to crash, so please report anything you find!
 
