@@ -43,6 +43,41 @@ namespace RavenM
     }
 
     /// <summary>
+    /// If a third person renderer does not exist, then we just
+    /// use the first person one.
+    /// </summary>
+    [HarmonyPatch(typeof(Weapon), nameof(Weapon.CullFpsObjects))]
+    public class WeaponRenderPatch
+    {
+        static void Prefix(Weapon __instance)
+        {
+            if (!IngameNetManager.instance.IsClient)
+                return;
+
+            if (__instance.thirdPersonTransform != null)
+                return;
+
+            // Simple heuristic to pick the sub-mesh with the highest vertex count.
+            int bestVertexCount = 0;
+            foreach (Transform transform in __instance.transform)
+            {
+                var child = transform.gameObject;
+
+                if (child.TryGetComponent(out MeshFilter meshFilter))
+                {
+                    var mesh = meshFilter.mesh;
+
+                    if (mesh.vertexCount > bestVertexCount)
+                    {
+                        __instance.thirdPersonTransform = transform;
+                        bestVertexCount = mesh.vertexCount;
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// An ActorController for Actors controlled by a remote client. Nothing fancy, just copying
     /// the method results of the actual ActorController on the other end.
     /// </summary>
