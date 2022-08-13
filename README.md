@@ -1,9 +1,6 @@
 # RavenM
 
 --------------------------------------------------------------------------------
-# This fork adds additional Ravenscript features that modders can use in scripts/mutators.
-
-
 
 A Ravenfield multiplayer mod.
 

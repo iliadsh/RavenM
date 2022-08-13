@@ -18,7 +18,7 @@ namespace RavenM
         private static Dictionary<string, RavenMOption<Slider, float>> _sliders = new Dictionary<string, RavenMOption<Slider, float>>();
         private static ConfigFile keybindConfig;
 
-        private static bool showHUD = false;
+        public static bool showHUD = false;
 
         public static Dictionary<OptionKeybind, ConfigEntry<KeyCode>> setKeybinds = new Dictionary<OptionKeybind, ConfigEntry<KeyCode>>();
         [HarmonyPatch(typeof(Options), "Awake")]
