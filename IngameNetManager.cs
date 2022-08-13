@@ -440,6 +440,10 @@ namespace RavenM
 
         public MethodInfo SteamAPI_SteamNetworkingMessage_t_Release;
 
+        public float VoiceChatVolume = 1f;
+
+        public KeyCode VoiceChatKeybind = KeyCode.CapsLock; 
+
         private void Awake()
         {
             instance = this;
@@ -487,6 +491,7 @@ namespace RavenM
             
             Plugin.logger.LogWarning(KickAnimation.KickController == null ? "Kick AnimationController couldn't be loaded" : "Kick AnimationController loaded");
             Plugin.logger.LogWarning(KickAnimation.KickSound == null ? "Kick AudioClip couldn't be loaded" : "Kick AudioClip loaded");
+
         }
 
         private void Start()
@@ -1277,6 +1282,7 @@ namespace RavenM
                                                 voiceSource.transform.parent = actor.transform;
                                                 voiceSource.spatialBlend = 1f;
                                                 voiceSource.outputAudioMixerGroup = GameManager.instance.sfxMixer.outputAudioMixerGroup;
+                                                voiceSource.volume = VoiceChatVolume;
                                                 voiceSource.Play();
                                             }
                                             ClientActors[actor_packet.Id] = actor;

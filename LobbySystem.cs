@@ -18,7 +18,7 @@ namespace RavenM
         {
             if (LobbySystem.instance.InLobby && !LobbySystem.instance.IsLobbyOwner && !LobbySystem.instance.ReadyToPlay)
                 return false;
-
+            OptionsPatch.SetConfigValues(false);
             // Only start if all members are ready.
             if (LobbySystem.instance.LobbyDataReady && LobbySystem.instance.IsLobbyOwner)
             {
@@ -40,7 +40,6 @@ namespace RavenM
 
                 SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "started", "yes");
             }
-
             LobbySystem.instance.ReadyToPlay = false;
             return true;
         }
