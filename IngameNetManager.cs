@@ -1048,10 +1048,9 @@ namespace RavenM
                         Plugin.logger.LogInfo($"Connection request from: {info.m_identityRemote.GetSteamID()}");
 
                         bool inLobby = false;
-                        int len = SteamMatchmaking.GetNumLobbyMembers(LobbySystem.instance.ActualLobbyID);
-                        for (int i = 0; i < len; i++)
+                        foreach (var memberId in LobbySystem.instance.GetLobbyMembers())
                         {
-                            if (info.m_identityRemote.GetSteamID() == SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i))
+                            if (info.m_identityRemote.GetSteamID() == memberId)
                             {
                                 inLobby = true;
                                 break;

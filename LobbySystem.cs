@@ -22,11 +22,8 @@ namespace RavenM
             // Only start if all members are ready.
             if (LobbySystem.instance.LobbyDataReady && LobbySystem.instance.IsLobbyOwner)
             {
-                int len = SteamMatchmaking.GetNumLobbyMembers(LobbySystem.instance.ActualLobbyID);
-
-                for (int i = 0; i < len; i++)
+                foreach (var memberId in LobbySystem.instance.GetLobbyMembers())
                 {
-                    var memberId = SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i);
                     if (SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, memberId, "loaded") != "yes")
                     {
                         return false;
@@ -57,11 +54,8 @@ namespace RavenM
                     return true;
 
                 // Wait for everyone to load in first.
-                int len = SteamMatchmaking.GetNumLobbyMembers(LobbySystem.instance.ActualLobbyID);
-
-                for (int i = 0; i < len; i++)
+                foreach (var memberId in LobbySystem.instance.GetLobbyMembers())
                 {
-                    var memberId = SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i);
                     if (SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, memberId, "ready") != "yes")
                     {
                         // Ignore players that just joined and are loading mods.
@@ -291,6 +285,10 @@ namespace RavenM
 
         public CSteamID LobbyView = CSteamID.Nil;
 
+        public List<CSteamID> CurrentKickedMembers = new List<CSteamID>();
+
+        public CSteamID KickPrompt = CSteamID.Nil;
+
         private void Awake()
         {
             instance = this;
@@ -312,6 +310,21 @@ namespace RavenM
             Callback<LobbyDataUpdate_t>.Create(OnLobbyData);
         }
 
+        public List<CSteamID> GetLobbyMembers()
+        {
+            int len = SteamMatchmaking.GetNumLobbyMembers(ActualLobbyID);
+            var ret = new List<CSteamID>(len);
+
+            for (int i = 0; i < len; i++)
+            {
+                var member = SteamMatchmaking.GetLobbyMemberByIndex(ActualLobbyID, i);
+                if (!CurrentKickedMembers.Contains(member))
+                    ret.Add(member);
+            }
+
+            return ret;
+        }
+
         private void OnLobbyData(LobbyDataUpdate_t pCallback)
         {
             var lobby = new CSteamID(pCallback.m_ulSteamIDLobby);
@@ -323,6 +336,7 @@ namespace RavenM
         private void OnLobbyEnter(LobbyEnter_t pCallback)
         {
             Plugin.logger.LogInfo("Joined lobby!");
+            CurrentKickedMembers.Clear();
             RequestModReload = false;
             LoadedServerMods = false;
 
@@ -470,6 +484,15 @@ namespace RavenM
                     SteamMatchmaking.LeaveLobby(ActualLobbyID);
                 }
             }
+            else
+            {
+                var id = new CSteamID(pCallback.m_ulSteamIDUserChanged);
+
+                if (CurrentKickedMembers.Contains(id))
+                {
+                    SendLobbyChat($"/kick {id}");
+                }
+            }
         }
 
         public void SendLobbyChat(string message)
@@ -497,11 +520,31 @@ namespace RavenM
             int len = SteamMatchmaking.GetLobbyChatEntry(ActualLobbyID, (int)pCallback.m_iChatID, out CSteamID user, buf, buf.Length, out EChatEntryType chatType);
             string chat = DecodeLobbyChat(buf, len);
 
-            if (SteamUser.GetSteamID() == user)
-                return;
-
-            if (OwnerID != user && !IsLobbyOwner)
-                return;
+            if (chat.StartsWith("/") && user == OwnerID)
+            {
+                var parts = chat.Split(' ');
+                if (parts.Length < 1)
+                    return;
+                var command = parts[0];
+                if (command == "/kick")
+                {
+                    if (parts.Length != 2)
+                        return;
+                    var userIdS = parts[1];
+                    if (ulong.TryParse(userIdS, out ulong memberIdI))
+                    {
+                        var member = new CSteamID(memberIdI);
+                        if (member == SteamUser.GetSteamID())
+                        {
+                            SteamMatchmaking.LeaveLobby(ActualLobbyID);
+                        }
+                        else if (!CurrentKickedMembers.Contains(member))
+                        {
+                            CurrentKickedMembers.Add(member);
+                        }
+                    }
+                }
+            }
         }
 
         private void StartAsClient()
@@ -1099,7 +1142,8 @@ namespace RavenM
                 GUILayout.BeginArea(new Rect(10f, 10f, 150f, 10000f), string.Empty);
                 GUILayout.BeginVertical(lobbyStyle);
 
-                int len = SteamMatchmaking.GetNumLobbyMembers(ActualLobbyID);
+                var members = GetLobbyMembers();
+                int len = members.Count;
 
                 if (GameManager.IsInMainMenu() && GUILayout.Button("<color=red>LEAVE</color>"))
                 {
@@ -1137,7 +1181,7 @@ namespace RavenM
 
                 for (int i = 0; i < len; i++)
                 {
-                    var memberId = SteamMatchmaking.GetLobbyMemberByIndex(ActualLobbyID, i);
+                    var memberId = members[i];
 
                     string team = SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "team");
                     string name = SteamFriends.GetFriendPersonaName(memberId);
@@ -1146,13 +1190,45 @@ namespace RavenM
                                                                     : SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "ready") == "yes") 
                                                                     ? "green" : "red";
 
-                    GUILayout.BeginHorizontal();
-                    GUILayout.Box(team);
-                    GUILayout.FlexibleSpace();
-                    GUILayout.Box($"<color={readyColor}>{name}</color>");
-                    GUILayout.FlexibleSpace();
-                    GUILayout.Box(team);
-                    GUILayout.EndHorizontal();
+                    if (memberId != KickPrompt)
+                    {
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Box(team);
+                        GUILayout.FlexibleSpace();
+                        GUILayout.Box($"<color={readyColor}>{name}</color>");
+                        GUILayout.FlexibleSpace();
+                        GUILayout.Box(team);
+                        GUILayout.EndHorizontal();
+
+                        if (Event.current.type == EventType.Repaint
+                            && GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition)
+                            && Input.GetMouseButtonUp(1)
+                            && IsLobbyOwner
+                            && memberId != SteamUser.GetSteamID())
+                        {
+                            KickPrompt = memberId;
+                        }
+                    }
+                    else
+                    {
+                        if (GUILayout.Button($"<color=red>KICK {name}</color>"))
+                        {
+                            SendLobbyChat($"/kick {memberId}");
+                            CurrentKickedMembers.Add(memberId);
+                            foreach (var connection in IngameNetManager.instance.ServerConnections)
+                            {
+                                if (SteamNetworkingSockets.GetConnectionInfo(connection, out SteamNetConnectionInfo_t pInfo) && pInfo.m_identityRemote.GetSteamID() == memberId)
+                                {
+                                    SteamNetworkingSockets.CloseConnection(connection, 0, null, false);
+                                }
+                            }
+                        }
+
+                        if (Event.current.type == EventType.Repaint
+                            && !GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition)
+                            && Input.GetMouseButtonDown(0) || Input.GetMouseButton(1))
+                            KickPrompt = CSteamID.Nil;
+                    }
                 }
 
                 GUILayout.EndVertical();
