@@ -122,6 +122,18 @@ namespace RavenM
                     IngameNetManager.PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = projectile.gameObject;
                 }
             }
+
+            foreach (var destructible in Resources.FindObjectsOfTypeAll<Destructible>())
+            {
+                var prefab = DestructiblePacket.Root(destructible);
+
+                if (!prefab.TryGetComponent(out PrefabTag _))
+                {
+                    Plugin.logger.LogInfo($"Detected map destructible with name: {prefab.name}, and from map: {map.name}.");
+
+                    IngameNetManager.TagPrefab(prefab, (ulong)map.name.GetHashCode());
+                }
+            }
         }
 
         static void Postfix()
@@ -552,6 +564,11 @@ namespace RavenM
             // InstantActionMaps.instance.gameModeDropdown.value = 0;
             int customMapOptionIndex = (int)typeof(InstantActionMaps).GetField("customMapOptionIndex", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(InstantActionMaps.instance);
             var entries = (List<InstantActionMaps.MapEntry>)typeof(InstantActionMaps).GetField("entries", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(InstantActionMaps.instance);
+            // Don't allow spectator.
+            if (InstantActionMaps.instance.teamDropdown.value == 2)
+            {
+                InstantActionMaps.instance.teamDropdown.value = 0;
+            }
             if (IsLobbyOwner)
             {
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "gameMode", InstantActionMaps.instance.gameModeDropdown.value.ToString());
@@ -563,6 +580,11 @@ namespace RavenM
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "respawnTime", InstantActionMaps.instance.respawnTimeField.text);
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "gameLength", InstantActionMaps.instance.gameLengthDropdown.value.ToString());
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "loadedLevelEntry", InstantActionMaps.instance.mapDropdown.value.ToString());
+                // For SpecOps.
+                if (InstantActionMaps.instance.gameModeDropdown.value == 1)
+                {
+                    SteamMatchmaking.SetLobbyData(ActualLobbyID, "team", InstantActionMaps.instance.teamDropdown.value.ToString());
+                }
 
                 if (InstantActionMaps.instance.mapDropdown.value == customMapOptionIndex)
                 {
@@ -641,6 +663,11 @@ namespace RavenM
                 InstantActionMaps.instance.balanceSlider.value = float.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "balance"));
                 InstantActionMaps.instance.respawnTimeField.text = SteamMatchmaking.GetLobbyData(ActualLobbyID, "respawnTime");
                 InstantActionMaps.instance.gameLengthDropdown.value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "gameLength"));
+                // For SpecOps.
+                if (InstantActionMaps.instance.gameModeDropdown.value == 1)
+                {
+                    InstantActionMaps.instance.teamDropdown.value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "team"));
+                }
                 int givenEntry = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "loadedLevelEntry"));
 
                 if (givenEntry == customMapOptionIndex)

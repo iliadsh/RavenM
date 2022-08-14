@@ -497,6 +497,7 @@ namespace RavenM
 
         public override void OnAssignedToSquad(Squad squad)
         {
+            this.squad = squad;
         }
 
         public override void OnCancelParachute()
