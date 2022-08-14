@@ -568,6 +568,7 @@ namespace RavenM
             {
                 InstantActionMaps.instance.teamDropdown.value = 0;
             }
+            SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "team", InstantActionMaps.instance.teamDropdown.value == 0 ? "<color=blue>E</color>" : "<color=red>R</color>");
             if (IsLobbyOwner)
             {
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "gameMode", InstantActionMaps.instance.gameModeDropdown.value.ToString());
@@ -1138,12 +1139,20 @@ namespace RavenM
                 {
                     var memberId = SteamMatchmaking.GetLobbyMemberByIndex(ActualLobbyID, i);
 
+                    string team = SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "team");
                     string name = SteamFriends.GetFriendPersonaName(memberId);
 
                     var readyColor = (GameManager.IsInMainMenu() ? SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "loaded") == "yes" 
                                                                     : SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "ready") == "yes") 
                                                                     ? "green" : "red";
+
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Box(team);
+                    GUILayout.FlexibleSpace();
                     GUILayout.Box($"<color={readyColor}>{name}</color>");
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Box(team);
+                    GUILayout.EndHorizontal();
                 }
 
                 GUILayout.EndVertical();
