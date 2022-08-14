@@ -503,6 +503,10 @@ namespace RavenM
 
         public MethodInfo SteamAPI_SteamNetworkingMessage_t_Release;
 
+        public float VoiceChatVolume = 1f;
+
+        public KeyCode VoiceChatKeybind = KeyCode.CapsLock; 
+
         private void Awake()
         {
             instance = this;
@@ -550,6 +554,7 @@ namespace RavenM
             
             Plugin.logger.LogWarning(KickAnimation.KickController == null ? "Kick AnimationController couldn't be loaded" : "Kick AnimationController loaded");
             Plugin.logger.LogWarning(KickAnimation.KickSound == null ? "Kick AudioClip couldn't be loaded" : "Kick AudioClip loaded");
+
         }
 
         private void Start()
@@ -677,9 +682,9 @@ namespace RavenM
                         GUI.DrawTexture(new Rect(10f, Mathf.Clamp(Screen.height - vector.y, 0, Screen.height - 50f), 50f, 50f), LeftMarker);
                 else
                     if (Vector3.Dot(camera.transform.right, worldPos - camera.transform.position) < 0)
-                        GUI.DrawTexture(new Rect(10f, 0f, 50f, 50f), LeftMarker);
-                    else
-                        GUI.DrawTexture(new Rect(Screen.width - 60f, 0f, 50f, 50f), RightMarker);
+                    GUI.DrawTexture(new Rect(10f, 0f, 50f, 50f), LeftMarker);
+                else
+                    GUI.DrawTexture(new Rect(Screen.width - 60f, 0f, 50f, 50f), RightMarker);
             }
         }
 
@@ -687,7 +692,10 @@ namespace RavenM
         {
             if (!IsClient)
                 return;
-
+            if (!OptionsPatch.showHUD)
+            {
+                return;
+            }
             GUI.Label(new Rect(10, 30, 200, 40), $"Inbound: {_pps} PPS");
             GUI.Label(new Rect(10, 50, 200, 40), $"Outbound: {_ppsOut} PPS -- {_bytesOut} Bytes");
 
@@ -738,13 +746,13 @@ namespace RavenM
                 nameStyle.normal.background = GreyBackground;
                 GUILayout.BeginArea(new Rect(vector.x - 50f, Screen.height - vector.y, 110f, 20f), string.Empty);
                 GUILayout.BeginHorizontal(nameStyle);
-                    GUILayout.FlexibleSpace();
-                        GUILayout.BeginVertical();
-                            GUILayout.FlexibleSpace();
-                                GUILayout.Label(actor.name);
-                            GUILayout.FlexibleSpace();
-                        GUILayout.EndVertical();
-                    GUILayout.FlexibleSpace();
+                GUILayout.FlexibleSpace();
+                GUILayout.BeginVertical();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label(actor.name);
+                GUILayout.FlexibleSpace();
+                GUILayout.EndVertical();
+                GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
                 GUILayout.EndArea();
             }
@@ -1343,6 +1351,7 @@ namespace RavenM
                                                 voiceSource.transform.parent = actor.transform;
                                                 voiceSource.spatialBlend = 1f;
                                                 voiceSource.outputAudioMixerGroup = GameManager.instance.sfxMixer.outputAudioMixerGroup;
+                                                voiceSource.volume = VoiceChatVolume;
                                                 voiceSource.Play();
                                             }
                                             ClientActors[actor_packet.Id] = actor;

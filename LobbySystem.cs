@@ -18,7 +18,7 @@ namespace RavenM
         {
             if (LobbySystem.instance.InLobby && !LobbySystem.instance.IsLobbyOwner && !LobbySystem.instance.ReadyToPlay)
                 return false;
-
+            OptionsPatch.SetConfigValues(false);
             // Only start if all members are ready.
             if (LobbySystem.instance.LobbyDataReady && LobbySystem.instance.IsLobbyOwner)
             {
@@ -40,7 +40,6 @@ namespace RavenM
 
                 SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "started", "yes");
             }
-
             LobbySystem.instance.ReadyToPlay = false;
             return true;
         }
@@ -840,9 +839,9 @@ namespace RavenM
                 if (GUIStack.Peek() == "Main")
                 {
                     GUILayout.BeginHorizontal();
-                        GUILayout.FlexibleSpace();
-                            GUILayout.Label($"RavenM");
-                        GUILayout.FlexibleSpace();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"RavenM");
+                    GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
                     GUILayout.Space(15f);
@@ -858,9 +857,9 @@ namespace RavenM
                 else if (GUIStack.Peek() == "Host")
                 {
                     GUILayout.BeginHorizontal();
-                        GUILayout.FlexibleSpace();
-                            GUILayout.Label($"HOST");
-                        GUILayout.FlexibleSpace();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"HOST");
+                    GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
                     GUILayout.Space(5f);
@@ -911,9 +910,9 @@ namespace RavenM
                 else if (GUIStack.Peek() == "Join")
                 {
                     GUILayout.BeginHorizontal();
-                        GUILayout.FlexibleSpace();
-                            GUILayout.Label($"JOIN");
-                        GUILayout.FlexibleSpace();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"JOIN");
+                    GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
                     GUILayout.Space(10f);
@@ -946,9 +945,9 @@ namespace RavenM
                     GUILayout.Space(10f);
 
                     GUILayout.BeginHorizontal();
-                        GUILayout.FlexibleSpace();
-                            GUILayout.Label($"LOBBY ID");
-                        GUILayout.FlexibleSpace();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"LOBBY ID");
+                    GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
                     JoinLobbyID = GUILayout.TextField(JoinLobbyID);
@@ -1117,9 +1116,9 @@ namespace RavenM
                 GUILayout.Space(5f);
 
                 GUILayout.BeginHorizontal();
-                    GUILayout.FlexibleSpace();
-                        GUILayout.Label(ActualLobbyID.GetAccountID().ToString());
-                    GUILayout.FlexibleSpace();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label(ActualLobbyID.GetAccountID().ToString());
+                GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
 
                 if (GameManager.IsInMainMenu() && GUILayout.Button("COPY ID"))
@@ -1130,9 +1129,9 @@ namespace RavenM
                 GUILayout.Space(15f);
 
                 GUILayout.BeginHorizontal();
-                    GUILayout.FlexibleSpace();
-                        GUILayout.Label("MEMBERS:");
-                    GUILayout.FlexibleSpace();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("MEMBERS:");
+                GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
 
                 for (int i = 0; i < len; i++)
@@ -1159,23 +1158,23 @@ namespace RavenM
                 int hasDownloaded = ServerMods.Count - ModsToDownload.Count;
 
                 GUILayout.BeginHorizontal();
-                    GUILayout.FlexibleSpace();
-                        GUILayout.Label("DOWNLOADING");
-                    GUILayout.FlexibleSpace();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("DOWNLOADING");
+                GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
 
                 GUILayout.BeginHorizontal();
-                    GUILayout.FlexibleSpace();
-                        GUILayout.Label("MODS:");
-                    GUILayout.FlexibleSpace();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("MODS:");
+                GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
 
                 GUILayout.Space(5f);
 
                 GUILayout.BeginHorizontal();
-                    GUILayout.FlexibleSpace();
-                        GUILayout.Label($"{hasDownloaded}/{ServerMods.Count}");
-                    GUILayout.FlexibleSpace();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label($"{hasDownloaded}/{ServerMods.Count}");
+                GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
 
                 if (SteamUGC.GetItemDownloadInfo(new PublishedFileId_t(ModsToDownload[0].m_PublishedFileId), out ulong punBytesDownloaded, out ulong punBytesTotal))
@@ -1183,9 +1182,9 @@ namespace RavenM
                     GUILayout.Space(5f);
 
                     GUILayout.BeginHorizontal();
-                        GUILayout.FlexibleSpace();
-                            GUILayout.Label($"{punBytesDownloaded / 1024}KB/{punBytesTotal / 1024}KB");
-                        GUILayout.FlexibleSpace();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"{punBytesDownloaded / 1024}KB/{punBytesTotal / 1024}KB");
+                    GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
                     GUILayout.Space(5f);
@@ -1194,10 +1193,10 @@ namespace RavenM
                     progressStyle.normal.background = ProgressTexture;
 
                     GUILayout.BeginHorizontal();
-                        GUILayout.BeginVertical(progressStyle);
-                            GUILayout.Box(ProgressTexture);
-                        GUILayout.EndVertical();
-                        GUILayout.Space((float)(punBytesTotal - punBytesDownloaded) / punBytesTotal * 150f);
+                    GUILayout.BeginVertical(progressStyle);
+                    GUILayout.Box(ProgressTexture);
+                    GUILayout.EndVertical();
+                    GUILayout.Space((float)(punBytesTotal - punBytesDownloaded) / punBytesTotal * 150f);
                     GUILayout.EndHorizontal();
                 }
 

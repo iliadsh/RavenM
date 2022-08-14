@@ -1,4 +1,4 @@
-﻿namespace RavenM
+namespace RavenM
 {
     public class NetworkGameObjectsHashesPacket
     {
