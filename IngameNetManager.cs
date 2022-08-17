@@ -1838,6 +1838,57 @@ namespace RavenM
                                                 }
                                             }
                                             break;
+                                        case GameModeType.Haunted:
+                                            {
+                                                var gameUpdatePacket = dataStream.ReadHauntedStatePacket();
+
+                                                var hauntedObj = GameModeBase.instance as SpookOpsMode;
+
+                                                typeof(SpookOpsMode).GetField("skeletonCountModifier", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(hauntedObj, gameUpdatePacket.SkeletonCountModifier);
+
+                                                typeof(SpookOpsMode).GetField("currentPhase", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(hauntedObj, gameUpdatePacket.CurrentPhase);
+
+                                                var newSpawn = ActorManager.instance.spawnPoints[gameUpdatePacket.CurrentSpawnPoint];
+                                                var currentSpawn = (SpawnPoint)typeof(SpookOpsMode).GetField("currentSpawnPoint", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj);
+
+                                                if (currentSpawn != newSpawn)
+                                                {
+                                                    var PreparePhase = typeof(SpookOpsMode).GetMethod("PreparePhase", BindingFlags.Instance | BindingFlags.NonPublic);
+                                                    var WAVE_SKELETON_COUNT = (int[])typeof(SpookOpsMode).GetField("WAVE_SKELETON_COUNT", BindingFlags.Static | BindingFlags.NonPublic).GetValue(hauntedObj);
+                                                    var WAVE_SKELETON_TICKETS = (int[])typeof(SpookOpsMode).GetField("WAVE_SKELETON_TICKETS", BindingFlags.Static | BindingFlags.NonPublic).GetValue(hauntedObj);
+
+                                                    PreparePhase.Invoke(hauntedObj, new object[] { newSpawn, WAVE_SKELETON_COUNT[gameUpdatePacket.CurrentPhase], WAVE_SKELETON_TICKETS[gameUpdatePacket.CurrentPhase] });
+                                                }
+
+                                                typeof(SpookOpsMode).GetField("killCount", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(hauntedObj, gameUpdatePacket.KillCount);
+                                                if (gameUpdatePacket.PhaseEnded && !(bool)typeof(SpookOpsMode).GetField("phaseEnded", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj))
+                                                {
+                                                    typeof(SpookOpsMode).GetMethod("EndPhase", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(hauntedObj, null);
+                                                }
+                                                else
+                                                {
+                                                    typeof(SpookOpsMode).GetMethod("UpdateUi", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(hauntedObj, null);
+                                                }
+
+                                                if (!gameUpdatePacket.AwaitingNextPhase && (bool)typeof(SpookOpsMode).GetField("awaitingNextPhase", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj))
+                                                {
+                                                    StartPhasePatch.CanPerform = true;
+                                                    typeof(SpookOpsMode).GetMethod("StartPhase", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(hauntedObj, null);
+                                                    StartPhasePatch.CanPerform = false;
+                                                }
+
+                                                var newPlayerSpawn = ActorManager.instance.spawnPoints[gameUpdatePacket.PlayerSpawn];
+                                                var playerSpawn = (SpawnPoint)typeof(SpookOpsMode).GetField("playerSpawn", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj);
+
+                                                if (playerSpawn != newPlayerSpawn)
+                                                {
+                                                    typeof(SpookOpsMode).GetField("playerSpawn", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(hauntedObj, newPlayerSpawn);
+                                                    FpsActorController.instance.actor.SpawnAt(newPlayerSpawn.GetSpawnPosition(), Quaternion.identity);
+                                                }
+
+                                                HauntedActorDiedPatch.CheckLoseCondition();
+                                            }
+                                            break;
                                         default:
                                             Plugin.logger.LogError("Got game mode update for unsupported type?");
                                             break;
@@ -2428,6 +2479,32 @@ namespace RavenM
 
                             gamePacket.Scenarios.Add(packet);
                         }
+
+                        using MemoryStream memoryStream = new MemoryStream();
+
+                        using (var writer = new ProtocolWriter(memoryStream))
+                        {
+                            writer.Write(gamePacket);
+                        }
+                        data = memoryStream.ToArray();
+                    }
+                    break;
+                case GameModeType.Haunted:
+                    {
+                        var hauntedObj = GameModeBase.instance as SpookOpsMode;
+
+                        var gamePacket = new HauntedStatePacket
+                        {
+                            CurrentSpawnPoint = Array.IndexOf(ActorManager.instance.spawnPoints, (SpawnPoint)typeof(SpookOpsMode).GetField("currentSpawnPoint", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj)),
+                            PlayerSpawn = Array.IndexOf(ActorManager.instance.spawnPoints, (SpawnPoint)typeof(SpookOpsMode).GetField("playerSpawn", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj)),
+                            CurrentPhase = (int)typeof(SpookOpsMode).GetField("currentPhase", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj),
+                            KillCount = (int)typeof(SpookOpsMode).GetField("killCount", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj),
+                            AwaitingNextPhase = (bool)typeof(SpookOpsMode).GetField("awaitingNextPhase", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj),
+                            PhaseEnded = (bool)typeof(SpookOpsMode).GetField("phaseEnded", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj),
+                            SkeletonCountModifier = (float)typeof(SpookOpsMode).GetField("skeletonCountModifier", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj),
+                        };
+
+                        HauntedActorDiedPatch.CheckLoseCondition();
 
                         using MemoryStream memoryStream = new MemoryStream();
 

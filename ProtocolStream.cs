@@ -462,6 +462,17 @@ namespace RavenM
         {
             Write((int)value.Sequence);
         }
+
+        public void Write(HauntedStatePacket value)
+        {
+            Write(value.CurrentSpawnPoint);
+            Write(value.PlayerSpawn);
+            Write(value.CurrentPhase);
+            Write(value.KillCount);
+            Write(value.AwaitingNextPhase);
+            Write(value.PhaseEnded);
+            Write(value.SkeletonCountModifier);
+        }
     }
 
     public class ProtocolReader : BinaryReader
@@ -1052,6 +1063,20 @@ namespace RavenM
             return new SpecOpsSequencePacket
             {
                 Sequence = (SpecOpsSequencePacket.SequenceType)ReadInt32(),
+            };
+        }
+
+        public HauntedStatePacket ReadHauntedStatePacket()
+        {
+            return new HauntedStatePacket
+            {
+                CurrentSpawnPoint = ReadInt32(),
+                PlayerSpawn = ReadInt32(),
+                CurrentPhase = ReadInt32(),
+                KillCount = ReadInt32(),
+                AwaitingNextPhase = ReadBoolean(),
+                PhaseEnded = ReadBoolean(),
+                SkeletonCountModifier = ReadSingle(),
             };
         }
     }
