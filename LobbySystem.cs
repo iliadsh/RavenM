@@ -250,6 +250,8 @@ namespace RavenM
 
         public bool ShowOnList = true;
 
+        public bool MidgameJoin = false;
+
         public string JoinLobbyID = string.Empty;
 
         public bool InLobby = false;
@@ -288,6 +290,8 @@ namespace RavenM
         public List<CSteamID> CurrentKickedMembers = new List<CSteamID>();
 
         public CSteamID KickPrompt = CSteamID.Nil;
+
+        public string NotificationText = string.Empty;
 
         private void Awake()
         {
@@ -342,6 +346,7 @@ namespace RavenM
 
             if (pCallback.m_EChatRoomEnterResponse != (uint)EChatRoomEnterResponse.k_EChatRoomEnterResponseSuccess)
             {
+                NotificationText = "Unknown error joining lobby. (Does it still exist?)";
                 InLobby = false;
                 return;
             }
@@ -356,6 +361,9 @@ namespace RavenM
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "build_id", Plugin.BuildGUID);
                 if (!ShowOnList)
                     SteamMatchmaking.SetLobbyData(ActualLobbyID, "hidden", "true");
+
+                if (MidgameJoin)
+                    SteamMatchmaking.SetLobbyData(ActualLobbyID, "hotjoin", "true");
 
                 bool needsToReload = false;
                 List<PublishedFileId_t> mods = new List<PublishedFileId_t>();
@@ -387,6 +395,7 @@ namespace RavenM
                 if (Plugin.BuildGUID != SteamMatchmaking.GetLobbyData(ActualLobbyID, "build_id"))
                 {
                     Plugin.logger.LogInfo("Build ID mismatch! Leaving lobby.");
+                    NotificationText = "You cannot join this lobby because you and the host are using different versions of RavenM.";
                     SteamMatchmaking.LeaveLobby(ActualLobbyID);
                     return;
                 }
@@ -420,6 +429,14 @@ namespace RavenM
                     }
                 }
                 TriggerModRefresh();
+
+                if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "started") == "yes" && SteamMatchmaking.GetLobbyData(ActualLobbyID, "hotjoin") != "true")
+                {
+                    Plugin.logger.LogInfo("The game has already started :( Leaving lobby.");
+                    NotificationText = "This lobby has already started a match and has disabled mid-game joining or is playing a gamemode that does not support it.";
+                    SteamMatchmaking.LeaveLobby(ActualLobbyID);
+                    return;
+                }
             }
         }
 
@@ -481,6 +498,7 @@ namespace RavenM
                 // ...means the owner left.
                 if (OwnerID == id)
                 {
+                    NotificationText = "Lobby closed by host.";
                     SteamMatchmaking.LeaveLobby(ActualLobbyID);
                 }
             }
@@ -536,6 +554,7 @@ namespace RavenM
                         var member = new CSteamID(memberIdI);
                         if (member == SteamUser.GetSteamID())
                         {
+                            NotificationText = "You were kicked from the lobby! You can no longer join this lobby.";
                             SteamMatchmaking.LeaveLobby(ActualLobbyID);
                         }
                         else if (!CurrentKickedMembers.Contains(member))
@@ -687,11 +706,22 @@ namespace RavenM
                     SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "skin", InstantActionMaps.instance.skinDropdowns[i].value.ToString());
                 }
 
-                var enabledMutators = new List<bool>();
+                var enabledMutators = new List<int>();
                 ModManager.instance.loadedMutators.Sort((x, y) => x.name.CompareTo(y.name));
                 foreach (var mutator in ModManager.instance.loadedMutators)
                 {
-                    enabledMutators.Add(mutator.isEnabled);
+                    if (!mutator.isEnabled)
+                        continue;
+
+                    int id = mutator.name.GetHashCode();
+                    enabledMutators.Add(id);
+
+                    var config = new List<string>();
+                    foreach (var item in mutator.configuration.GetAllFields())
+                    {
+                        config.Add(item.SerializeValue());
+                    }
+                    SteamMatchmaking.SetLobbyData(ActualLobbyID, id + "config", string.Join(",", config.ToArray()));
                 }
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "mutators", string.Join(",", enabledMutators.ToArray()));
             }
@@ -842,17 +872,31 @@ namespace RavenM
 
                 string[] enabledMutators = SteamMatchmaking.GetLobbyData(ActualLobbyID, "mutators").Split(',');
                 ModManager.instance.loadedMutators.Sort((x, y) => x.name.CompareTo(y.name));
-                for (int i = 0; i < ModManager.instance.loadedMutators.Count; i++)
+                foreach (var mutator in ModManager.instance.loadedMutators)
+                    mutator.isEnabled = false;
+                foreach (var mutatorStr in enabledMutators)
                 {
-                    if (i > enabledMutators.Length)
-                        break;
-
-                    string enabled_str = enabledMutators[i];
-
-                    if (enabled_str == string.Empty)
+                    if (mutatorStr == string.Empty)
                         continue;
 
-                    ModManager.instance.loadedMutators[i].isEnabled = bool.Parse(enabled_str);
+                    int id = int.Parse(mutatorStr);
+
+                    foreach (var mutator in ModManager.instance.loadedMutators)
+                    {
+                        int candidate = mutator.name.GetHashCode();
+                        if (id == candidate)
+                        {
+                            mutator.isEnabled = true;
+
+                            string[] config = SteamMatchmaking.GetLobbyData(ActualLobbyID, candidate + "config").Split(',');
+                            int i = 0;
+                            foreach (var item in mutator.configuration.GetAllFields())
+                            {
+                                item.DeserializeValue(config[i]);
+                                i++;
+                            }
+                        }
+                    }
                 }
 
                 if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "started") == "yes")
@@ -874,6 +918,38 @@ namespace RavenM
 
             var lobbyStyle = new GUIStyle(GUI.skin.box);
             lobbyStyle.normal.background = LobbyBackground;
+
+            if (GameManager.IsInMainMenu() && NotificationText != string.Empty)
+            {
+                GUILayout.BeginArea(new Rect((Screen.width - 250f) / 2f, (Screen.height - 200f) / 2f, 250f, 200f), string.Empty);
+                GUILayout.BeginVertical(lobbyStyle);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("<color=red>RavenM Message:</color>");
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.Space(7f);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label(NotificationText);
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.Space(15f);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("OK"))
+                    NotificationText = string.Empty;
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.EndVertical();
+                GUILayout.EndArea();
+            }
 
             if (!InLobby && GUIStack.Count != 0 && GameManager.IsInMainMenu())
             {
@@ -926,7 +1002,9 @@ namespace RavenM
 
                     PrivateLobby = GUILayout.Toggle(PrivateLobby, "FRIENDS ONLY");
 
-                    ShowOnList = GUILayout.Toggle(ShowOnList, "BROWSABLE");
+                    ShowOnList = GUILayout.Toggle(ShowOnList, "SHOW ON LOBBY\nLIST");
+
+                    MidgameJoin = GUILayout.Toggle(MidgameJoin, "JOINABLE\nMIDGAME");
 
                     GUILayout.Space(10f);
 
