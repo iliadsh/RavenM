@@ -2,6 +2,7 @@
 using System.IO;
 using UnityEngine;
 using System.Collections.Generic;
+using System.Collections;
 
 namespace RavenM
 {
@@ -92,6 +93,17 @@ namespace RavenM
                 Write(false);
         }
 
+        public void Write(Quaternion? value)
+        {
+            if (value.HasValue)
+            {
+                Write(true);
+                Write(value.Value);
+            }
+            else
+                Write(false);
+        }
+
         public void Write(int[] value)
         {
             Write(value.Length);
@@ -117,6 +129,14 @@ namespace RavenM
             {
                 Write(n);
             }
+        }
+
+        public void Write(BitArray value)
+        {
+            var bytes = new byte[(value.Length - 1) / 8 + 1];
+            value.CopyTo(bytes, 0);
+            Write(bytes.Length);
+            Write(bytes);
         }
 
         public void Write(ActorPacket value)
@@ -275,7 +295,6 @@ namespace RavenM
             Write(value.Voice.Length);
             Write(value.Voice);
         }
-
         public void Write(SpawnCustomGameObjectPacket value)
         {
             Write(value.SourceID);
@@ -283,20 +302,17 @@ namespace RavenM
             Write(value.Position);
             Write(value.Rotation);
         }
-
         public void Write(NetworkGameObjectsHashesPacket value)
         {
             Write(value.Id);
             Write(value.NetworkGameObjectHashes);
         }
-
         public void Write(ScriptedPacket value)
         {
             Write(value.Id);
             Write(value.ScriptId);
             Write(value.Data);
         }
-
         public void Write(KickAnimationPacket value)
         {
             Write(value.Id);
@@ -330,6 +346,132 @@ namespace RavenM
             Write(value.WavesRemaining);
             Write(value.SpawnPointOwners);
             Write(value.TimeToDominate);
+        }
+
+        public void Write(SpecOpsStatePacket value)
+        {
+            Write(value.AttackerSpawn);
+            Write(value.SpawnPointOwners);
+            Write(value.Scenarios.Count);
+            foreach (var scenario in value.Scenarios)
+            {
+                if (scenario is AssassinateScenarioPacket)
+                {
+                    Write(0);
+                    Write(scenario as AssassinateScenarioPacket);
+                }
+                else if (scenario is ClearScenarioPacket)
+                {
+                    Write(1);
+                    Write(scenario as ClearScenarioPacket);
+                }
+                else if (scenario is DestroyScenarioPacket)
+                {
+                    Write(2);
+                    Write(scenario as DestroyScenarioPacket);
+                }
+                else if (scenario is SabotageScenarioPacket)
+                {
+                    Write(3);
+                    Write(scenario as SabotageScenarioPacket);
+                }
+            }
+            Write(value.GameIsRunning);
+        }
+
+        public void Write(ScenarioPacket value)
+        {
+            Write(value.Spawn);
+            Write(value.Actors.Count);
+            foreach (var actor in value.Actors)
+            {
+                Write(actor);
+            }
+        }
+
+        public void Write(AssassinateScenarioPacket value)
+        {
+            Write(value as ScenarioPacket);
+        }
+
+        public void Write(ClearScenarioPacket value)
+        {
+            Write(value as ScenarioPacket);
+        }
+
+        public void Write(DestroyScenarioPacket value)
+        {
+            Write(value as ScenarioPacket);
+            Write(value.TargetVehicle);
+        }
+
+        public void Write(SabotageScenarioPacket value)
+        {
+            Write(value as ScenarioPacket);
+            Write(value.Targets.Count);
+            foreach (var target in value.Targets)
+            {
+                Write(target);
+            }
+        }
+
+        public void Write(FireFlarePacket value)
+        {
+            Write(value.Actor);
+            Write(value.Spawn);
+        }
+
+        public void Write(DestructiblePacket value)
+        {
+            Write(value.Id);
+            Write(value.FullUpdate);
+            if (value.FullUpdate)
+            {
+                Write(value.NameHash);
+                Write(value.Mod);
+                Write(value.Position);
+                Write(value.Rotation);
+            }
+            Write(value.States);
+        }
+
+        public void Write(BulkDestructiblePacket value)
+        {
+            Write(value.Updates.Count);
+            foreach (var update in value.Updates)
+            {
+                Write(update);
+            }
+        }
+
+        public void Write(DestructibleDiePacket value)
+        {
+            Write(value.Id);
+            Write(value.Index);
+        }
+
+        public void Write(SpecOpsDialogPacket value)
+        {
+            Write(value.Hide);
+            Write(value.ActorPose);
+            Write(value.Text);
+            Write(value.OverrideName);
+        }
+
+        public void Write(SpecOpsSequencePacket value)
+        {
+            Write((int)value.Sequence);
+        }
+
+        public void Write(HauntedStatePacket value)
+        {
+            Write(value.CurrentSpawnPoint);
+            Write(value.PlayerSpawn);
+            Write(value.CurrentPhase);
+            Write(value.KillCount);
+            Write(value.AwaitingNextPhase);
+            Write(value.PhaseEnded);
+            Write(value.SkeletonCountModifier);
         }
     }
 
@@ -431,6 +573,15 @@ namespace RavenM
             return ReadVector4();
         }
 
+        public Quaternion? ReadQuaternionOptional()
+        {
+            bool hasValue = ReadBoolean();
+            if (!hasValue)
+                return null;
+
+            return ReadQuaternion();
+        }
+
         public int[] ReadIntArray()
         {
             int len = ReadInt32();
@@ -462,6 +613,11 @@ namespace RavenM
                 o[i] = ReadBoolean();
             }
             return o;
+        }
+
+        public BitArray ReadBitArray()
+        {
+            return new BitArray(ReadBytes(ReadInt32()));
         }
 
         public ActorPacket ReadActorPacket()
@@ -685,7 +841,6 @@ namespace RavenM
                 Rotation = ReadVector3()
             };
         }
-
         public NetworkGameObjectsHashesPacket ReadSyncNetworkGameObjectsPacket()
         {
             return new NetworkGameObjectsHashesPacket
@@ -694,7 +849,6 @@ namespace RavenM
                 NetworkGameObjectHashes = ReadString()
             };
         }
-
         public ScriptedPacket ReadScriptedPacket()
         {
             return new ScriptedPacket
@@ -704,7 +858,6 @@ namespace RavenM
                 Data = ReadString()
             };
         }
-
         public KickAnimationPacket ReadKickAnimationPacket()
         {
             return new KickAnimationPacket
@@ -712,7 +865,7 @@ namespace RavenM
                 Id = ReadInt32(),
             };
         }
-        
+
         public ExplodeProjectilePacket ReadExplodeProjectilePacket()
         {
             return new ExplodeProjectilePacket
@@ -752,6 +905,178 @@ namespace RavenM
                 WavesRemaining = ReadIntArray(),
                 SpawnPointOwners = ReadIntArray(),
                 TimeToDominate = ReadInt32(),
+            };
+        }
+
+        public SpecOpsStatePacket ReadSpecOpsStatePacket()
+        {
+            var state = new SpecOpsStatePacket
+            {
+                AttackerSpawn = ReadVector3(),
+                SpawnPointOwners = ReadIntArray(),
+            };
+
+            int scenarioCount = ReadInt32();
+            var scenarios = new List<ScenarioPacket>(scenarioCount);
+            for (int i = 0; i < scenarioCount; i++)
+            {
+                scenarios.Add(ReadScenarioPacket());
+            }
+            state.Scenarios = scenarios;
+            state.GameIsRunning = ReadBoolean();
+
+            return state;
+        }
+
+        public ScenarioPacket ReadScenarioPacket()
+        {
+            int selector = ReadInt32();
+            if (selector == 0)
+            {
+                return ReadAssassinateScenarioPacket();
+            }
+            else if (selector == 1)
+            {
+                return ReadClearScenarioPacket();
+            }
+            else if (selector == 2)
+            {
+                return ReadDestroyScenarioPacket();
+            }
+            else
+            {
+                return ReadSabotageScenarioPacket();
+            }
+        }
+
+        private void ReadAndPopulateGenericScenario(ScenarioPacket scenario)
+        {
+            scenario.Spawn = ReadInt32();
+            int count = ReadInt32();
+            scenario.Actors = new List<int>(count);
+            for (int i = 0; i < count; i++)
+            {
+                scenario.Actors.Add(ReadInt32());
+            }
+        }
+
+        public AssassinateScenarioPacket ReadAssassinateScenarioPacket()
+        {
+            var scenario = new AssassinateScenarioPacket();
+            ReadAndPopulateGenericScenario(scenario);
+            return scenario;
+        }
+
+        public ClearScenarioPacket ReadClearScenarioPacket()
+        {
+            var scenario = new ClearScenarioPacket();
+            ReadAndPopulateGenericScenario(scenario);
+            return scenario;
+        }
+
+        public DestroyScenarioPacket ReadDestroyScenarioPacket()
+        {
+            var scenario = new DestroyScenarioPacket();
+            ReadAndPopulateGenericScenario(scenario);
+            scenario.TargetVehicle = ReadInt32();
+            return scenario;
+        }
+
+        public SabotageScenarioPacket ReadSabotageScenarioPacket()
+        {
+            var scenario = new SabotageScenarioPacket();
+            ReadAndPopulateGenericScenario(scenario);
+            int count = ReadInt32();
+            scenario.Targets = new List<int>(count);
+            for (int i = 0; i < count; i++)
+            {
+                scenario.Targets.Add(ReadInt32());
+            }
+            return scenario;
+        }
+
+        public FireFlarePacket ReadFireFlarePacket()
+        {
+            return new FireFlarePacket
+            {
+                Actor = ReadInt32(),
+                Spawn = ReadInt32(),
+            };
+        }
+
+        public DestructiblePacket ReadDestructiblePacket()
+        {
+            var packet =  new DestructiblePacket
+            {
+                Id = ReadInt32(),
+                FullUpdate = ReadBoolean(),
+            };
+
+            if (packet.FullUpdate)
+            {
+                packet.NameHash = ReadInt32();
+                packet.Mod = ReadUInt64();
+                packet.Position = ReadVector3();
+                packet.Rotation = ReadQuaternion();
+            }
+
+            packet.States = ReadBitArray();
+            return packet;
+        }
+
+        public BulkDestructiblePacket ReadBulkDestructiblePacket()
+        {
+            int count = ReadInt32();
+            var updates = new List<DestructiblePacket>(count);
+            for (int i = 0; i < count; i++)
+            {
+                updates.Add(ReadDestructiblePacket());
+            }
+            return new BulkDestructiblePacket
+            {
+                Updates = updates,
+            };
+        }
+
+        public DestructibleDiePacket ReadDestructibleDiePacket()
+        {
+            return new DestructibleDiePacket
+            {
+                Id = ReadInt32(),
+                Index = ReadInt32(),
+            };
+        }
+
+        public SpecOpsDialogPacket ReadSpecOpsDialogPacket()
+        {
+            return new SpecOpsDialogPacket
+            {
+                Hide = ReadBoolean(),
+                ActorPose = ReadString(),
+                Text = ReadString(),
+                OverrideName = ReadString(),
+            };
+        }
+
+        public SpecOpsSequencePacket ReadSpecOpsSequencePacket()
+        {
+            return new SpecOpsSequencePacket
+            {
+                Sequence = (SpecOpsSequencePacket.SequenceType)ReadInt32(),
+            };
+        }
+
+        public HauntedStatePacket ReadHauntedStatePacket()
+        {
+            return new HauntedStatePacket
+            {
+                CurrentSpawnPoint = ReadInt32(),
+                PlayerSpawn = ReadInt32(),
+                CurrentPhase = ReadInt32(),
+                KillCount = ReadInt32(),
+                AwaitingNextPhase = ReadBoolean(),
+                PhaseEnded = ReadBoolean(),
+                SkeletonCountModifier = ReadSingle(),
             };
         }
     }

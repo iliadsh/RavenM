@@ -283,7 +283,7 @@ namespace RavenM
             // Reset the animator Controller in case the PerformKick Coroutine is Interrupted
             if (KickAnimation.OldKickController == null)
                 return;
-            killer.animator.runtimeAnimatorController = KickAnimation.OldKickController;
+            actor.animator.runtimeAnimatorController = KickAnimation.OldKickController;
         }
 
         public override void DisableInput()
@@ -497,6 +497,7 @@ namespace RavenM
 
         public override void OnAssignedToSquad(Squad squad)
         {
+            this.squad = squad;
         }
 
         public override void OnCancelParachute()

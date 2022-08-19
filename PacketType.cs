@@ -24,5 +24,10 @@
         ScriptedPacket,
         KickAnimation,
         Explode,
+        SpecOpsFlare,
+        SpecOpsSequence,
+        SpecOpsDialog,
+        UpdateDestructible,
+        DestroyDestructible,
     }
 }

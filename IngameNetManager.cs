@@ -10,6 +10,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using Ravenfield.SpecOps;
 
 namespace RavenM
 {
@@ -166,6 +167,19 @@ namespace RavenM
                     IngameNetManager.TagPrefab(prefab, (ulong)contentInfo.sourceMod.workshopItemId);
                 }
             }
+
+            // And the destructibles.
+            foreach (var destructible in Resources.FindObjectsOfTypeAll<Destructible>())
+            {
+                var prefab = DestructiblePacket.Root(destructible);
+
+                if (!prefab.TryGetComponent(out PrefabTag _))
+                {
+                    Plugin.logger.LogInfo($"Detected destructible prefab with name: {prefab.name}, and from mod: {contentInfo.sourceMod.workshopItemId}");
+
+                    IngameNetManager.TagPrefab(prefab, (ulong)contentInfo.sourceMod.workshopItemId);
+                }
+            }
         }
     }
 
@@ -192,6 +206,14 @@ namespace RavenM
             {
                 var prefab = projectile.gameObject;
                 Plugin.logger.LogInfo($"Tagging default projectile: {prefab.name}");
+
+                IngameNetManager.TagPrefab(prefab);
+            }
+
+            foreach (var destructible in Resources.FindObjectsOfTypeAll<Destructible>())
+            {
+                var prefab = DestructiblePacket.Root(destructible);
+                Plugin.logger.LogInfo($"Tagging default destructible: {prefab.name}");
 
                 IngameNetManager.TagPrefab(prefab);
             }
@@ -226,6 +248,45 @@ namespace RavenM
             {
                 Plugin.logger.LogInfo($"Cleaning up unwanted vehicle with name: {__instance.name}");
                 typeof(Vehicle).GetMethod("Cleanup", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(__instance, new object[] { });
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(Destructible), "Start")]
+    public class DestructibleCreatedPatch
+    {
+        static bool Prefix(Destructible __instance)
+        {
+            if (!LobbySystem.instance.InLobby)
+                return true;
+
+            var root = DestructiblePacket.Root(__instance);
+            Plugin.logger.LogInfo($"D: {root.name}");
+
+            if (IngameNetManager.instance.IsHost)
+            {
+                if (IngameNetManager.instance.ClientDestructibles.ContainsValue(root))
+                    return true;
+
+                int id = IngameNetManager.instance.RandomGen.Next(0, int.MaxValue);
+
+                if (root.TryGetComponent(out GuidComponent guid))
+                    id = guid.guid;
+                else
+                    root.AddComponent<GuidComponent>().guid = id;
+
+                IngameNetManager.instance.ClientDestructibles.Add(id, root);
+
+                Plugin.logger.LogInfo($"Registered new destructible root with name: {root.name} and id: {id}");
+            }
+            else if (!root.TryGetComponent(out GuidComponent guid) || 
+                (!root.TryGetComponent(out Vehicle _) && !IngameNetManager.instance.ClientDestructibles.ContainsKey(guid.guid)))
+            {
+                Plugin.logger.LogInfo($"Cleaning up unwanted destructible with name: {root.name}");
+                UnityEngine.Object.Destroy(root);
                 return false;
             }
 
@@ -381,6 +442,8 @@ namespace RavenM
 
         public Dictionary<int, Projectile> ClientProjectiles = new Dictionary<int, Projectile>();
 
+        public Dictionary<int, GameObject> ClientDestructibles = new Dictionary<int, GameObject>();
+
         public bool ClientCanSpawnBot = false;
 
         public HSteamNetConnection C2SConnection;
@@ -440,6 +503,10 @@ namespace RavenM
 
         public MethodInfo SteamAPI_SteamNetworkingMessage_t_Release;
 
+        public float VoiceChatVolume = 1f;
+
+        public KeyCode VoiceChatKeybind = KeyCode.CapsLock; 
+
         private void Awake()
         {
             instance = this;
@@ -487,6 +554,7 @@ namespace RavenM
             
             Plugin.logger.LogWarning(KickAnimation.KickController == null ? "Kick AnimationController couldn't be loaded" : "Kick AnimationController loaded");
             Plugin.logger.LogWarning(KickAnimation.KickSound == null ? "Kick AudioClip couldn't be loaded" : "Kick AudioClip loaded");
+
         }
 
         private void Start()
@@ -589,7 +657,10 @@ namespace RavenM
 
         public static void TagPrefab(GameObject prefab, ulong mod = 0)
         {
-            var tag = prefab.gameObject.AddComponent<PrefabTag>();
+            if (prefab.TryGetComponent(out PrefabTag _))
+                return;
+
+            var tag = prefab.AddComponent<PrefabTag>();
             tag.NameHash = prefab.name.GetHashCode();
             tag.Mod = mod;
             PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = prefab;
@@ -611,9 +682,9 @@ namespace RavenM
                         GUI.DrawTexture(new Rect(10f, Mathf.Clamp(Screen.height - vector.y, 0, Screen.height - 50f), 50f, 50f), LeftMarker);
                 else
                     if (Vector3.Dot(camera.transform.right, worldPos - camera.transform.position) < 0)
-                        GUI.DrawTexture(new Rect(10f, 0f, 50f, 50f), LeftMarker);
-                    else
-                        GUI.DrawTexture(new Rect(Screen.width - 60f, 0f, 50f, 50f), RightMarker);
+                    GUI.DrawTexture(new Rect(10f, 0f, 50f, 50f), LeftMarker);
+                else
+                    GUI.DrawTexture(new Rect(Screen.width - 60f, 0f, 50f, 50f), RightMarker);
             }
         }
 
@@ -621,7 +692,10 @@ namespace RavenM
         {
             if (!IsClient)
                 return;
-
+            if (!OptionsPatch.showHUD)
+            {
+                return;
+            }
             GUI.Label(new Rect(10, 30, 200, 40), $"Inbound: {_pps} PPS");
             GUI.Label(new Rect(10, 50, 200, 40), $"Outbound: {_ppsOut} PPS -- {_bytesOut} Bytes");
 
@@ -672,13 +746,13 @@ namespace RavenM
                 nameStyle.normal.background = GreyBackground;
                 GUILayout.BeginArea(new Rect(vector.x - 50f, Screen.height - vector.y, 110f, 20f), string.Empty);
                 GUILayout.BeginHorizontal(nameStyle);
-                    GUILayout.FlexibleSpace();
-                        GUILayout.BeginVertical();
-                            GUILayout.FlexibleSpace();
-                                GUILayout.Label(actor.name);
-                            GUILayout.FlexibleSpace();
-                        GUILayout.EndVertical();
-                    GUILayout.FlexibleSpace();
+                GUILayout.FlexibleSpace();
+                GUILayout.BeginVertical();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label(actor.name);
+                GUILayout.FlexibleSpace();
+                GUILayout.EndVertical();
+                GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
                 GUILayout.EndArea();
             }
@@ -974,10 +1048,9 @@ namespace RavenM
                         Plugin.logger.LogInfo($"Connection request from: {info.m_identityRemote.GetSteamID()}");
 
                         bool inLobby = false;
-                        int len = SteamMatchmaking.GetNumLobbyMembers(LobbySystem.instance.ActualLobbyID);
-                        for (int i = 0; i < len; i++)
+                        foreach (var memberId in LobbySystem.instance.GetLobbyMembers())
                         {
-                            if (info.m_identityRemote.GetSteamID() == SteamMatchmaking.GetLobbyMemberByIndex(LobbySystem.instance.ActualLobbyID, i))
+                            if (info.m_identityRemote.GetSteamID() == memberId)
                             {
                                 inLobby = true;
                                 break;
@@ -1277,6 +1350,7 @@ namespace RavenM
                                                 voiceSource.transform.parent = actor.transform;
                                                 voiceSource.spatialBlend = 1f;
                                                 voiceSource.outputAudioMixerGroup = GameManager.instance.sfxMixer.outputAudioMixerGroup;
+                                                voiceSource.volume = VoiceChatVolume;
                                                 voiceSource.Play();
                                             }
                                             ClientActors[actor_packet.Id] = actor;
@@ -1356,6 +1430,7 @@ namespace RavenM
                                             //RavenM.RSPatch.Wrapper.WLobby.networkGameObjects.Add(prefab.GetHashCode().ToString(), prefab);
 
                                             ClientVehicles[vehiclePacket.Id] = vehicle;
+                                            ClientDestructibles[vehiclePacket.Id] = vehicle.gameObject;
                                         }
 
                                         if (vehicle == null)
@@ -1664,10 +1739,211 @@ namespace RavenM
                                                 }
                                             }
                                             break;
+                                        case GameModeType.SpecOps:
+                                            {
+                                                var gameUpdatePacket = dataStream.ReadSpecOpsStatePacket();
+
+                                                var specOpsObj = GameModeBase.instance as SpecOpsMode;
+
+                                                for (int i = 0; i < gameUpdatePacket.SpawnPointOwners.Length; i++)
+                                                {
+                                                    if (ActorManager.instance.spawnPoints[i].owner != gameUpdatePacket.SpawnPointOwners[i])
+                                                        ActorManager.instance.spawnPoints[i].SetOwner(gameUpdatePacket.SpawnPointOwners[i]);
+                                                }
+
+                                                if (specOpsObj.activeScenarios == null)
+                                                {
+                                                    specOpsObj.activeScenarios = new List<SpecOpsScenario>();
+                                                    specOpsObj.activePatrols = new List<SpecOpsPatrol>();
+                                                    specOpsObj.activeObjectives = new List<SpecOpsObjective>();
+                                                    specOpsObj.scenarioAtSpawn = new Dictionary<SpawnPoint, SpecOpsScenario>();
+
+                                                    var ActivateScenario = typeof(SpecOpsMode).GetMethod("ActivateScenario", BindingFlags.Instance | BindingFlags.NonPublic);
+
+                                                    foreach (var scenario in gameUpdatePacket.Scenarios)
+                                                    {
+                                                        SpecOpsScenario actualScenario;
+
+                                                        if (scenario is AssassinateScenarioPacket)
+                                                        {
+                                                            var newScenario = new AssassinateScenario();
+                                                            actualScenario = newScenario;
+                                                        }
+                                                        else if (scenario is ClearScenarioPacket)
+                                                        {
+                                                            var newScenario = new ClearScenario();
+                                                            actualScenario = newScenario;
+                                                        }
+                                                        else if (scenario is DestroyScenarioPacket)
+                                                        {
+                                                            var newScenario = new DestroyScenario();
+                                                            typeof(DestroyScenario).GetField("targetVehicle", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(newScenario, ClientVehicles[(scenario as DestroyScenarioPacket).TargetVehicle]);
+                                                            actualScenario = newScenario;
+                                                        }
+                                                        else
+                                                        {
+                                                            var newScenario = new SabotageScenario();
+                                                            var targets = new List<Destructible>();
+                                                            foreach (var id in (scenario as SabotageScenarioPacket).Targets)
+                                                            {
+                                                                targets.Add(ClientDestructibles[id].GetComponentInChildren<Destructible>());
+                                                            }
+                                                            typeof(SabotageScenario).GetField("targets", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(newScenario, targets);
+                                                            typeof(SabotageScenario).GetField("targetsToDestroy", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(newScenario, targets.Count - 2);
+                                                            actualScenario = newScenario;
+                                                        }
+
+                                                        var spawn = ActorManager.instance.spawnPoints[scenario.Spawn];
+
+                                                        actualScenario.actors = new List<Actor>(scenario.Actors.Count);
+                                                        foreach (var actor in scenario.Actors)
+                                                        {
+                                                            actualScenario.actors.Add(ClientActors[actor]);
+                                                        }
+                                                        Order order = new Order(Order.OrderType.PatrolBase, spawn, spawn, enabled: true);
+                                                        actualScenario.squad = new Squad(actualScenario.actors, spawn, order, null, 0f)
+                                                        {
+                                                            allowRequestNewOrders = false
+                                                        };
+                                                        actualScenario.squad.SetNotAlert(applyToMembers: true, limitSpeed: true);
+
+                                                        typeof(SpecOpsMode).GetMethod("ActivateScenario", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(specOpsObj, new object[] { actualScenario, spawn });
+                                                    }
+                                                    ObjectiveUi.SortEntries();
+
+                                                    //typeof(SpecOpsMode).GetField("gameIsRunning", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(specOpsObj, gameUpdatePacket.GameIsRunning);
+                                                }
+
+                                                if (specOpsObj.attackerSpawnPosition == default)
+                                                {
+                                                    typeof(SpecOpsMode).GetMethod("InitializeAttackerSpawn", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(specOpsObj, new object[] { gameUpdatePacket.AttackerSpawn });
+                                                }
+
+                                                if (specOpsObj.attackerSquad == null && FpsActorController.instance.playerSquad != null)
+                                                {
+                                                    var attackers = new List<Actor>
+                                                    {
+                                                        FpsActorController.instance.actor
+                                                    };
+                                                    foreach (var actor in ClientActors.Values)
+                                                    {
+                                                        if (actor != FpsActorController.instance.actor && actor.team == FpsActorController.instance.actor.team)
+                                                        {
+                                                            attackers.Add(actor);
+                                                            FpsActorController.instance.playerSquad.AddMember(actor.controller);
+                                                        }
+                                                    }
+                                                    specOpsObj.attackerActors = attackers.ToArray();
+                                                    specOpsObj.attackerSquad = FpsActorController.instance.playerSquad;
+                                                }
+                                            }
+                                            break;
+                                        case GameModeType.Haunted:
+                                            {
+                                                var gameUpdatePacket = dataStream.ReadHauntedStatePacket();
+
+                                                var hauntedObj = GameModeBase.instance as SpookOpsMode;
+
+                                                typeof(SpookOpsMode).GetField("skeletonCountModifier", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(hauntedObj, gameUpdatePacket.SkeletonCountModifier);
+
+                                                typeof(SpookOpsMode).GetField("currentPhase", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(hauntedObj, gameUpdatePacket.CurrentPhase);
+
+                                                var newSpawn = ActorManager.instance.spawnPoints[gameUpdatePacket.CurrentSpawnPoint];
+                                                var currentSpawn = (SpawnPoint)typeof(SpookOpsMode).GetField("currentSpawnPoint", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj);
+
+                                                if (currentSpawn != newSpawn)
+                                                {
+                                                    var PreparePhase = typeof(SpookOpsMode).GetMethod("PreparePhase", BindingFlags.Instance | BindingFlags.NonPublic);
+                                                    var WAVE_SKELETON_COUNT = (int[])typeof(SpookOpsMode).GetField("WAVE_SKELETON_COUNT", BindingFlags.Static | BindingFlags.NonPublic).GetValue(hauntedObj);
+                                                    var WAVE_SKELETON_TICKETS = (int[])typeof(SpookOpsMode).GetField("WAVE_SKELETON_TICKETS", BindingFlags.Static | BindingFlags.NonPublic).GetValue(hauntedObj);
+
+                                                    PreparePhase.Invoke(hauntedObj, new object[] { newSpawn, WAVE_SKELETON_COUNT[gameUpdatePacket.CurrentPhase], WAVE_SKELETON_TICKETS[gameUpdatePacket.CurrentPhase] });
+                                                }
+
+                                                typeof(SpookOpsMode).GetField("killCount", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(hauntedObj, gameUpdatePacket.KillCount);
+                                                if (gameUpdatePacket.PhaseEnded && !(bool)typeof(SpookOpsMode).GetField("phaseEnded", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj))
+                                                {
+                                                    typeof(SpookOpsMode).GetMethod("EndPhase", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(hauntedObj, null);
+                                                }
+                                                else
+                                                {
+                                                    typeof(SpookOpsMode).GetMethod("UpdateUi", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(hauntedObj, null);
+                                                }
+
+                                                if (!gameUpdatePacket.AwaitingNextPhase && (bool)typeof(SpookOpsMode).GetField("awaitingNextPhase", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj))
+                                                {
+                                                    StartPhasePatch.CanPerform = true;
+                                                    typeof(SpookOpsMode).GetMethod("StartPhase", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(hauntedObj, null);
+                                                    StartPhasePatch.CanPerform = false;
+                                                }
+
+                                                var newPlayerSpawn = ActorManager.instance.spawnPoints[gameUpdatePacket.PlayerSpawn];
+                                                var playerSpawn = (SpawnPoint)typeof(SpookOpsMode).GetField("playerSpawn", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj);
+
+                                                if (playerSpawn != newPlayerSpawn)
+                                                {
+                                                    typeof(SpookOpsMode).GetField("playerSpawn", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(hauntedObj, newPlayerSpawn);
+                                                    FpsActorController.instance.actor.SpawnAt(newPlayerSpawn.GetSpawnPosition(), Quaternion.identity);
+                                                }
+
+                                                HauntedActorDiedPatch.CheckLoseCondition();
+                                            }
+                                            break;
                                         default:
                                             Plugin.logger.LogError("Got game mode update for unsupported type?");
                                             break;
                                     }
+                                }
+                                break;
+                            case PacketType.SpecOpsFlare:
+                                {
+                                    var flarePacket = dataStream.ReadFireFlarePacket();
+
+                                    if (GameModeBase.instance.gameModeType != GameModeType.SpecOps)
+                                    {
+                                        Plugin.logger.LogError("Attempted to fire flare while not in spec ops.");
+                                        break;
+                                    }
+
+                                    var actor = ClientActors[flarePacket.Actor];
+                                    var spawn = ActorManager.instance.spawnPoints[flarePacket.Spawn];
+
+                                    var specOpsObj = GameModeBase.instance as SpecOpsMode;
+                                    specOpsObj.FireFlare(actor, spawn);
+                                }
+                                break;
+                            case PacketType.SpecOpsSequence:
+                                {
+                                    var sequencePacket = dataStream.ReadSpecOpsSequencePacket();
+
+                                    switch (sequencePacket.Sequence)
+                                    {
+                                        case SpecOpsSequencePacket.SequenceType.ExfiltrationVictory:
+                                            ExfiltrationVictorySequencePatch.CanPerform = true;
+                                            StartCoroutine(typeof(SpecOpsMode).GetMethod("ExfiltrationVictorySequence", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(GameModeBase.instance, null) as IEnumerator);
+                                            ExfiltrationVictorySequencePatch.CanPerform = false;
+                                            break;
+                                        case SpecOpsSequencePacket.SequenceType.StealthVictory:
+                                            StealthVictorySequencePatch.CanPerform = true;
+                                            StartCoroutine(typeof(SpecOpsMode).GetMethod("StealthVictorySequence", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(GameModeBase.instance, null) as IEnumerator);
+                                            StealthVictorySequencePatch.CanPerform = false;
+                                            break;
+                                        case SpecOpsSequencePacket.SequenceType.Defeat:
+                                            DefeatSequencePatch.CanPerform = true;
+                                            StartCoroutine(typeof(SpecOpsMode).GetMethod("DefeatSequence", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(GameModeBase.instance, null) as IEnumerator);
+                                            DefeatSequencePatch.CanPerform = false;
+                                            break;
+                                    }
+                                }
+                                break;
+                            case PacketType.SpecOpsDialog:
+                                {
+                                    var dialogPacket = dataStream.ReadSpecOpsDialogPacket();
+
+                                    if (dialogPacket.Hide)
+                                        IngameDialog.Hide();
+                                    else
+                                        IngameDialog.PrintActorText(dialogPacket.ActorPose, dialogPacket.Text, dialogPacket.OverrideName);
                                 }
                                 break;
                             case PacketType.SpawnProjectile:
@@ -1889,6 +2165,70 @@ namespace RavenM
                                     StartCoroutine(KickAnimation.PerformKick(actor));
                                 }
                                 break;
+                            case PacketType.UpdateDestructible:
+                                {
+                                    var bulkDestructiblePacket = dataStream.ReadBulkDestructiblePacket();
+
+                                    if (bulkDestructiblePacket.Updates == null)
+                                        break;
+
+                                    foreach (DestructiblePacket destructiblePacket in bulkDestructiblePacket.Updates)
+                                    {
+                                        if (!ClientDestructibles.ContainsKey(destructiblePacket.Id))
+                                        {
+                                            if (!destructiblePacket.FullUpdate)
+                                                continue;
+
+                                            var tag = new Tuple<int, ulong>(destructiblePacket.NameHash, destructiblePacket.Mod);
+
+                                            if (!PrefabCache.ContainsKey(tag))
+                                            {
+                                                Plugin.logger.LogError($"Cannot find destructible prefab with this tagging.");
+                                                continue;
+                                            }
+
+                                            var prefab = PrefabCache[tag];
+                                            var newRoot = Instantiate(prefab, destructiblePacket.Position, destructiblePacket.Rotation);
+                                            newRoot.AddComponent<GuidComponent>().guid = destructiblePacket.Id;
+
+                                            ClientDestructibles.Add(destructiblePacket.Id, newRoot);
+                                        }
+
+                                        var root = ClientDestructibles[destructiblePacket.Id];
+
+                                        if (root == null)
+                                            continue;
+
+                                        if (destructiblePacket.FullUpdate)
+                                        {
+                                            root.transform.position = destructiblePacket.Position;
+                                            root.transform.rotation = destructiblePacket.Rotation;
+                                        }
+
+                                        var destructibles = DestructiblePacket.GetDestructibles(root);
+                                        for (int i = 0; i < destructibles.Length; i++)
+                                        {
+                                            var destructible = destructibles[i];
+
+                                            if (!destructible.isDead && destructiblePacket.States[i])
+                                                destructible.Shatter();
+                                        }
+                                    }
+                                }
+                                break;
+                            case PacketType.DestroyDestructible:
+                                {
+                                    var destroyPacket = dataStream.ReadDestructibleDiePacket();
+
+                                    var root = ClientDestructibles[destroyPacket.Id];
+                                    var destructible = DestructiblePacket.GetDestructibles(root)[destroyPacket.Index];
+
+                                    if (destructible == null || destructible.isDead)
+                                        break;
+
+                                    destructible.Shatter();
+                                }
+                                break;
                             default:
                                 RSPatch.RSPatch.FixedUpdate(packet, dataStream);
                                 break;
@@ -1948,13 +2288,15 @@ namespace RavenM
             {
                 MainSendTick.Start();
 
-                SendGameState();
-
                 SendActorStates();
 
                 SendVehicleStates();
 
                 SendProjectileUpdates();
+
+                SendDestructibleUpdates();
+
+                SendGameState();
             }
         }
 
@@ -2068,6 +2410,101 @@ namespace RavenM
                         {
                             gamePacket.SpawnPointOwners[i] = ActorManager.instance.spawnPoints[i].owner;
                         }
+
+                        using MemoryStream memoryStream = new MemoryStream();
+
+                        using (var writer = new ProtocolWriter(memoryStream))
+                        {
+                            writer.Write(gamePacket);
+                        }
+                        data = memoryStream.ToArray();
+                    }
+                    break;
+                case GameModeType.SpecOps:
+                    {
+                        var specOpsObj = GameModeBase.instance as SpecOpsMode;
+
+                        var gamePacket = new SpecOpsStatePacket
+                        {
+                            AttackerSpawn = specOpsObj.attackerSpawnPosition,
+                            SpawnPointOwners = new int[ActorManager.instance.spawnPoints.Length],
+                            Scenarios = new List<ScenarioPacket>(specOpsObj.activeScenarios.Count),
+                            GameIsRunning = (bool)typeof(SpecOpsMode).GetField("gameIsRunning", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(specOpsObj),
+                        };
+
+                        for (int i = 0; i < ActorManager.instance.spawnPoints.Length; i++)
+                        {
+                            gamePacket.SpawnPointOwners[i] = ActorManager.instance.spawnPoints[i].owner;
+                        }
+
+                        foreach (var scenario in specOpsObj.activeScenarios)
+                        {
+                            ScenarioPacket packet;
+
+                            if (scenario is AssassinateScenario)
+                            {
+                                var scenarioPacket = new AssassinateScenarioPacket();
+                                packet = scenarioPacket;
+                            }
+                            else if (scenario is ClearScenario)
+                            {
+                                var scenarioPacket = new ClearScenarioPacket();
+                                packet = scenarioPacket;
+                            }
+                            else if (scenario is DestroyScenario)
+                            {
+                                var scenarioPacket = new DestroyScenarioPacket();
+                                var target = (Vehicle)typeof(DestroyScenario).GetField("targetVehicle", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(scenario);
+                                scenarioPacket.TargetVehicle = target != null ? target.GetComponent<GuidComponent>().guid : 0;
+                                packet = scenarioPacket;
+                            }
+                            else
+                            {
+                                var scenarioPacket = new SabotageScenarioPacket();
+                                var targets = (List<Destructible>)typeof(SabotageScenario).GetField("targets", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(scenario);
+                                scenarioPacket.Targets = new List<int>(targets.Count);
+                                foreach (var target in targets)
+                                {
+                                    scenarioPacket.Targets.Add(DestructiblePacket.Root(target).GetComponent<GuidComponent>().guid);
+                                }
+                                packet = scenarioPacket;
+                            }
+
+                            packet.Spawn = Array.IndexOf(ActorManager.instance.spawnPoints, scenario.spawn);
+                            packet.Actors = new List<int>(scenario.actors.Count);
+                            foreach (var actor in scenario.actors)
+                            {
+                                packet.Actors.Add(actor.GetComponent<GuidComponent>().guid);
+                            }
+
+                            gamePacket.Scenarios.Add(packet);
+                        }
+
+                        using MemoryStream memoryStream = new MemoryStream();
+
+                        using (var writer = new ProtocolWriter(memoryStream))
+                        {
+                            writer.Write(gamePacket);
+                        }
+                        data = memoryStream.ToArray();
+                    }
+                    break;
+                case GameModeType.Haunted:
+                    {
+                        var hauntedObj = GameModeBase.instance as SpookOpsMode;
+
+                        var gamePacket = new HauntedStatePacket
+                        {
+                            CurrentSpawnPoint = Array.IndexOf(ActorManager.instance.spawnPoints, (SpawnPoint)typeof(SpookOpsMode).GetField("currentSpawnPoint", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj)),
+                            PlayerSpawn = Array.IndexOf(ActorManager.instance.spawnPoints, (SpawnPoint)typeof(SpookOpsMode).GetField("playerSpawn", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj)),
+                            CurrentPhase = (int)typeof(SpookOpsMode).GetField("currentPhase", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj),
+                            KillCount = (int)typeof(SpookOpsMode).GetField("killCount", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj),
+                            AwaitingNextPhase = (bool)typeof(SpookOpsMode).GetField("awaitingNextPhase", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj),
+                            PhaseEnded = (bool)typeof(SpookOpsMode).GetField("phaseEnded", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj),
+                            SkeletonCountModifier = (float)typeof(SpookOpsMode).GetField("skeletonCountModifier", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(hauntedObj),
+                        };
+
+                        HauntedActorDiedPatch.CheckLoseCondition();
 
                         using MemoryStream memoryStream = new MemoryStream();
 
@@ -2331,6 +2768,64 @@ namespace RavenM
             // But, the rest of the data does not. Therefore we should have a seperate
             // packet like the ActorFlags just for this state change.
             SendPacketToServer(data, PacketType.UpdateProjectile, Constants.k_nSteamNetworkingSend_Reliable);
+        }
+
+        public void SendDestructibleUpdates()
+        {
+            // Host has complete ownership.
+            if (!IsHost)
+                return;
+
+            var bulkDestructiblePacket = new BulkDestructiblePacket
+            {
+                Updates = new List<DestructiblePacket>(),
+            };
+
+            foreach (var kv in ClientDestructibles)
+            {
+                var id = kv.Key;
+                var root = kv.Value;
+
+                if (root == null)
+                    continue;
+
+                var tag = root.GetComponent<PrefabTag>();
+
+                var destructibles = DestructiblePacket.GetDestructibles(root);
+                var states = new BitArray(destructibles.Length);
+                for (int i = 0; i < destructibles.Length; i++)
+                {
+                    var destructible = destructibles[i];
+
+                    states.Set(i, destructible.isDead);
+                }
+
+                var net_destructible = new DestructiblePacket
+                {
+                    Id = id,
+                    FullUpdate = !root.TryGetComponent(out Vehicle _),
+                    NameHash = tag.NameHash,
+                    Mod = tag.Mod,
+                    Position = root.transform.position,
+                    Rotation = root.transform.rotation,
+                    States = states,
+                };
+
+                bulkDestructiblePacket.Updates.Add(net_destructible);
+            }
+
+            if (bulkDestructiblePacket.Updates.Count == 0)
+                return;
+
+            using MemoryStream memoryStream = new MemoryStream();
+
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(bulkDestructiblePacket);
+            }
+            byte[] data = memoryStream.ToArray();
+
+            SendPacketToServer(data, PacketType.UpdateDestructible, Constants.k_nSteamNetworkingSend_Unreliable);
         }
 
         public void SendVoiceData()
