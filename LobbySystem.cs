@@ -11,6 +11,16 @@ using RavenM.RSPatch.Wrapper;
 
 namespace RavenM
 {
+    [HarmonyPatch(typeof(ModManager), nameof(ModManager.OnGameManagerStart))]
+    public class CleanupListPatch
+    {
+        static void Prefix(ModManager __instance)
+        {
+            if (__instance.noContentMods)
+                __instance.noWorkshopMods = true;
+        }
+    }
+    
     [HarmonyPatch(typeof(GameManager), nameof(GameManager.StartLevel))]
     public class OnStartPatch
     {
