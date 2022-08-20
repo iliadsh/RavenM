@@ -308,15 +308,16 @@ namespace RavenM
 
             if (IngameNetManager.instance.OwnedActors.Contains(sourceId) || (sourceId == -1 && IngameNetManager.instance.IsHost))
             {
-                int id = IngameNetManager.instance.RandomGen.Next(0, int.MaxValue);
+                int id = typeof(ExplodingProjectile).IsAssignableFrom(__instance.GetType()) ? IngameNetManager.instance.RandomGen.Next(0, int.MaxValue) : 0;
 
                 if (__instance.TryGetComponent(out GuidComponent guid))
                     id = guid.guid;
                 else
                     __instance.gameObject.AddComponent<GuidComponent>().guid = id;
 
-                IngameNetManager.instance.ClientProjectiles.Add(id, __instance);
-                IngameNetManager.instance.OwnedProjectiles.Add(id);
+                IngameNetManager.instance.ClientProjectiles[id] = __instance;
+                if (id != 0)
+                    IngameNetManager.instance.OwnedProjectiles.Add(id);
 
                 var tag = __instance.gameObject.GetComponent<PrefabTag>();
 
@@ -1995,6 +1996,7 @@ namespace RavenM
                                         projectile.gameObject.AddComponent<GuidComponent>().guid = spawnPacket.ProjectileId;
 
                                     ClientProjectiles[spawnPacket.ProjectileId] = projectile;
+                                    OwnedProjectiles.Remove(spawnPacket.ProjectileId);
 
                                     projectile.StartTravelling();
                                 }
