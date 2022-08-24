@@ -1360,9 +1360,11 @@ namespace RavenM
                                         actor.name = actor_packet.Name;
                                         actor.scoreboardEntry.UpdateNameLabel();
 
-                                        actor.health = actor_packet.Health;
-
                                         var controller = actor.controller as NetActorController;
+
+                                        // Delay any possible race on the health value as much as possible.
+                                        if (controller.DamageCooldown.TrueDone())
+                                            actor.health = actor_packet.Health;
 
                                         controller.Targets = actor_packet;
                                         controller.Flags = actor_packet.Flags;
