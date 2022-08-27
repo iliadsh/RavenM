@@ -92,6 +92,7 @@ namespace RavenM
 
         public TimedAction RespawnCooldown = new TimedAction(3.0f);
         public TimedAction SeatResolverCooldown = new TimedAction(1.5f);
+        public TimedAction DamageCooldown = new TimedAction(1.0f);
 
         private void Update()
         {
@@ -549,6 +550,7 @@ namespace RavenM
 
         public override void ReceivedDamage(bool friendlyFire, float damage, float balanceDamage, Vector3 point, Vector3 direction, Vector3 force)
         {
+            DamageCooldown.Start();
         }
 
         public override bool Reload()

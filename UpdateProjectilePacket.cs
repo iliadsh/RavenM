@@ -1,9 +1,33 @@
 ﻿using HarmonyLib;
 using UnityEngine;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace RavenM
 {
+    [HarmonyPatch(typeof(WireGuidedMissile), "UpdatePosition")]
+    public class WireGuidedMissileStartPatch
+    {
+        static bool Prefix(WireGuidedMissile __instance)
+        {
+            if (!IngameNetManager.instance.IsClient)
+                return true;
+
+            var guid = __instance.GetComponent<GuidComponent>();
+
+            if (guid == null)
+                return true;
+
+            var id = guid.guid;
+
+            if (IngameNetManager.instance.OwnedProjectiles.Contains(id))
+                return true;
+
+            typeof(ExplodingProjectile).GetMethod("Travel", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(__instance, new object[] { __instance.velocity * Time.deltaTime });
+            return false;
+        }
+    }
+
     [HarmonyPatch(typeof(Projectile), nameof(Projectile.OnReturnedToPool))]
     public class ReleaseProjectilePatch
     {
@@ -44,8 +68,11 @@ namespace RavenM
                 ConfigCache.Remove(__instance);
             }
 
-            IngameNetManager.instance.ClientProjectiles.Remove(id);
-            IngameNetManager.instance.OwnedProjectiles.Remove(id);
+            if (IngameNetManager.instance.ClientProjectiles.ContainsKey(id) && IngameNetManager.instance.ClientProjectiles[id] == __instance)
+            {
+                IngameNetManager.instance.ClientProjectiles.Remove(id);
+                IngameNetManager.instance.OwnedProjectiles.Remove(id);
+            }
         }
     }
 

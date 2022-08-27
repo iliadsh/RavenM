@@ -308,15 +308,16 @@ namespace RavenM
 
             if (IngameNetManager.instance.OwnedActors.Contains(sourceId) || (sourceId == -1 && IngameNetManager.instance.IsHost))
             {
-                int id = IngameNetManager.instance.RandomGen.Next(0, int.MaxValue);
+                int id = typeof(ExplodingProjectile).IsAssignableFrom(__instance.GetType()) ? IngameNetManager.instance.RandomGen.Next(0, int.MaxValue) : 0;
 
                 if (__instance.TryGetComponent(out GuidComponent guid))
                     id = guid.guid;
                 else
                     __instance.gameObject.AddComponent<GuidComponent>().guid = id;
 
-                IngameNetManager.instance.ClientProjectiles.Add(id, __instance);
-                IngameNetManager.instance.OwnedProjectiles.Add(id);
+                IngameNetManager.instance.ClientProjectiles[id] = __instance;
+                if (id != 0)
+                    IngameNetManager.instance.OwnedProjectiles.Add(id);
 
                 var tag = __instance.gameObject.GetComponent<PrefabTag>();
 
@@ -1359,9 +1360,11 @@ namespace RavenM
                                         actor.name = actor_packet.Name;
                                         actor.scoreboardEntry.UpdateNameLabel();
 
-                                        actor.health = actor_packet.Health;
-
                                         var controller = actor.controller as NetActorController;
+
+                                        // Delay any possible race on the health value as much as possible.
+                                        if (controller.DamageCooldown.TrueDone())
+                                            actor.health = actor_packet.Health;
 
                                         controller.Targets = actor_packet;
                                         controller.Flags = actor_packet.Flags;
@@ -1995,6 +1998,7 @@ namespace RavenM
                                         projectile.gameObject.AddComponent<GuidComponent>().guid = spawnPacket.ProjectileId;
 
                                     ClientProjectiles[spawnPacket.ProjectileId] = projectile;
+                                    OwnedProjectiles.Remove(spawnPacket.ProjectileId);
 
                                     projectile.StartTravelling();
                                 }
