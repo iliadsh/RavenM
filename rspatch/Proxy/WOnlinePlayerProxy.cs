@@ -27,28 +27,31 @@ namespace RavenM.RSPatch.Proxy
             }
         }
        
-        public static void SendChatMessage(string input, bool global)
+        //public static void SendChatMessage(string input, bool global)
+        //{
+        //    IngameNetManager.instance.PushChatMessage(ActorManager.instance.player, input, global, GameManager.PlayerTeam());
+
+        //    using MemoryStream memoryStream = new MemoryStream();
+        //    var chatPacket = new ChatPacket
+        //    {
+        //        Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
+        //        Message = input,
+        //        TeamOnly = !global,
+        //    };
+
+        //    using (var writer = new ProtocolWriter(memoryStream))
+        //    {
+        //        writer.Write(chatPacket);
+        //    }
+        //    byte[] data = memoryStream.ToArray();
+
+        //    IngameNetManager.instance.SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
+        //}
+
+        public static void PushChatMessage(string message)
         {
-            IngameNetManager.instance.PushChatMessage(ActorManager.instance.player.name, input, global, GameManager.PlayerTeam());
-
-            using MemoryStream memoryStream = new MemoryStream();
-            var chatPacket = new ChatPacket
-            {
-                Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
-                Message = input,
-                TeamOnly = !global,
-            };
-
-            using (var writer = new ProtocolWriter(memoryStream))
-            {
-                writer.Write(chatPacket);
-            }
-            byte[] data = memoryStream.ToArray();
-
-            IngameNetManager.instance.SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
+            IngameNetManager.instance.PushChatMessage(ActorManager.instance.player, message,true, -1);
         }
-
-
         [MoonSharpHidden]
         public object GetValue()
         {

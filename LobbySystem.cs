@@ -303,6 +303,9 @@ namespace RavenM
 
         public string NotificationText = string.Empty;
 
+        public bool nameTagsEnabled = true;
+
+        public bool nameTagsForTeamOnly = false;
         private void Awake()
         {
             instance = this;
@@ -374,6 +377,10 @@ namespace RavenM
 
                 if (MidgameJoin)
                     SteamMatchmaking.SetLobbyData(ActualLobbyID, "hotjoin", "true");
+                if (nameTagsEnabled)
+                    SteamMatchmaking.SetLobbyData(ActualLobbyID, "nameTags","true");
+                if (nameTagsForTeamOnly)
+                    SteamMatchmaking.SetLobbyData(ActualLobbyID, "nameTagsForTeamOnly", "true");
 
                 bool needsToReload = false;
                 List<PublishedFileId_t> mods = new List<PublishedFileId_t>();
@@ -390,7 +397,7 @@ namespace RavenM
 
                 if (needsToReload)
                     ModManager.instance.ReloadModContent();
-
+                SteamMatchmaking.SetLobbyData(ActualLobbyID, "owner", OwnerID.ToString());
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "mods", string.Join(",", mods.ToArray()));
                 SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "loaded", "yes");
             }
@@ -1015,6 +1022,11 @@ namespace RavenM
                     ShowOnList = GUILayout.Toggle(ShowOnList, "SHOW ON LOBBY\nLIST");
 
                     MidgameJoin = GUILayout.Toggle(MidgameJoin, "JOINABLE\nMIDGAME");
+
+                    nameTagsEnabled = GUILayout.Toggle(nameTagsEnabled, "NAMETAGS");
+
+                    nameTagsForTeamOnly = GUILayout.Toggle(nameTagsForTeamOnly, "FOR TEAM ONLY");
+
 
                     GUILayout.Space(10f);
 

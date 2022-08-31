@@ -348,7 +348,7 @@ namespace RavenM
 
                 IngameNetManager.instance.SendPacketToServer(data, PacketType.SpawnProjectile, Constants.k_nSteamNetworkingSend_Reliable);
 
-                Plugin.logger.LogInfo($"Registered new spawned projectile with name: {__instance.name} and id: {id}");
+                //Plugin.logger.LogInfo($"Registered new spawned projectile with name: {__instance.name} and id: {id}");
             }
             else if (!__instance.TryGetComponent(out GuidComponent guid) || !IngameNetManager.instance.ClientProjectiles.ContainsKey(guid.guid))
             {
@@ -506,8 +506,13 @@ namespace RavenM
 
         public float VoiceChatVolume = 1f;
 
-        public KeyCode VoiceChatKeybind = KeyCode.CapsLock; 
+        public KeyCode VoiceChatKeybind = KeyCode.CapsLock;
 
+        public KeyCode PlaceMarkerKeybind = KeyCode.BackQuote;
+        
+        public KeyCode GlobalChatKeybind = KeyCode.Y;
+
+        public KeyCode TeamChatKeybind = KeyCode.U;
         private void Awake()
         {
             instance = this;
@@ -556,6 +561,7 @@ namespace RavenM
             Plugin.logger.LogWarning(KickAnimation.KickController == null ? "Kick AnimationController couldn't be loaded" : "Kick AnimationController loaded");
             Plugin.logger.LogWarning(KickAnimation.KickSound == null ? "Kick AudioClip couldn't be loaded" : "Kick AudioClip loaded");
 
+            kickAnimationBundle.Unload(false);
         }
 
         private void Start()
@@ -581,7 +587,7 @@ namespace RavenM
                 _showSpecificOutbound = !_showSpecificOutbound;
 
             // AKA Tilde Key.
-            if (Input.GetKeyDown(KeyCode.BackQuote)
+            if (Input.GetKeyDown(PlaceMarkerKeybind)
                 && GameManager.instance != null && GameManager.IsIngame()
                 && !ActorManager.instance.player.dead
                 && ActorManager.instance.player.activeWeapon != null)
@@ -641,13 +647,13 @@ namespace RavenM
                 _specificBytesOut.Clear();
             }
 
-            if (Input.GetKeyDown(KeyCode.CapsLock))
+            if (Input.GetKeyDown(VoiceChatKeybind))
             {
                 SteamUser.StartVoiceRecording();
                 UsingMicrophone = true;
             }
 
-            if (Input.GetKeyUp(KeyCode.CapsLock))
+            if (Input.GetKeyUp(VoiceChatKeybind))
             {
                 SteamUser.StopVoiceRecording();
                 UsingMicrophone = false;
@@ -691,12 +697,8 @@ namespace RavenM
 
         private void OnGUI()
         {
-            if (!IsClient)
+            if (!IsClient || !OptionsPatch.showHUD)
                 return;
-            if (!OptionsPatch.showHUD)
-            {
-                return;
-            }
             GUI.Label(new Rect(10, 30, 200, 40), $"Inbound: {_pps} PPS");
             GUI.Label(new Rect(10, 50, 200, 40), $"Outbound: {_ppsOut} PPS -- {_bytesOut} Bytes");
 
@@ -734,30 +736,8 @@ namespace RavenM
 
                 if (actor.team != GameManager.PlayerTeam())
                     continue;
-
                 DrawMarker(controller.Targets.MarkerPosition ?? Vector3.zero);
-
-                var camera = FpsActorController.instance.inPhotoMode ? SpectatorCamera.instance.camera : FpsActorController.instance.GetActiveCamera();
-                Vector3 vector = camera.WorldToScreenPoint(actor.CenterPosition() + new Vector3(0, 1f, 0));
-
-                if (vector.z < 0f)
-                    continue;
-
-                var nameStyle = new GUIStyle();
-                nameStyle.normal.background = GreyBackground;
-                GUILayout.BeginArea(new Rect(vector.x - 50f, Screen.height - vector.y, 110f, 20f), string.Empty);
-                GUILayout.BeginHorizontal(nameStyle);
-                GUILayout.FlexibleSpace();
-                GUILayout.BeginVertical();
-                GUILayout.FlexibleSpace();
-                GUILayout.Label(actor.name);
-                GUILayout.FlexibleSpace();
-                GUILayout.EndVertical();
-                GUILayout.FlexibleSpace();
-                GUILayout.EndHorizontal();
-                GUILayout.EndArea();
             }
-
             if (Event.current.isKey && Event.current.keyCode == KeyCode.None && JustFocused)
             {
                 Event.current.Use();
@@ -787,7 +767,7 @@ namespace RavenM
                 {
                     if (!string.IsNullOrEmpty(CurrentChatMessage))
                     {
-                        PushChatMessage(ActorManager.instance.player.name, CurrentChatMessage, ChatMode, GameManager.PlayerTeam());
+                        PushChatMessage(ActorManager.instance.player, CurrentChatMessage, ChatMode, GameManager.PlayerTeam());
 
                         using MemoryStream memoryStream = new MemoryStream();
                         var chatPacket = new ChatPacket
@@ -811,14 +791,14 @@ namespace RavenM
                 }
             }
 
-            if (Event.current.isKey && Event.current.keyCode == KeyCode.Y && !TypeIntention)
+            if (Event.current.isKey && Event.current.keyCode == GlobalChatKeybind && !TypeIntention)
             {
                 TypeIntention = true;
                 JustFocused = true;
                 ChatMode = true;
             }
 
-            if (Event.current.isKey && Event.current.keyCode == KeyCode.U && !TypeIntention)
+            if (Event.current.isKey && Event.current.keyCode == TeamChatKeybind && !TypeIntention)
             {
                 TypeIntention = true;
                 JustFocused = true;
@@ -829,6 +809,7 @@ namespace RavenM
             chatStyle.normal.background = GreyBackground;
             GUILayout.BeginArea(new Rect(10f, Screen.height - 370f, 500f, 200f), string.Empty, chatStyle);
             ChatScrollPosition = GUILayout.BeginScrollView(ChatScrollPosition, GUILayout.Width(500f), GUILayout.Height(200f));
+            // Any player can break the formatting by using Rich Text e.g. <color=abcd> <b> - Chai
             GUILayout.Label(FullChatLink);
             GUILayout.EndScrollView();
             GUILayout.EndArea();
@@ -837,23 +818,86 @@ namespace RavenM
                 GUI.DrawTexture(new Rect(315f, Screen.height - 60f, 50f, 50f), MicTexture);
         }
 
-        public void PushChatMessage(string name, string message, bool global, int team)
+        public void PushChatMessage(Actor actor, string message, bool global, int team)
         {
+            string name;
+            if (actor != null)
+                name = actor.name;
+            else
+                name = "";
             if (!global && GameManager.PlayerTeam() != team)
                 return;
 
             if (team == -1)
-                FullChatLink += $"<color=#eeeeee>{message}</color>";
+                FullChatLink += $"<color=#eeeeee>{message}</color>\n";
             else
             {
                 string color = !global ? "green" : (team == 0 ? "blue" : "red");
-
-                FullChatLink += $"<color={color}><b><{name}></b></color> {message}\n";
+                bool isCommand = message.Trim().StartsWith("/") ? true : false;
+                Plugin.logger.LogInfo("Is Command " + isCommand);
+                if (isCommand)
+                {
+                    string[] command = message.Trim().Substring(1, message.Length - 1).Split(' ');
+                    bool isBuildInCommand = ProcessChatCommand(command);
+                    if(!isBuildInCommand)
+                        RSPatch.RavenscriptEventsManagerPatch.events.onReceiveChatMessage.Invoke(actor, command, isCommand);
+                }
+                else
+                {
+                    RSPatch.RavenscriptEventsManagerPatch.events.onReceiveChatMessage.Invoke(actor, new string[] { message }, isCommand);
+                    FullChatLink += $"<color={color}><b><{name}></b></color> {message}\n";
+                }
             }
             
             ChatScrollPosition.y = Mathf.Infinity;
         }
-
+        private bool ProcessChatCommand(string[] command)
+        {
+            string initCommand = command[0];
+            if (string.IsNullOrEmpty(initCommand))
+            {
+                return false;
+            }
+            //for(int x = 0;x < command.Length;x++)
+            //{
+            //    Plugin.logger.LogInfo(command[x] + " at index " + x);
+            //}
+            switch (initCommand.ToLower())
+            {
+                case "lobby.nametags":
+                    if (command.Length < 2)
+                    {
+                        PushChatMessage(ActorManager.instance.player, "<color=red>arg1 has to be true or false</color>", true, -1);
+                        return false;
+                    }
+                    string arg1 = command[1];
+                    if (string.IsNullOrEmpty(arg1))
+                    {
+                        PushChatMessage(ActorManager.instance.player, "<color=red>arg1 has to be true or false</color>", true,-1);
+                        return true;
+                    }
+                    bool parsedArg = bool.TryParse(arg1,out bool result);
+                    if (parsedArg)
+                    {
+                        if (!IsHost || !LobbySystem.instance.IsLobbyOwner)
+                        {
+                            PushChatMessage(ActorManager.instance.player, "<color=red>Only the Host can change this setting</color>", true, -1);
+                            return false;
+                        }
+                        LobbySystem.instance.nameTagsEnabled = result;
+                        SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "nameTags", result.ToString());
+                        PushChatMessage(ActorManager.instance.player, "<color=green>Set Lobby.nametags to </color>" + result.ToString(), true, -1);
+                    }
+                    else
+                    {
+                        PushChatMessage(ActorManager.instance.player, $"<color=red>Could not parse argument {arg1}</color>", true, -1);
+                        return false;
+                    }
+                    RavenM.UI.GameUI.instance.ToggleNameTags();
+                    return true;
+            }
+            return false;
+        }
         public void ResetState()
         {
             _ticker2 = 0f;
@@ -1123,7 +1167,7 @@ namespace RavenM
                                 {
                                     var leaveMsg = $"{actor.name} has left the match.\n";
 
-                                    PushChatMessage(string.Empty, leaveMsg, true, -1);
+                                    PushChatMessage(null, leaveMsg, true, -1);
 
                                     using MemoryStream memoryStream = new MemoryStream();
                                     var chatPacket = new ChatPacket
@@ -1235,7 +1279,7 @@ namespace RavenM
                                                 {
                                                     var enterMsg = $"{actor_packet.Name} has joined the match.\n";
 
-                                                    PushChatMessage(string.Empty, enterMsg, true, -1);
+                                                    PushChatMessage(null, enterMsg, true, -1);
 
                                                     using MemoryStream memoryStream = new MemoryStream();
                                                     var chatPacket = new ChatPacket
@@ -2077,11 +2121,10 @@ namespace RavenM
                                     var chatPacket = dataStream.ReadChatPacket();
 
                                     var actor = ClientActors.ContainsKey(chatPacket.Id) ? ClientActors[chatPacket.Id] : null;
-
                                     if (actor == null)
-                                        PushChatMessage(string.Empty, chatPacket.Message, true, -1);
+                                        PushChatMessage(null, chatPacket.Message, true, -1);
                                     else
-                                        PushChatMessage(actor.name, chatPacket.Message, !chatPacket.TeamOnly, actor.team);
+                                        PushChatMessage(actor, chatPacket.Message, !chatPacket.TeamOnly, actor.team);
                                 }
                                 break;
                             case PacketType.Voip:
