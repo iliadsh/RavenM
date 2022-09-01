@@ -23,6 +23,7 @@
     <EmbeddedResource Include="assets\marker_right.png" />
 	  <EmbeddedResource Include="assets\mic.png" />
     <EmbeddedResource Include="assets\kickanimcontroller" />
+  <EmbeddedResource Include="assets\UIBundle" />
   </ItemGroup>
 
   <ItemGroup>

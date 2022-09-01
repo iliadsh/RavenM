@@ -30,13 +30,14 @@ namespace RavenM.RSPatch
             "data",
             "PacketType"
         })]
-        public ScriptEvent<string,string> onSendPacket { get; protected set; }
+        public ScriptEvent<string, string> onSendPacket { get; protected set; }
 
 
         public ScriptEvent<Actor> onPlayerDisconnect { get; protected set; }
 
         public ScriptEvent<Actor> onPlayerJoin { get; protected set; }
 
+        public ScriptEvent<Actor, string[],bool> onReceiveChatMessage { get;protected set;}
 
     }
 }
