@@ -3,6 +3,7 @@ using System.Collections;
 using RavenM.DiscordGameSDK;
 using Steamworks;
 using UnityEngine;
+using System.Runtime.InteropServices;
 
 namespace RavenM
 {
@@ -17,8 +18,17 @@ namespace RavenM
         public long startSessionTime;
 
         private ActivityManager _activityManager;
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        static extern IntPtr LoadLibrary(string lpPathName);
+
         private void Start()
         {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && !Environment.Is64BitProcess)
+            {
+                LoadLibrary("BepInEx/plugins/lib/x86/discord_game_sdk");
+            }
+
             Discord = new Discord(discordClientID, (UInt64) CreateFlags.Default);
             Plugin.logger.LogWarning("Discord Instance created");
             startSessionTime = ((DateTimeOffset) DateTime.Now).ToUnixTimeSeconds();
@@ -58,9 +68,9 @@ namespace RavenM
             yield return new WaitUntil(GameManager.IsInMainMenu);
             UpdateActivity(Discord, Activities.InMenu);
         }
-        
+
         // Private Variables that makes me question my coding skills
-        private TimedAction _timer = new(5f);
+        private TimedAction _timer = new TimedAction(5f);
         
         private string _gameMode = "Insert Game Mode";
         private void FixedUpdate()

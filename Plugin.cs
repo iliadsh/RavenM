@@ -130,6 +130,10 @@ namespace RavenM
                 var netObject = new GameObject();
                 netObject.AddComponent<IngameNetManager>();
                 DontDestroyOnLoad(netObject);
+
+                var discordObject = new GameObject();
+                discordObject.AddComponent<DiscordIntegration>();
+                DontDestroyOnLoad(discordObject);
             }
         }
     }
