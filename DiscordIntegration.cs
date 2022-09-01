@@ -19,8 +19,7 @@ namespace RavenM
         private ActivityManager _activityManager;
         private void Start()
         {
-            Environment.SetEnvironmentVariable("DISCORD_INSTANCE_ID", "1007054793220571247");
-            Discord = new Discord(long.Parse(Environment.GetEnvironmentVariable("DISCORD_INSTANCE_ID")!), (UInt64) CreateFlags.Default);
+            Discord = new Discord(discordClientID, (UInt64) CreateFlags.Default);
             Plugin.logger.LogWarning("Discord Instance created");
             startSessionTime = ((DateTimeOffset) DateTime.Now).ToUnixTimeSeconds();
             

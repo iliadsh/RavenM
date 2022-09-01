@@ -6,6 +6,9 @@
 # libs
 libs/
 
+# .idea
+.idea/
+
 # User-specific files
 *.rsuser
 *.suo
