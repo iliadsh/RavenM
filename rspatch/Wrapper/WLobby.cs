@@ -27,6 +27,50 @@ namespace RavenM.RSPatch.Wrapper
             }
             return members;
         }
+        public static IList<Actor> GetPlayers()
+        {
+            List<Actor> actors = new List<Actor>();
+            foreach (var kv in IngameNetManager.instance.ClientActors)
+            {
+                var id = kv.Key;
+                var actor = kv.Value;
+
+                if (IngameNetManager.instance.OwnedActors.Contains(id))
+                    continue;
+
+                var controller = actor.controller as NetActorController;
+
+                if ((controller.Flags & (int)ActorStateFlags.AiControlled) != 0)
+                    continue;
+                actors.Add(actor);
+            }
+            return actors;
+        }
+        public static void SendServerChatMessage(string message, Color color)
+        {
+            if (!IngameNetManager.instance.IsHost || !LobbySystem.instance.IsLobbyOwner)
+            {
+                return;
+            }
+            string input = $"<b>Server</b> <color=#{ColorUtility.ToHtmlStringRGB(color)}>{message}</color>";
+            IngameNetManager.instance.PushChatMessage(null, input, true, -1);
+            
+            using MemoryStream memoryStream = new MemoryStream();
+            var chatPacket = new ChatPacket
+            {
+                Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
+                Message = input,
+                TeamOnly = false,
+            };
+
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(chatPacket);
+            }
+            byte[] data = memoryStream.ToArray();
+
+            IngameNetManager.instance.SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
+        }
         public static Dictionary<string, GameObject> GetNetworkPrefabs()
         {
             return networkGameObjects;

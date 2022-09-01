@@ -4,8 +4,6 @@ using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -19,8 +17,9 @@ namespace RavenM
         private static ConfigFile keybindConfig;
 
         public static bool showHUD = false;
-
+        public static event Action onSettingUpdate;
         public static Dictionary<OptionKeybind, ConfigEntry<KeyCode>> setKeybinds = new Dictionary<OptionKeybind, ConfigEntry<KeyCode>>();
+        public static Dictionary<OptionText, ConfigEntry<string>> setOptionText = new Dictionary<OptionText, ConfigEntry<string>>();
         [HarmonyPatch(typeof(Options), "Awake")]
         public class OptionsAwakePatch
         {
@@ -30,11 +29,20 @@ namespace RavenM
                 {
                     return;
                 }
-                keybindConfig = new ConfigFile(System.IO.Path.Combine(Paths.ConfigPath, "RavenMKeybinds.cfg"), false);
-                CreateToggleOption("Show RavenM HUD", true, OptionTypes.Toggle, RavenMOptions.ShowRavenMHUD);
-                CreateToggleOption("Voice Chat Volume", 0.9f, OptionTypes.Slider, RavenMOptions.VoiceChatVolume);
-                CreateToggleOption<Action>("<color=yellow>Click on me to open the Keybinds File</color>", OnClickKeybindLabel, OptionTypes.Label, RavenMOptions.LazyKeybindLabel);
+                keybindConfig = new ConfigFile(System.IO.Path.Combine(Paths.ConfigPath, "RavenMSettings.cfg"), false);
+                CreateToggleOption("Show RavenM HUD", true, RavenMOptions.ShowRavenMHUD);
+                CreateSliderOption("Voice Chat Volume", 1f, RavenMOptions.VoiceChatVolume,false,0f,1f);
+                CreateSpacer();
+                CreateOptionLabel("NAME TAGS",true);
+                CreateSliderOption("Nametag Size", 32f, RavenMOptions.NameTagScaleMultiplier,true,12f,60f);
+                CreateToggleOption("Custom Colors", false, RavenMOptions.CustomNameTagColor);
+                AddTextToConfig("#1E90FF", OptionText.NameTagTeamColor);
+                AddTextToConfig("#FFA500", OptionText.NameTagEnemyColor);
+                CreateOptionLabel("<color=yellow>Click me to open the Settings File</color>", OnClickKeybindLabel);
                 AddKeybindToConfig(KeyCode.CapsLock, OptionKeybind.VoiceChatButton);
+                AddKeybindToConfig(KeyCode.BackQuote, OptionKeybind.PlaceMarkerButton);
+                AddKeybindToConfig(KeyCode.Y, OptionKeybind.GlobalChatButton);
+                AddKeybindToConfig(KeyCode.U, OptionKeybind.TeamChatButton);
                 //CreateToggleOption("AAAA", KeyCode.O, OptionTypes.Keybind, RavenMOptions.RebindKeyA);
             }
         }
@@ -86,45 +94,21 @@ namespace RavenM
             {
                 if (saveValue)
                     UIToggle.Save();
-                showHUD = GetOptionWithName<bool>(UIToggle.id, OptionTypes.Toggle);
+
             }
             foreach (RavenMOption<Slider, float> UISlider in _sliders.Values)
             {
                 if (saveValue)
                     UISlider.Save();
-                IngameNetManager.instance.VoiceChatVolume = GetOptionWithName<float>(UISlider.id, OptionTypes.Slider);
             }
+            showHUD = GetOptionWithName<bool>(RavenMOptions.ShowRavenMHUD, OptionTypes.Toggle);
+            IngameNetManager.instance.VoiceChatVolume = GetOptionWithName<float>(RavenMOptions.VoiceChatVolume, OptionTypes.Slider);
             IngameNetManager.instance.VoiceChatKeybind = setKeybinds[OptionKeybind.VoiceChatButton].Value;
+            IngameNetManager.instance.PlaceMarkerKeybind = setKeybinds[OptionKeybind.PlaceMarkerButton].Value;
+            IngameNetManager.instance.GlobalChatKeybind = setKeybinds[OptionKeybind.GlobalChatButton].Value;
+            IngameNetManager.instance.TeamChatKeybind = setKeybinds[OptionKeybind.TeamChatButton].Value;
+            onSettingUpdate?.Invoke();
         }
-        //public static void SetOptionWithName<T>(string name,T targetValue,OptionTypes type)
-        //      {
-        //          if (!_toggles.ContainsKey(name) || !_sliders.ContainsKey(name))
-        //	{
-        //		return;
-        //          }
-        //          switch (type)
-        //          {
-        //		case OptionTypes.Toggle:
-        //			var toggleOption = _toggles.FirstOrDefault(x => x.Key == name).Value;
-        //			if(targetValue.GetType() != typeof(bool))
-        //                  {
-        //				Plugin.logger.LogError($"Failed to set option with name {name} because {targetValue.GetType()} should be bool!");
-        //				return;
-        //                  }
-        //			toggleOption.value = (bool)(object)targetValue;
-        //			break;
-        //		case OptionTypes.Slider:
-        //			var toggleSlider = _sliders.FirstOrDefault(x => x.Key == name).Value;
-        //			if (targetValue.GetType() != typeof(float))
-        //			{
-        //				Plugin.logger.LogError($"Failed to set option with name {name} because {targetValue.GetType()} should be float!");
-        //				return;
-        //			}
-        //			toggleSlider.value = (float)(object)targetValue;
-        //			break;
-
-        //	}
-        //      }
         public static T GetOptionWithName<T>(RavenMOptions option, OptionTypes type)
         {
             switch (type)
@@ -148,12 +132,19 @@ namespace RavenM
             }
             return default(T);
         }
+        public static ConfigEntry<string> GetOptionWithName<T>(OptionText option)
+        {
+            return setOptionText.FirstOrDefault(x => x.Key == option).Value;
+        }
         public enum RavenMOptions
         {
             ShowRavenMHUD,
             VoiceChatVolume,
             LazyKeybindLabel,
-            RebindKeyA
+            RebindKeyA,
+            NameTagScaleMultiplier,
+            CustomNameTagColor
+
         }
         public enum OptionTypes
         {
@@ -161,78 +152,125 @@ namespace RavenM
             Slider,
             Dropdown,
             Label,
-            Keybind
+            Keybind,
+            SliderWithLabel
         }
         public enum OptionKeybind
         {
-            VoiceChatButton
+            VoiceChatButton,
+            PlaceMarkerButton,
+            GlobalChatButton,
+            TeamChatButton
         }
-        private static void CreateToggleOption<T>(string name, T defaultValue, OptionTypes type, RavenMOptions option)
+        public enum OptionText
         {
-            if (_toggles.ContainsKey(name) || _sliders.ContainsKey(name))
+            NameTagTeamColor,
+            NameTagEnemyColor
+        }
+        private static void CreateSliderOption(string name,float defaultValue,RavenMOptions option,bool label,float min,float max)
+        {
+            if (_sliders.ContainsKey(name))
+            {
+                Plugin.logger.LogError($"Slider with the name {name} already exists!");
+                return;
+            }
+            RectTransform target = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content").GetComponent<RectTransform>();
+            ConfigEntry<float> ravenMConfig = ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValue);
+            RectTransform exampleSettingSlider = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/SFX Volume").GetComponent<RectTransform>();
+            if(label)
+                exampleSettingSlider = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/Field Of View").GetComponent<RectTransform>();
+            GameObject newTarget = GameObject.Instantiate(exampleSettingSlider.gameObject, target);
+            newTarget.GetComponent<Text>().text = name;
+            Slider slider = newTarget.GetComponentInChildren<Slider>();
+            slider.minValue = min;
+            slider.maxValue = max;
+            slider.value = defaultValue;
+            MonoBehaviour.Destroy(newTarget.GetComponent<OptionSlider>());
+            RavenMOptionSlider ravenMSlider = newTarget.AddComponent<RavenMOptionSlider>();
+            if (label)
+            {
+                newTarget.transform.Find("Field Of View Label").GetComponent<SliderLabel>().slider = slider;
+            }
+            ravenMSlider.name = name;
+            ravenMSlider.defaultValue = defaultValue;
+            ravenMSlider.id = option;
+            ravenMSlider.configEntry = ravenMConfig as ConfigEntry<float>;
+            _sliders[name] = ravenMSlider;
+        }
+        private static void CreateToggleOption(string name, bool defaultValue, RavenMOptions option)
+        {
+            if (_toggles.ContainsKey(name))
             {
                 Plugin.logger.LogError($"Toggle with the name {name} already exists!");
                 return;
             }
             RectTransform target = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content").GetComponent<RectTransform>();
-            ConfigEntry<T> ravenMConfig = null;
-            if (type != OptionTypes.Label)
+            ConfigEntry<bool> ravenMConfig = ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValue);
+            RectTransform exampleSettingToggle = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/Hitmarkers").GetComponent<RectTransform>();
+            GameObject newTarget = GameObject.Instantiate(exampleSettingToggle.gameObject, target);
+            newTarget.GetComponent<Text>().text = name;
+            MonoBehaviour.Destroy(newTarget.GetComponent<OptionToggle>());
+            RavenMOptionToggle ravenMToggle = newTarget.AddComponent<RavenMOptionToggle>();
+            ravenMToggle.name = name;
+            ravenMToggle.defaultValue = defaultValue;
+            ravenMToggle.id = option;
+            ravenMToggle.configEntry = ravenMConfig;
+            _toggles[name] = ravenMToggle;
+        }
+        private static void CreateOptionLabel(string name,bool header)
+        {
+            RectTransform exampleText;
+            if (header)
+                exampleText = Options.instance.videoOptions.transform.Find("Video Panel/Scroll View/Viewport/Content/Header").GetComponent<RectTransform>();
+            else
+                exampleText = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/Hitmarkers").GetComponent<RectTransform>();
+            RectTransform target = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content").GetComponent<RectTransform>();
+            GameObject newTarget3 = GameObject.Instantiate(exampleText.gameObject, target);
+            Text text = newTarget3.GetComponent<Text>();
+            text.supportRichText = true;
+            text.text = name;
+            if (header)
             {
-                ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValue);
+                text.resizeTextForBestFit = true;
+                text.fontSize = 25;
+                text.resizeTextMaxSize = text.resizeTextMaxSize + 10;
             }
-            switch (type)
+            else
             {
-                case OptionTypes.Toggle:
-                    RectTransform exampleSettingToggle = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/Hitmarkers").GetComponent<RectTransform>();
-                    GameObject newTarget = GameObject.Instantiate(exampleSettingToggle.gameObject, target);
-                    newTarget.GetComponent<Text>().text = name;
-                    MonoBehaviour.Destroy(newTarget.GetComponent<OptionToggle>());
-                    RavenMOptionToggle ravenMToggle = newTarget.AddComponent<RavenMOptionToggle>();
-                    ravenMToggle.name = name;
-                    ravenMToggle.defaultValue = (bool)(object)defaultValue;
-                    ravenMToggle.id = option;
-                    ravenMToggle.configEntry = ravenMConfig as ConfigEntry<bool>;
-                    _toggles[name] = ravenMToggle;
-                    break;
-                case OptionTypes.Slider:
-                    RectTransform exampleSettingSlider = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/SFX Volume").GetComponent<RectTransform>();
-                    GameObject newTarget2 = GameObject.Instantiate(exampleSettingSlider.gameObject, target);
-                    newTarget2.GetComponent<Text>().text = name;
-                    MonoBehaviour.Destroy(newTarget2.GetComponent<OptionSlider>());
-                    RavenMOptionSlider ravenMSlider = newTarget2.AddComponent<RavenMOptionSlider>();
-                    ravenMSlider.name = name;
-                    ravenMSlider.defaultValue = (float)(object)defaultValue;
-                    ravenMSlider.id = option;
-                    ravenMSlider.configEntry = ravenMConfig as ConfigEntry<float>;
-                    _sliders[name] = ravenMSlider;
-                    break;
-                case OptionTypes.Label:
-                    RectTransform exampleSettingToggle2 = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/Hitmarkers").GetComponent<RectTransform>();
-                    GameObject newTarget3 = GameObject.Instantiate(exampleSettingToggle2.gameObject, target);
-                    newTarget3.GetComponent<Text>().supportRichText = true;
-                    newTarget3.GetComponent<Text>().text = name;
-                    GameObject.Destroy(newTarget3.transform.GetChild(0).gameObject);
-                    // Delete the Toggle to only have the Text
-                    MonoBehaviour.Destroy(newTarget3.GetComponent<OptionToggle>());
-                    if (defaultValue != null)
-                    {
-                        Button button = newTarget3.AddComponent<Button>();
-                        button.onClick.AddListener(delegate
-                        {
-                            ((Action)(object)defaultValue)();
-                        });
-                    }
-                    break;
+                // Because we get the Text Component from the Toggle
+                GameObject.Destroy(newTarget3.transform.GetChild(0).gameObject);
             }
+        }
+        private static void CreateOptionLabel(string name,Action onClick)
+        {
+            RectTransform exampleText = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/Hitmarkers").GetComponent<RectTransform>();
+            RectTransform target = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content").GetComponent<RectTransform>();
+            GameObject newTarget3 = GameObject.Instantiate(exampleText.gameObject, target);
+            Text text = newTarget3.GetComponent<Text>();
+            text.supportRichText = true;
+            text.text = name;
+            GameObject.Destroy(newTarget3.transform.GetChild(0).gameObject);
+            Button button = newTarget3.AddComponent<Button>();
+            button.onClick.AddListener(delegate
+            {
+                onClick();
+            });
+        }
+        private static void CreateSpacer()
+        {
+            RectTransform exampleSpacer = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/Spacer").GetComponent<RectTransform>();
+            RectTransform target = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content").GetComponent<RectTransform>();
+            GameObject.Instantiate(exampleSpacer.gameObject, target);
         }
         private static void AddKeybindToConfig(KeyCode defaultKeyCode, OptionKeybind keybind)
         {
             // Probably not a good idea
             setKeybinds.Add(keybind, keybindConfig.Bind("RavenMKeybinds", keybind.ToString(), defaultKeyCode));
         }
-        public enum SlideId
+        private static void AddTextToConfig(string defaultText, OptionText text)
         {
-            E,
+            // Probably not a good idea
+            setOptionText.Add(text, keybindConfig.Bind("RavenMColors", text.ToString(), defaultText));
         }
         public abstract class RavenMOption<T, U> : MonoBehaviour
         {

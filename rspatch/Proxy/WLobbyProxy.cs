@@ -31,32 +31,43 @@ namespace RavenM.RSPatch.Proxy
                 return IngameNetManager.instance.IsHost;
             }
         }
-        public static bool IsClient
+        public static bool isClient
         {
             get
             {
                 return IngameNetManager.instance.IsClient;
             }
         }
+        public static IList<Actor> players
+        {
+            get
+            {
+                return WLobby.GetPlayers();
+            }
+        }
+        public static void SendServerMessage(string message, ColorProxy value)
+        {
+            WLobby.SendServerChatMessage(message, value._value);
+        }
         public static GameObject GetNetworkPrefabByHash(string hash)
         {
             return WLobby.GetNetworkPrefabByHash(hash);
         }
-        public static void AddNetworkPrefab(GameObject prefab)
+        public static void AddNetworkPrefab(GameObjectProxy prefab)
         {
             if (prefab == null)
                 throw new ScriptRuntimeException("argument 'prefab' is nil");
-            WLobby.AddNetworkPrefab(prefab);
+            WLobby.AddNetworkPrefab(prefab._value);
         }
         public static void PushNetworkPrefabs()
         {
             WLobby.SendNetworkGameObjectsHashesPacket();
         }
-        public static void RemoveNetworkPrefab(GameObject prefab)
+        public static void RemoveNetworkPrefab(GameObjectProxy prefab)
         {
             if (prefab == null)
                 throw new ScriptRuntimeException("argument 'prefab' is nil");
-            WLobby.RemoveNetworkPrefab(prefab);
+            WLobby.RemoveNetworkPrefab(prefab._value);
         }
         [MoonSharpHidden]
         public object GetValue()
