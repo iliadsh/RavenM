@@ -29,8 +29,17 @@ namespace RavenM
                 LoadLibrary("BepInEx/plugins/lib/x86/discord_game_sdk");
             }
 
-            Discord = new Discord(discordClientID, (UInt64) CreateFlags.Default);
-            Plugin.logger.LogWarning("Discord Instance created");
+            try
+            {
+                Discord = new Discord(discordClientID, (UInt64)CreateFlags.NoRequireDiscord);
+            }
+            catch
+            {
+                Plugin.logger.LogError("Failed to initialize Discord pipe.");
+                return;
+            }
+            
+            Plugin.logger.LogInfo("Discord Instance created");
             startSessionTime = ((DateTimeOffset) DateTime.Now).ToUnixTimeSeconds();
             
             _activityManager = Discord.GetActivityManager();
@@ -75,14 +84,17 @@ namespace RavenM
         private string _gameMode = "Insert Game Mode";
         private void FixedUpdate()
         {
-           Discord.RunCallbacks();
-           
-           if (_timer.TrueDone())
-           {
-               ChangeActivityDynamically();
+            if (Discord == null)
+                return;
 
-               _timer.Start();
-           }
+            Discord.RunCallbacks();
+
+            if (_timer.TrueDone())
+            {
+                ChangeActivityDynamically();
+
+                _timer.Start();
+            }
         }
 
         private bool _isInGame;
@@ -205,7 +217,8 @@ namespace RavenM
             }
             activityManager.UpdateActivity(activityPresence, result =>
             {
-                Plugin.logger.LogInfo($"Update Discord Activity {result}");
+                if (result != Result.Ok)
+                    Plugin.logger.LogWarning($"Update Discord Activity Err {result}");
             });
         }
 
