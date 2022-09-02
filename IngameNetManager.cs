@@ -893,7 +893,7 @@ namespace RavenM
                         PushChatMessage(ActorManager.instance.player, $"<color=red>Could not parse argument {arg1}</color>", true, -1);
                         return false;
                     }
-                    RavenM.UI.GameUI.instance.ToggleNameTags();
+                    UI.GameUI.instance.ToggleNameTags();
                     return true;
             }
             return false;
@@ -1322,11 +1322,17 @@ namespace RavenM
 
                                             actor.controller = net_controller;
 
+                                            actor.name = actor_packet.Name;
+                                            actor.scoreboardEntry.UpdateNameLabel();
+
                                             // Here we set up the voice audio source for the player.
                                             // The audio packets are buffered and played only once enough 
                                             // data is recieved to prevent the audio from "cutting out"
                                             if ((actor_packet.Flags & (int)ActorStateFlags.AiControlled) == 0)
                                             {
+                                                // As well as the nametag.
+                                                UI.GameUI.instance.CreateNameTagInstance(actor, UI.GameUI.instance.ravenMUICanvas.GetComponent<RectTransform>());
+
                                                 var state = new AudioContainer();
                                                 PlayVoiceQueue[actor_packet.Id] = state;
 
@@ -1401,9 +1407,6 @@ namespace RavenM
                                             ClientActors[actor_packet.Id] = actor;
                                         }
 
-                                        actor.name = actor_packet.Name;
-                                        actor.scoreboardEntry.UpdateNameLabel();
-
                                         var controller = actor.controller as NetActorController;
 
                                         // Delay any possible race on the health value as much as possible.
@@ -1412,7 +1415,7 @@ namespace RavenM
 
                                         controller.Targets = actor_packet;
                                         controller.Flags = actor_packet.Flags;
-                                        RavenM.RSPatch.RavenscriptEventsManagerPatch.events.onPlayerJoin.Invoke(actor);
+                                        RSPatch.RavenscriptEventsManagerPatch.events.onPlayerJoin.Invoke(actor);
                                     }
                                 }
                                 break;

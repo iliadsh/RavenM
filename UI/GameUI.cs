@@ -17,6 +17,21 @@ namespace RavenM.UI
             IngameUi.instance.gameObject.AddComponent<GameUI>();
        }
     }
+
+    [HarmonyPatch(typeof(ScoreboardUi), "Awake")]
+    public class NoDupeScoreboardPatch
+    {
+        public static bool Lock = false;
+
+        static bool Prefix()
+        {
+            if (Lock)
+                return false;
+
+            return true;
+        }
+    }
+
     // Adapted from Steel's built-in mutator published in the ravenscript channel on the Ravenfield Discord 
     public class GameUI : MonoBehaviour
     {
@@ -26,7 +41,7 @@ namespace RavenM.UI
         private int teamID;
         public float scaleMultiplier = 0.04f; // 0.06
         private int focusRange = 220;
-        private Canvas ravenMUICanvas;
+        public Canvas ravenMUICanvas;
         private bool nameTagsEnabled;
         public int nameTagfontSize = 32;
         private bool customColor;
@@ -44,6 +59,7 @@ namespace RavenM.UI
         }
         void Awake()
         {
+            Plugin.logger.LogInfo("Nametags Start");
             instance = this;
             if (onlyForTeam)
                 focusRange = 1200;
@@ -52,37 +68,27 @@ namespace RavenM.UI
             OptionsPatch.onSettingUpdate += ToggleNameTags;
             StartCoroutine(LoadAssetBundle(Assembly.GetExecutingAssembly().GetManifestResourceStream("RavenM.assets.UIBundle")));
         }
+
+        void OnDestroy()
+        {
+            OptionsPatch.onSettingUpdate -= ToggleNameTags;
+        }
+
         void InitNameTags()
         {
             teamID = FpsActorController.instance.actor.team;
             // Copy the Scoreboard Canvas instead of the IngameUI because it's easier to get rid of the other components
+            NoDupeScoreboardPatch.Lock = true;
             GameObject scoreBoardCanvas = IngameUi.instance.canvas.transform.parent.Find("Scoreboard Canvas").gameObject;
-            ravenMUICanvas = GameObject.Instantiate(scoreBoardCanvas, scoreBoardCanvas.transform.parent).GetComponent<Canvas>();
+            ravenMUICanvas = Instantiate(scoreBoardCanvas, scoreBoardCanvas.transform.parent).GetComponent<Canvas>();
             ravenMUICanvas.enabled = true;
-            MonoBehaviour.Destroy(ravenMUICanvas.GetComponent<ScoreboardUi>());
+            DestroyImmediate(ravenMUICanvas.GetComponent<ScoreboardUi>());
             for (int x = 0; x < ravenMUICanvas.transform.childCount; x++)
             {
-                GameObject.Destroy(ravenMUICanvas.transform.GetChild(x).gameObject);
+                DestroyImmediate(ravenMUICanvas.transform.GetChild(x).gameObject);
             }
+            NoDupeScoreboardPatch.Lock = false;
 
-            RectTransform canvasRectTransform = ravenMUICanvas.GetComponent<RectTransform>();
-
-
-            foreach (var kv in IngameNetManager.instance.ClientActors)
-            //foreach (var kv in ActorManager.instance.actors)
-            {
-                var id = kv.Key;
-                var actor = kv.Value;
-
-                if (IngameNetManager.instance.OwnedActors.Contains(id))
-                    continue;
-
-                var controller = actor.controller as NetActorController;
-
-                if ((controller.Flags & (int)ActorStateFlags.AiControlled) != 0)
-                    continue;
-                CreateNameTagInstance(actor, canvasRectTransform);
-            }
             ToggleNameTags();
         }
         public void ToggleNameTags()
@@ -100,30 +106,34 @@ namespace RavenM.UI
                 nameTagObjects[nameTag].color = color;
             }
             nameTagfontSize = Mathf.RoundToInt(OptionsPatch.GetOptionWithName<float>(OptionsPatch.RavenMOptions.NameTagScaleMultiplier, OptionsPatch.OptionTypes.Slider));
+            Plugin.logger.LogInfo("Toggled nametags");
         }
-        void CreateNameTagInstance(Actor actor,RectTransform canvasTransform)
+        public void CreateNameTagInstance(Actor actor,RectTransform canvasTransform)
         {
             if (onlyForTeam) {
                 if (actor.team == teamID)
                     return;
             }
-            GameObject textInstance = GameObject.Instantiate(nameTagPrefab, canvasTransform.transform);
+            GameObject textInstance = Instantiate(nameTagPrefab, canvasTransform.transform);
             Image textParent = textInstance.GetComponent<Image>();
             Text nameTagText = textInstance.GetComponentInChildren<Text>();
             nameTagText.resizeTextForBestFit = true;
             nameTagText.resizeTextMaxSize = nameTagfontSize;
             nameTagText.resizeTextMinSize = nameTagfontSize - 10;
             textParent.rectTransform.SetParent(canvasTransform,false);
-            NameTagData nameTagData = new NameTagData();
-            nameTagData.actor = actor;
-            nameTagData.isDrawing = false;
-            nameTagData.usingDriverTag = false;
-            nameTagData.teamColor = GetColorForTeam(actor.team);
-            nameTagData.parentTransform = textParent.rectTransform;
-            nameTagData.canvasGroup = textParent.GetComponent<CanvasGroup>(); 
+            NameTagData nameTagData = new NameTagData
+            {
+                actor = actor,
+                isDrawing = false,
+                usingDriverTag = false,
+                teamColor = GetColorForTeam(actor.team),
+                parentTransform = textParent.rectTransform,
+                canvasGroup = textParent.GetComponent<CanvasGroup>()
+            };
             nameTagObjects.Add(nameTagData, nameTagText);
             nameTagObjects[nameTagData].text = actor.name;
             nameTagObjects[nameTagData].color = nameTagData.teamColor;
+            Plugin.logger.LogInfo($"created nametag for {actor.name}");
         }
         private void SetCustomColor()
         {
@@ -187,22 +197,14 @@ namespace RavenM.UI
             {
                 return;
             }
-            //foreach (var kv in IngameNetManager.instance.ClientActors)
-            //{
-            //    var id = kv.Key;
-            //    var actor = kv.Value;
 
-            //    if (IngameNetManager.instance.OwnedActors.Contains(id))
-            //        continue;
-
-            //    var controller = actor.controller as NetActorController;
-
-            //    if ((controller.Flags & (int)ActorStateFlags.AiControlled) != 0)
-            //        continue;
             foreach (var kv in nameTagObjects.Keys)
             {
                 Actor actor = kv.actor;
-                // Implement mid game leaving
+
+                if (((actor.controller as NetActorController).Flags & (int)ActorStateFlags.AiControlled) != 0)
+                    continue;
+
                 var camera = FpsActorController.instance.inPhotoMode ? SpectatorCamera.instance.camera : FpsActorController.instance.GetActiveCamera();
                 Vector3 currentPos = actor.CenterPosition() + new Vector3(0, 1f, 0);
                 if (actor.IsSeated())
@@ -220,15 +222,11 @@ namespace RavenM.UI
                
                 Text tag = nameTagObjects[kv];
                 bool isTeammate = actor.team == teamID;
-                if (!onlyForTeam)
-                    isTeammate = true;
                 bool isDriver = actor.IsDriver();
                 int focusSize = Screen.height / 3;
-                float lookingAtSize = Screen.height / 1.5f;
                 bool isInView = wtsVector.z > 0f && ActorManager.ActorCanSeePlayer(actor);
-                bool isLookingAt = Mathf.Abs(wtsVector.x - (Screen.width / 3)) < lookingAtSize && Mathf.Abs(wtsVector.y - Screen.height / 4) < lookingAtSize;
                 bool isInFocus = Mathf.Abs(wtsVector.x - (Screen.width / 2)) < focusSize && Mathf.Abs(wtsVector.y - Screen.height / 3) < focusSize;
-                bool shouldDraw = isInView && !actor.dead && !actor.IsPassenger() && (isInFocus && wtsVector.z < focusRange) && isTeammate;
+                bool shouldDraw = isTeammate ? wtsVector.z > 0 : !onlyForTeam && isInView && !actor.dead && !actor.IsPassenger() && (isInFocus && wtsVector.z < focusRange);
                 int scale = Mathf.RoundToInt((actor.CenterPosition() - camera.transform.position).magnitude * scaleMultiplier + nameTagfontSize);
                 tag.fontSize = Mathf.Clamp(scale, nameTagfontSize - 10, nameTagfontSize);
                 if (!kv.isDrawing && shouldDraw) {
@@ -263,7 +261,6 @@ namespace RavenM.UI
                         kv.usingDriverTag = false;
                     }
                 }
-                tag.text = "" + Mathf.Abs(wtsVector.x - (Screen.width / 4)) + " | " + lookingAtSize;
                 kv.parentTransform.position = wtsVector;
                 if (shouldDraw)
                 {
