@@ -24,7 +24,7 @@ namespace RavenM
 
         private void Start()
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && !Environment.Is64BitProcess)
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT && !Environment.Is64BitProcess)
             {
                 LoadLibrary("BepInEx/plugins/lib/x86/discord_game_sdk");
             }
