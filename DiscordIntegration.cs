@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.IO;
 using RavenM.DiscordGameSDK;
 using Steamworks;
 using UnityEngine;
@@ -27,6 +28,23 @@ namespace RavenM
             if (Environment.OSVersion.Platform == PlatformID.Win32NT && !Environment.Is64BitProcess)
             {
                 LoadLibrary("BepInEx/plugins/lib/x86/discord_game_sdk");
+            }
+            // Non BepInEx Plugin dlls have no effect in systems that are not windows
+            // copying them to ravenfield_Data/Plugins seems to fix it
+            else if (Environment.OSVersion.Platform == PlatformID.MacOSX)
+            {
+               // NOTE: idk which is the path to find the Plugins folder in MacOS, Just do the same as the check below
+               // but instead of checking for discord_game_sdk.so do it
+               // with both discord_game_sdk.bundle and discord_game_sdk.dylib
+            }
+            else if(Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                if (!File.Exists("ravenfield_Data/Plugins/discord_game_sdk.so"))
+                {
+                    Plugin.logger.LogWarning("Linux Discord Library Not Found, Attempting to Copy it from lib folder");
+                    
+                    File.Copy("BepInEx/plugins/lib/discord_game_sdk.so","ravenfield_Data/Plugins/discord_game_sdk.so");
+                }
             }
 
             try
