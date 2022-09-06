@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using Steamworks;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -38,7 +39,7 @@ namespace RavenM.UI
         public static GameUI instance;
         private GameObject nameTagPrefab;
         private bool onlyForTeam;
-        private int teamID;
+        private int playerTeamID;
         public float scaleMultiplier = 0.04f; // 0.06
         private int focusRange = 220;
         public Canvas ravenMUICanvas;
@@ -48,6 +49,7 @@ namespace RavenM.UI
         private Color customColorEnemy;
         private Color customColorTeam;
         private Dictionary<NameTagData, Text> nameTagObjects = new Dictionary<NameTagData, Text>();
+        private bool loaded = false;
         public class NameTagData
         {
             public Actor actor;
@@ -61,9 +63,9 @@ namespace RavenM.UI
         {
             Plugin.logger.LogInfo("Nametags Start");
             instance = this;
-            if (onlyForTeam)
-                focusRange = 1200;
             onlyForTeam = LobbySystem.instance.nameTagsForTeamOnly;
+            if (onlyForTeam)
+                focusRange = focusRange * 2;
             SetCustomColor();
             OptionsPatch.onSettingUpdate += ToggleNameTags;
             StartCoroutine(LoadAssetBundle(Assembly.GetExecutingAssembly().GetManifestResourceStream("RavenM.assets.UIBundle")));
@@ -76,7 +78,7 @@ namespace RavenM.UI
 
         void InitNameTags()
         {
-            teamID = FpsActorController.instance.actor.team;
+            playerTeamID = ActorManager.instance.player.team;
             // Copy the Scoreboard Canvas instead of the IngameUI because it's easier to get rid of the other components
             NoDupeScoreboardPatch.Lock = true;
             GameObject scoreBoardCanvas = IngameUi.instance.canvas.transform.parent.Find("Scoreboard Canvas").gameObject;
@@ -90,6 +92,7 @@ namespace RavenM.UI
             NoDupeScoreboardPatch.Lock = false;
 
             ToggleNameTags();
+            loaded = true;
         }
         public void ToggleNameTags()
         {
@@ -98,20 +101,37 @@ namespace RavenM.UI
             bool settingsNameTagEnabled = LobbySystem.instance.nameTagsEnabled;
             SetCustomColor();
             nameTagsEnabled = (OptionsPatch.showHUD && settingsNameTagEnabled);
+            nameTagfontSize = Mathf.RoundToInt(OptionsPatch.GetOptionWithName<float>(OptionsPatch.RavenMOptions.NameTagScaleMultiplier, OptionsPatch.OptionTypes.Slider));
             foreach (var nameTag in nameTagObjects.Keys)
             {
                 nameTag.parentTransform.gameObject.SetActive(nameTagsEnabled);
                 Color color = GetColorForTeam(nameTag.actor.team);
                 nameTag.teamColor = color;
                 nameTagObjects[nameTag].color = color;
+                nameTagObjects[nameTag].resizeTextMaxSize = nameTagfontSize;
+                nameTagObjects[nameTag].resizeTextMinSize = nameTagfontSize - 10;
             }
-            nameTagfontSize = Mathf.RoundToInt(OptionsPatch.GetOptionWithName<float>(OptionsPatch.RavenMOptions.NameTagScaleMultiplier, OptionsPatch.OptionTypes.Slider));
             Plugin.logger.LogInfo("Toggled nametags");
+        }
+        public void AddToNameTagQueue(Actor actor)
+        {
+            StartCoroutine(WaitUntilReady(actor));
+        }
+        IEnumerator WaitUntilReady(Actor actor)
+        {
+            yield return new WaitUntil(() => loaded == true);
+            UI.GameUI.instance.CreateNameTagInstance(actor, UI.GameUI.instance.ravenMUICanvas.GetComponent<RectTransform>());
         }
         public void CreateNameTagInstance(Actor actor,RectTransform canvasTransform)
         {
+            bool settingsNameTagEnabled = LobbySystem.instance.nameTagsEnabled;
+            nameTagsEnabled = (OptionsPatch.showHUD && settingsNameTagEnabled);
+            if (!nameTagsEnabled)
+            {
+                return;
+            }
             if (onlyForTeam) {
-                if (actor.team == teamID)
+                if (actor.team != playerTeamID)
                     return;
             }
             GameObject textInstance = Instantiate(nameTagPrefab, canvasTransform.transform);
@@ -155,7 +175,7 @@ namespace RavenM.UI
         Color GetColorForTeam(int team)
         {
             Color color = ColorScheme.TeamColor(team);
-            if (team == teamID)
+            if (team == playerTeamID)
             {
                 color = Color.green;
                 if (customColor)
@@ -165,10 +185,6 @@ namespace RavenM.UI
             {
                 if (customColor)
                     color = customColorEnemy;
-            }
-            if (onlyForTeam)
-            {
-                color = Color.white;
             }
             return color;
         }
@@ -221,7 +237,7 @@ namespace RavenM.UI
                 Vector3 wtsVector = camera.WorldToScreenPoint(currentPos);
                
                 Text tag = nameTagObjects[kv];
-                bool isTeammate = actor.team == teamID;
+                bool isTeammate = actor.team == playerTeamID;
                 bool isDriver = actor.IsDriver();
                 int focusSize = Screen.height / 3;
                 bool isInView = wtsVector.z > 0f && ActorManager.ActorCanSeePlayer(actor);

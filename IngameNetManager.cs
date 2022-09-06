@@ -282,7 +282,7 @@ namespace RavenM
 
                 Plugin.logger.LogInfo($"Registered new destructible root with name: {root.name} and id: {id}");
             }
-            else if (!root.TryGetComponent(out GuidComponent guid) || 
+            else if (!root.TryGetComponent(out GuidComponent guid) ||
                 (!root.TryGetComponent(out Vehicle _) && !IngameNetManager.instance.ClientDestructibles.ContainsKey(guid.guid)))
             {
                 Plugin.logger.LogInfo($"Cleaning up unwanted destructible with name: {root.name}");
@@ -336,7 +336,7 @@ namespace RavenM
                     Position = __instance.transform.position,
                     Rotation = __instance.transform.rotation,
                     performInfantryInitialMuzzleTravel = __instance.performInfantryInitialMuzzleTravel,
-                    initialMuzzleTravelDistance  = __instance.initialMuzzleTravelDistance,
+                    initialMuzzleTravelDistance = __instance.initialMuzzleTravelDistance,
                     ProjectileId = id,
                 };
 
@@ -509,7 +509,7 @@ namespace RavenM
         public KeyCode VoiceChatKeybind = KeyCode.CapsLock;
 
         public KeyCode PlaceMarkerKeybind = KeyCode.BackQuote;
-        
+
         public KeyCode GlobalChatKeybind = KeyCode.Y;
 
         public KeyCode TeamChatKeybind = KeyCode.U;
@@ -554,10 +554,10 @@ namespace RavenM
                 Assembly.GetExecutingAssembly().GetManifestResourceStream("RavenM.assets.kickanimcontroller");
             var kickAnimationBundle =
                 AssetBundle.LoadFromStream(kickAnimationBundleStream);
-            
+
             KickAnimation.KickController = kickAnimationBundle.LoadAsset<RuntimeAnimatorController>("Actor NEW 1");
             KickAnimation.KickSound = kickAnimationBundle.LoadAsset<AudioClip>("kickSound");
-            
+
             Plugin.logger.LogWarning(KickAnimation.KickController == null ? "Kick AnimationController couldn't be loaded" : "Kick AnimationController loaded");
             Plugin.logger.LogWarning(KickAnimation.KickSound == null ? "Kick AudioClip couldn't be loaded" : "Kick AudioClip loaded");
 
@@ -839,7 +839,7 @@ namespace RavenM
                 {
                     string[] command = message.Trim().Substring(1, message.Length - 1).Split(' ');
                     bool isBuildInCommand = ProcessChatCommand(command);
-                    if(!isBuildInCommand)
+                    if (!isBuildInCommand)
                         RSPatch.RavenscriptEventsManagerPatch.events.onReceiveChatMessage.Invoke(actor, command, isCommand);
                 }
                 else
@@ -848,7 +848,7 @@ namespace RavenM
                     FullChatLink += $"<color={color}><b><{name}></b></color> {message}\n";
                 }
             }
-            
+
             ChatScrollPosition.y = Mathf.Infinity;
         }
         private bool ProcessChatCommand(string[] command)
@@ -873,10 +873,10 @@ namespace RavenM
                     string arg1 = command[1];
                     if (string.IsNullOrEmpty(arg1))
                     {
-                        PushChatMessage(ActorManager.instance.player, "<color=red>arg1 has to be true or false</color>", true,-1);
+                        PushChatMessage(ActorManager.instance.player, "<color=red>arg1 has to be true or false</color>", true, -1);
                         return true;
                     }
-                    bool parsedArg = bool.TryParse(arg1,out bool result);
+                    bool parsedArg = bool.TryParse(arg1, out bool result);
                     if (parsedArg)
                     {
                         if (!IsHost || !LobbySystem.instance.IsLobbyOwner)
@@ -1331,7 +1331,7 @@ namespace RavenM
                                             if ((actor_packet.Flags & (int)ActorStateFlags.AiControlled) == 0)
                                             {
                                                 // As well as the nametag.
-                                                UI.GameUI.instance.CreateNameTagInstance(actor, UI.GameUI.instance.ravenMUICanvas.GetComponent<RectTransform>());
+                                                UI.GameUI.instance.AddToNameTagQueue(actor);
 
                                                 var state = new AudioContainer();
                                                 PlayVoiceQueue[actor_packet.Id] = state;
