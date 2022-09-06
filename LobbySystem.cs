@@ -374,7 +374,6 @@ namespace RavenM
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "build_id", Plugin.BuildGUID);
                 if (!ShowOnList)
                     SteamMatchmaking.SetLobbyData(ActualLobbyID, "hidden", "true");
-
                 if (MidgameJoin)
                     SteamMatchmaking.SetLobbyData(ActualLobbyID, "hotjoin", "true");
                 if (nameTagsEnabled)
@@ -446,7 +445,24 @@ namespace RavenM
                     }
                 }
                 TriggerModRefresh();
-
+                bool nameTagsConverted = bool.TryParse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nameTags"),out bool nameTagsOn);
+                if (nameTagsConverted)
+                {
+                    nameTagsEnabled = nameTagsOn;
+                }
+                else
+                {
+                    nameTagsEnabled = false;
+                }
+                bool nameTagsTeamOnlyConverted = bool.TryParse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nameTagsForTeamOnly"), out bool nameTagsForTeamOnlyOn);
+                if (nameTagsConverted)
+                {
+                    nameTagsForTeamOnly = nameTagsForTeamOnlyOn;
+                }
+                else
+                {
+                    nameTagsForTeamOnly = false;
+                }
                 if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "started") == "yes" && SteamMatchmaking.GetLobbyData(ActualLobbyID, "hotjoin") != "true")
                 {
                     Plugin.logger.LogInfo("The game has already started :( Leaving lobby.");
