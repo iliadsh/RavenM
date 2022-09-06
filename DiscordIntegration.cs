@@ -199,7 +199,7 @@ namespace RavenM
                     };
                     break;
                 case Activities.InLobby:
-                    var state = inGame ? "Plating Multiplayer" : "Waiting In Lobby";
+                    var state = inGame ? "Playing Multiplayer" : "Waiting In Lobby";
                     activityPresence = new Activity()
                     {
                         State = state,
