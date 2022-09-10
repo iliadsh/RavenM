@@ -29,5 +29,6 @@
         SpecOpsDialog,
         UpdateDestructible,
         DestroyDestructible,
+        ChatCommand
     }
 }
