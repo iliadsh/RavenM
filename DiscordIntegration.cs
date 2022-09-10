@@ -31,20 +31,33 @@ namespace RavenM
             }
             // Non BepInEx Plugin dlls have no effect in systems that are not windows
             // copying them to ravenfield_Data/Plugins seems to fix it
-            else if (Environment.OSVersion.Platform == PlatformID.MacOSX)
-            {
-               // NOTE: idk which is the path to find the Plugins folder in MacOS, Just do the same as the check below
-               // but instead of checking for discord_game_sdk.so do it
-               // with both discord_game_sdk.bundle and discord_game_sdk.dylib
-            }
             else if(Environment.OSVersion.Platform == PlatformID.Unix)
             {
-                if (!File.Exists("ravenfield_Data/Plugins/discord_game_sdk.so"))
+                if (Directory.Exists("ravenfield_Data")) // Assume its the linux installation
                 {
-                    Plugin.logger.LogWarning("Linux Discord Library Not Found, Attempting to Copy it from lib folder");
+                    if (!File.Exists("ravenfield_Data/Plugins/discord_game_sdk.so"))
+                    {
+                        Plugin.logger.LogWarning("Linux Discord Library Not Found, Attempting to Copy it from lib folder");
                     
-                    File.Copy("BepInEx/plugins/lib/discord_game_sdk.so","ravenfield_Data/Plugins/discord_game_sdk.so");
+                        File.Copy("BepInEx/plugins/lib/discord_game_sdk.so","ravenfield_Data/Plugins/discord_game_sdk.so");
+                    }
                 }
+                else if (Directory.Exists("ravenfield.app")) // Assume its the MacOS installation
+                {
+                    if (!File.Exists("ravenfield.app/Contents/Plugins/discord_game_sdk.dylib"))
+                    {
+                        Plugin.logger.LogWarning("MacOS Discord Library Not Found, Attempting to Copy it from lib folder");
+                    
+                        File.Copy("BepInEx/plugins/lib/discord_game_sdk.dylib","ravenfield.app/Contents/Plugins/discord_game_sdk.dylib");
+                    }
+                    if (!File.Exists("ravenfield.app/Contents/Plugins/discord_game_sdk.bundle"))
+                    {
+                        Plugin.logger.LogWarning("MacOS Discord Library Not Found, Attempting to Copy it from lib folder");
+                    
+                        File.Copy("BepInEx/plugins/lib/discord_game_sdk.bundle","ravenfield.app/Contents/Plugins/discord_game_sdk.bundle");
+                    }
+                }
+                
             }
 
             try
@@ -186,7 +199,7 @@ namespace RavenM
                     };
                     break;
                 case Activities.InLobby:
-                    var state = inGame ? "Plating Multiplayer" : "Waiting In Lobby";
+                    var state = inGame ? "Playing Multiplayer" : "Waiting In Lobby";
                     activityPresence = new Activity()
                     {
                         State = state,

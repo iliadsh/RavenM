@@ -1454,7 +1454,6 @@ namespace RavenM
                                                 // As well as the nametag.
                                                 UI.GameUI.instance.AddToNameTagQueue(actor);
 
-
                                                 var state = new AudioContainer();
                                                 PlayVoiceQueue[actor_packet.Id] = state;
 
