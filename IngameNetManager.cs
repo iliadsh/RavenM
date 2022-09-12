@@ -981,25 +981,6 @@ namespace RavenM
                     // Implement Teleport Feature
                     //PushCommandChatMessage($"Teleported {target2} to {target1}", Color.green, false, true);
                     break;
-                case "a":
-                    // This is an example for how easy it is to exploit the CommandSystem
-                    using(MemoryStream memoryStreama = new MemoryStream()){
-                        var chatCommandPacketa = new ChatCommandPacket
-                        {
-                            Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
-                            SteamID = LobbySystem.instance.OwnerID.m_SteamID,
-                            Command = "/kill Chai",
-                            Scripted = false,
-                        };
-
-                        using (var writer = new ProtocolWriter(memoryStreama))
-                        {
-                            writer.Write(chatCommandPacketa);
-                        }
-                        byte[] data2 = memoryStreama.ToArray();
-                        SendPacketToServer(data2, PacketType.ChatCommand, Constants.k_nSteamNetworkingSend_Reliable); 
-                    }
-                    break;
             }
             if (!cmd.Global == local)
                 return;

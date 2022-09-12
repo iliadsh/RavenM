@@ -19,7 +19,6 @@ namespace RavenM.Commands
             Commands.Add(new Command("nametags", new object[] { true }, true, true));
             Commands.Add(new Command("kill", new object[] { "actor" }, true, true));
             Commands.Add(new Command("nametagsteamonly", new object[] { true }, true, true));
-            Commands.Add(new Command("a", new object[] { null }, false, false));
             Plugin.logger.LogInfo("CommandManager registered commands: " + Commands.Count);
             currentSteamID = SteamUser.GetSteamID().m_SteamID;
         }
