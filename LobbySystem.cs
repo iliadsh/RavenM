@@ -455,7 +455,7 @@ namespace RavenM
                     nameTagsEnabled = false;
                 }
                 bool nameTagsTeamOnlyConverted = bool.TryParse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nameTagsForTeamOnly"), out bool nameTagsForTeamOnlyOn);
-                if (nameTagsConverted)
+                if (nameTagsTeamOnlyConverted)
                 {
                     nameTagsForTeamOnly = nameTagsForTeamOnlyOn;
                 }

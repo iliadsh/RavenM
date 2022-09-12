@@ -473,6 +473,14 @@ namespace RavenM
             Write(value.PhaseEnded);
             Write(value.SkeletonCountModifier);
         }
+        public void Write(ChatCommandPacket value)
+        {
+            Write(value.Id);
+            Write(value.SteamID);
+            Write(value.Command);
+            Write(value.Scripted);
+        }
+
     }
 
     public class ProtocolReader : BinaryReader
@@ -1079,5 +1087,16 @@ namespace RavenM
                 SkeletonCountModifier = ReadSingle(),
             };
         }
+        public ChatCommandPacket ReadChatCommandPacket()
+        {
+            return new ChatCommandPacket
+            {
+                Id = ReadInt32(),
+                SteamID = ReadUInt64(),
+                Command = ReadString(),
+                Scripted = ReadBoolean(),
+            };
+        }
+        
     }
 }
