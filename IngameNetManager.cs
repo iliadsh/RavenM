@@ -849,7 +849,7 @@ namespace RavenM
             {
                 string color = !global ? "green" : (team == 0 ? "blue" : "red");
                 FullChatLink += $"<color={color}><b><{name}></b></color> {message}\n";
-                RSPatch.RavenscriptEventsManagerPatch.events.onReceiveChatMessage.Invoke(actor, new string[] { message }, false);
+                RSPatch.RavenscriptEventsManagerPatch.events.onReceiveChatMessage.Invoke(actor, message);
             }
 
             ChatScrollPosition.y = Mathf.Infinity;
@@ -860,9 +860,7 @@ namespace RavenM
             FullChatLink += $"<color=#{ColorUtility.ToHtmlStringRGB(color)}><b>{message}</b></color>\n";
             ChatScrollPosition.y = Mathf.Infinity;
             if (!sendToAll)
-            {
                    return;
-            }
             using MemoryStream memoryStream = new MemoryStream();
             var chatPacket = new ChatPacket
             {
@@ -890,11 +888,18 @@ namespace RavenM
             if (!commandManager.ContainsCommand(initCommand))
             {
                 PushCommandChatMessage($"No Command with name {initCommand} found.\nFor more information use Command /help", Color.red, false, false);
-                //Plugin.logger.LogInfo("Sending Command " + initCommand + " to RS");
-                //RSPatch.RavenscriptEventsManagerPatch.events.onReceiveChatMessage.Invoke(actor, command, true);
                 return;
             }
             Command cmd = commandManager.GetCommandFromName(initCommand);
+            if (cmd == null) {
+                Plugin.logger.LogError($"Command {initCommand} is not a registered Command!");
+                return;
+            }
+            bool hasCommandPermission = commandManager.HasPermission(cmd, id, local);
+            // For Commands like /help that have reqArgs[0] = null we don't have to check for arguments
+            bool hasRequiredArgs = true;
+            if (cmd.reqArgs[0] != null)
+                hasRequiredArgs = commandManager.HasRequiredArgs(cmd, command);
             switch (cmd.CommandName)
             {
                 case "nametags":
@@ -905,7 +910,7 @@ namespace RavenM
                         PushCommandChatMessage("Set nametags to " + command[1], Color.green, false, false);
                         return;
                     }
-                    if (!commandManager.HasPermission(cmd, id, local) || !commandManager.HasRequiredArgs(cmd, command))
+                    if (!hasCommandPermission || !hasRequiredArgs)
                         return;
                     bool parsedArg = bool.TryParse(command[1], out bool result);
                     if (parsedArg)
@@ -924,7 +929,7 @@ namespace RavenM
                         PushCommandChatMessage("Set nameTags for Team only to " + command[1], Color.green, false, false);
                         return;
                     }
-                    if (!commandManager.HasPermission(cmd, id, local) || !commandManager.HasRequiredArgs(cmd, command))
+                    if (!hasCommandPermission || !hasRequiredArgs)
                         return;
                     bool parsedArg2 = bool.TryParse(command[1], out bool result2);
                     if (parsedArg2)
@@ -938,11 +943,11 @@ namespace RavenM
                 case "help":
                     foreach(Command availableCommand in commandManager.GetAllCommands())
                     {
-                        PushCommandChatMessage($"{commandManager.GetRequiredArgTypes(availableCommand)} Host Only: {availableCommand.HostOnly}", Color.yellow, true, false);
+                        PushCommandChatMessage($"{commandManager.GetRequiredArgTypes(availableCommand)} Host Only: {availableCommand.HostOnly}", availableCommand.Scripted ? Color.green: Color.yellow, true, false);
                     }
                     break;
                 case "kill":
-                    if (!commandManager.HasPermission(cmd, id, local) || !commandManager.HasRequiredArgs(cmd, command))
+                    if (!hasCommandPermission || !hasRequiredArgs)
                         return;
                     string target = command[1];
                     Actor targetActor = commandManager.GetActorByName(target);
@@ -953,33 +958,10 @@ namespace RavenM
                     targetActor.Kill(new DamageInfo(DamageInfo.DamageSourceType.FallDamage, actor, null));
                     PushCommandChatMessage($"Killed actor {targetActor.name}", Color.green, false, false);
                     break;
-                case "tp":
-                    //string target1;
-                    //string target2;
-                    //if (!commandManager.HasPermission(cmd, local))
-                    //{
-                    //    return;
-                    //}
-                    //if (!commandManager.HasRequiredArgs(cmd, command))
-                    //{
-                    //    return;
-                    //}
-                    //target1 = command[1];
-                    //target2 = command[2];
-                    //Actor targetActorTeleport1 = commandManager.GetActorByName(target1);
-                    //if (targetActorTeleport1 == null)
-                    //{
-                    //    PushCommandChatMessage($"No actor with name {target1} found!", Color.red, true, false);
-                    //    return;
-                    //}
-                    //Actor targetActorTeleport2 = commandManager.GetActorByName(target2);
-                    //if (targetActorTeleport2 == null)
-                    //{
-                    //    PushCommandChatMessage($"No actor with name {target2} found!", Color.red, true, false);
-                    //    return;
-                    //}
-                    // Implement Teleport Feature
-                    //PushCommandChatMessage($"Teleported {target2} to {target1}", Color.green, false, true);
+                default:
+                    // If it's not build in command pass it to RS
+                    Plugin.logger.LogInfo("onReceiveCommand " + initCommand);
+                    RSPatch.RavenscriptEventsManagerPatch.events.onReceiveCommand.Invoke(actor, command, new bool[] { hasCommandPermission,hasRequiredArgs,local} );
                     break;
             }
             if (!cmd.Global == local)
@@ -990,7 +972,7 @@ namespace RavenM
                 Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
                 SteamID = SteamUser.GetSteamID().m_SteamID,
                 Command = CurrentChatMessage,
-                Scripted = false,
+                Scripted = cmd.Scripted,
             };
 
             using (var writer = new ProtocolWriter(memoryStream))
@@ -1507,6 +1489,7 @@ namespace RavenM
                                                 voiceSource.Play();
                                             }
                                             ClientActors[actor_packet.Id] = actor;
+                                            RSPatch.RavenscriptEventsManagerPatch.events.onPlayerJoin.Invoke(actor);
                                         }
 
                                         var controller = actor.controller as NetActorController;
@@ -1517,7 +1500,6 @@ namespace RavenM
 
                                         controller.Targets = actor_packet;
                                         controller.Flags = actor_packet.Flags;
-                                        RSPatch.RavenscriptEventsManagerPatch.events.onPlayerJoin.Invoke(actor);
                                     }
                                 }
                                 break;

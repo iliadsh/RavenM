@@ -10,7 +10,6 @@ namespace RavenM.Commands
     {
         public static CommandManager Instance;
         private List<Command> Commands;
-        private ulong currentSteamID;
 
         public CommandManager()
         {
@@ -20,7 +19,6 @@ namespace RavenM.Commands
             Commands.Add(new Command("kill", new object[] { "actor" }, true, true));
             Commands.Add(new Command("nametagsteamonly", new object[] { true }, true, true));
             Plugin.logger.LogInfo("CommandManager registered commands: " + Commands.Count);
-            currentSteamID = SteamUser.GetSteamID().m_SteamID;
         }
         public Command GetCommandFromName(string command)
         {
@@ -40,6 +38,12 @@ namespace RavenM.Commands
         public List<Command> GetAllCommands()
         {
             return Commands;
+        }
+        public void AddCustomCommand(Command cmd)
+        {
+            if (cmd.Scripted)
+                Plugin.logger.LogInfo("RegArgs Length: " + cmd.reqArgs.Length);
+                Commands.Add(cmd);
         }
         public int GetPlayerGuid(Actor actor)
         {
@@ -82,10 +86,6 @@ namespace RavenM.Commands
                 foreach (string arg in args)
                 {
                     Plugin.logger.LogInfo("Arg: " + arg );
-                }
-                foreach (object obj in cmd.reqArgs)
-                {
-                    Plugin.logger.LogInfo(obj.GetType());
                 }
                 Plugin.logger.LogInfo("Size reqArgs " + cmd.reqArgs.Length + " Size command " + args.Length);
             }

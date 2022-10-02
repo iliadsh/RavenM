@@ -12,12 +12,14 @@ namespace RavenM.Commands
         public object[] reqArgs { get; }
         public bool Global { get; }
         public bool HostOnly { get; }
-        public Command(string _name, object[] _reqArgs,bool _global,bool _hostOnly)
+        public bool Scripted { get; }
+        public Command(string _name, object[] _reqArgs,bool _global, bool _hostOnly, bool scripted = false)
         {
             CommandName = _name;
             reqArgs = _reqArgs;
             Global = _global;
             HostOnly = _hostOnly;
+            Scripted = scripted;
         }
 
     }
