@@ -310,7 +310,7 @@ namespace RavenM
         public void Write(ScriptedPacket value)
         {
             Write(value.Id);
-            Write(value.ScriptId);
+            Write(value.PacketId);
             Write(value.Data);
         }
         public void Write(KickAnimationPacket value)
@@ -861,8 +861,8 @@ namespace RavenM
         {
             return new ScriptedPacket
             {
-                ScriptId = ReadInt32(),
                 Id = ReadInt32(),
+                PacketId = ReadInt32(),
                 Data = ReadString()
             };
         }

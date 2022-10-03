@@ -16,7 +16,6 @@ namespace RavenM.RSPatch.Wrapper
         {
             if (data == null)
             {
-                return false;
                 throw new ScriptRuntimeException("argument 'data' is nil");
             }
 
@@ -25,7 +24,7 @@ namespace RavenM.RSPatch.Wrapper
             using MemoryStream memoryStream = new MemoryStream();
             var scriptedPacket = new ScriptedPacket
             {
-                ScriptId = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
+                PacketId = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
                 Id = packetType,
                 Data = data,
             };
@@ -35,14 +34,9 @@ namespace RavenM.RSPatch.Wrapper
             }
             int flag = 0;
             if (reliable)
-            {
                 flag = Constants.k_nSteamNetworkingSend_Reliable;
-            }
             else
-            {
                 flag = Constants.k_nSteamNetworkingSend_Unreliable;
-            }
-            
             byte[] data2 = memoryStream.ToArray();
             Plugin.logger.LogInfo("data " + data + " packetID " + packetType);
             IngameNetManager.instance.SendPacketToServer(data2, PacketType.ScriptedPacket, flag);

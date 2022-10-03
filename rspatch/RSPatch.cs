@@ -3,6 +3,7 @@ using Lua;
 using Lua.Proxy;
 using Lua.Wrapper;
 using MoonSharp.Interpreter;
+using RavenM.rspatch.Proxy;
 using RavenM.RSPatch.Proxy;
 using RavenM.RSPatch.Wrapper;
 using System;
@@ -24,6 +25,7 @@ namespace RavenM.RSPatch
             script.Globals["OnlinePlayer"] = typeof(WOnlinePlayerProxy);
             script.Globals["GameEventsOnline"] = typeof(RavenscriptEventsMProxy);
             script.Globals["GameObjectM"] = typeof(GameObjectMProxy);
+            script.Globals["CommandManager"] = typeof(CommandManagerProxy);
             return true;
         }
     }
@@ -39,6 +41,7 @@ namespace RavenM.RSPatch
             Script.GlobalOptions.CustomConverters.SetClrToScriptCustomConversion<RavenscriptMultiplayerEvents>((Script s, RavenscriptMultiplayerEvents v) => DynValue.FromObject(s, RavenscriptEventsMProxy.New(v)));
             Script.GlobalOptions.CustomConverters.SetScriptToClrCustomConversion(DataType.UserData, typeof(RavenscriptMultiplayerEvents), (DynValue v) => v.ToObject<RavenscriptEventsMProxy>()._value);
             UserData.RegisterType(typeof(GameObjectMProxy), InteropAccessMode.Default, null);
+            UserData.RegisterType(typeof(CommandManagerProxy),InteropAccessMode.Default, null);
             return true;
         }
     }
@@ -54,6 +57,7 @@ namespace RavenM.RSPatch
             proxyTypesList.Add(typeof(WOnlinePlayerProxy));
             proxyTypesList.Add(typeof(RavenscriptEventsMProxy));
             proxyTypesList.Add(typeof(GameObjectMProxy));
+            proxyTypesList.Add(typeof(CommandManagerProxy));
             __result = proxyTypesList.ToArray();
         }
     }
@@ -158,7 +162,7 @@ namespace RavenM.RSPatch
                             Plugin.logger.LogError("Network prefab is null");
                             break;
                         }
-                        Plugin.logger.LogDebug("Created custom gameobject " + networkPrefab.name + " with hash " + customGO_packet.PrefabHash);
+                        Plugin.logger.LogDebug($"Created custom gameobject {networkPrefab.name} with hash {customGO_packet.PrefabHash}");
                     }
                     break;
                 case PacketType.NetworkGameObjectsHashes:
@@ -170,8 +174,9 @@ namespace RavenM.RSPatch
                     break;
                 case PacketType.ScriptedPacket:
                     ScriptedPacket scriptedPacket = dataStream.ReadScriptedPacket();
-                    Plugin.logger.LogInfo("Received scripted packet " + scriptedPacket.Id + " | " + scriptedPacket.Data);
-                    RavenscriptEventsManagerPatch.events.onReceivePacket.Invoke(scriptedPacket.Id, scriptedPacket.Data);
+                    var targetActor = IngameNetManager.instance.ClientActors[scriptedPacket.Id];
+                    Plugin.logger.LogInfo($"Received scripted packet {scriptedPacket.Id} Data: {scriptedPacket.Data} from {targetActor.name}");
+                    RavenscriptEventsManagerPatch.events.onReceivePacket.Invoke(targetActor,scriptedPacket.Id, scriptedPacket.Data);
                     break;
             }
         }

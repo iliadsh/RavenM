@@ -60,6 +60,13 @@ namespace RavenM.RSPatch.Proxy
 				return ScriptEventProxy.New(this._value.onReceiveChatMessage);
 			}
 		}
+		public ScriptEventProxy onReceiveCommand
+		{
+			get
+			{
+				return ScriptEventProxy.New(this._value.onReceiveCommand);
+			}
+		}
 		[MoonSharpHidden]
 		public object GetValue()
 		{

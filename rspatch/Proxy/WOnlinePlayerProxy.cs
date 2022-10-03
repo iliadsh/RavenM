@@ -52,6 +52,10 @@ namespace RavenM.RSPatch.Proxy
         {
             IngameNetManager.instance.PushChatMessage(ActorManager.instance.player, message,true, -1);
         }
+        public static void PushCommandChatMessage(string message,Color color,bool teamOnly,bool sendToAll)
+        {
+            IngameNetManager.instance.PushCommandChatMessage(message, color, teamOnly, sendToAll);
+        }
         [MoonSharpHidden]
         public object GetValue()
         {
