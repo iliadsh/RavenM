@@ -1,0 +1,33 @@
+name: Build RavenM
+ 
+on: [push]
+ 
+jobs:
+  build:
+ 
+    runs-on: windows-latest
+ 
+    steps:
+    - uses: actions/checkout@v3
+      name: Checkout Code
+     
+    - name: Setup MSBuild Path
+      uses: microsoft/setup-msbuild@v1.1
+       
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v1.0.7
+      
+    - name: Add NuGet Source
+      run: dotnet nuget add source https://nuget.bepinex.dev/v3/index.json -n bepinex.dev
+     
+    - name: Restore NuGet Packages
+      run: nuget restore RavenM.csproj
+ 
+    - name: Build RavenM
+      run: msbuild RavenM.csproj /p:Configuration=Release /p:DeployOnBuild=true
+ 
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: RavenM
+        path: D:\a\RavenM\RavenM\bin\Release\net46
