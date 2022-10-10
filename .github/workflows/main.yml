@@ -17,9 +17,6 @@ jobs:
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v1.0.7
       
-    - name: Add NuGet Source
-      run: dotnet nuget add source https://nuget.bepinex.dev/v3/index.json -n bepinex.dev
-     
     - name: Restore NuGet Packages
       run: nuget restore RavenM.csproj
  
