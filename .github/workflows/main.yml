@@ -14,14 +14,8 @@ jobs:
     - name: Setup MSBuild Path
       uses: microsoft/setup-msbuild@v1.1
        
-    - name: Setup NuGet
-      uses: NuGet/setup-nuget@v1.0.7
-      
-    - name: Restore NuGet Packages
-      run: nuget restore RavenM.csproj
- 
     - name: Build RavenM
-      run: msbuild RavenM.csproj /p:Configuration=Release /p:DeployOnBuild=true
+      run: dotnet build -c Release
  
     - name: Upload Artifact
       uses: actions/upload-artifact@v3
