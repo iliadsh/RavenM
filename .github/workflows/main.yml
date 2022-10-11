@@ -1,0 +1,24 @@
+name: Build RavenM
+ 
+on: [push]
+ 
+jobs:
+  build:
+ 
+    runs-on: windows-latest
+ 
+    steps:
+    - uses: actions/checkout@v3
+      name: Checkout Code
+     
+    - name: Setup MSBuild Path
+      uses: microsoft/setup-msbuild@v1.1
+       
+    - name: Build RavenM
+      run: dotnet build -c Release
+ 
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: RavenM
+        path: D:\a\RavenM\RavenM\bin\Release\net46
