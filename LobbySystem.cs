@@ -137,6 +137,29 @@ namespace RavenM
                     IngameNetManager.TagPrefab(prefab, (ulong)map.name.GetHashCode());
                 }
             }
+
+            foreach (var destructible in UnityEngine.Object.FindObjectsOfType<Destructible>())
+            {
+                // One shot created destructibles -- not cool!
+                var root = DestructiblePacket.Root(destructible);
+
+                if (IngameNetManager.instance.ClientDestructibles.ContainsValue(root))
+                    continue;
+
+                // FIXME: Shitty hack. The assumption is map destructibles are consistent
+                // and thus will always spawn in the same positions regardless of the
+                // client run. I have no idea how correct this assumption actually is.
+                int id = root.transform.position.GetHashCode();
+
+                if (root.TryGetComponent(out GuidComponent guid))
+                    id = guid.guid;
+                else
+                    root.AddComponent<GuidComponent>().guid = id;
+
+                IngameNetManager.instance.ClientDestructibles.Add(id, root);
+
+                Plugin.logger.LogInfo($"Registered new destructible root with name: {root.name} and id: {id}");
+            }
         }
 
         static void Postfix()

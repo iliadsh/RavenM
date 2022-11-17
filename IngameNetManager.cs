@@ -261,7 +261,7 @@ namespace RavenM
     {
         static bool Prefix(Destructible __instance)
         {
-            if (!LobbySystem.instance.InLobby)
+            if (!IngameNetManager.instance.IsClient)
                 return true;
 
             var root = DestructiblePacket.Root(__instance);
@@ -349,7 +349,7 @@ namespace RavenM
 
                 IngameNetManager.instance.SendPacketToServer(data, PacketType.SpawnProjectile, Constants.k_nSteamNetworkingSend_Reliable);
 
-                //Plugin.logger.LogInfo($"Registered new spawned projectile with name: {__instance.name} and id: {id}");
+                Plugin.logger.LogInfo($"Registered new spawned projectile with name: {__instance.name} and id: {id}");
             }
             else if (!__instance.TryGetComponent(out GuidComponent guid) || !IngameNetManager.instance.ClientProjectiles.ContainsKey(guid.guid))
             {
@@ -2087,10 +2087,7 @@ namespace RavenM
                                     if (OwnedActors.Contains(spawnPacket.SourceId))
                                         break;
 
-                                    var actor = ClientActors[spawnPacket.SourceId];
-
-                                    if (actor == null)
-                                        break;
+                                    var actor = spawnPacket.SourceId == -1 ? null : ClientActors[spawnPacket.SourceId];
 
                                     var tag = new Tuple<int, ulong>(spawnPacket.NameHash, spawnPacket.Mod);
 
