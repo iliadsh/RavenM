@@ -4,7 +4,7 @@ on: [push]
  
 jobs:
   build:
- 
+
     runs-on: windows-latest
  
     steps:
@@ -21,4 +21,5 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: RavenM
-        path: D:\a\RavenM\RavenM\bin\Release\net46
+        path: .\RavenM\bin\Release\net46\
+        if-no-files-found: error
