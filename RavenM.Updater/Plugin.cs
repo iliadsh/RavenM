@@ -1,8 +1,5 @@
 ﻿using BepInEx;
-using BepInEx.Configuration;
-using System.Collections;
 using System.Reflection;
-using UnityEngine.Networking;
 using System;
 using System.IO;
 using System.IO.Compression;
@@ -19,7 +16,6 @@ namespace RavenM.Updater
     [BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]
     class Plugin : BaseUnityPlugin
     {
-        static readonly string STAGING_DIR = "RavenM_staging/";
         static readonly string PLUGIN_DIR = "BepInEx/plugins/";
 
         private void Awake()
@@ -31,52 +27,23 @@ namespace RavenM.Updater
 
             if (force_current_version.Value)
             {
+                Logger.LogWarning("Updates are disabled!");
                 return;
             }
 
-            Directory.CreateDirectory(STAGING_DIR);
-
-            if (File.Exists(STAGING_DIR + "latest.zip"))
-            {
-                Logger.LogWarning("Updating...");
-
-                using (var archive = ZipFile.OpenRead(STAGING_DIR + "latest.zip"))
-                {
-                    foreach (var s in archive.Entries)
-                    {
-                        // We can't update the updater, since it's already locked by BepInEx.
-                        if (s.Name != "RavenM.Updater.dll")
-                        {
-                            try
-                            {
-                                s.ExtractToFile(PLUGIN_DIR + s.Name, true);
-                            } catch (Exception e)
-                            {
-                                Logger.LogError($"Failed to update file {s.Name}. {e}");
-                            }
-                        }
-                    }
-                }
-                File.Delete(STAGING_DIR + "latest.zip");
-
-                Logger.LogInfo("All done... have a nice day :)");
-            }
-
-            StartCoroutine(LookForUpdates());
-        }
-
-
-        IEnumerator LookForUpdates()
-        {
             Logger.LogInfo("Checking for updates...");
 
-            var mod_version = Assembly.LoadFrom(PLUGIN_DIR + "RavenM.dll").GetName().Version;
+            var mod_version = AssemblyName.GetAssemblyName(PLUGIN_DIR + "RavenM.dll").Version;
 
-            UnityWebRequest uwr = UnityWebRequest.Get("https://api.github.com/repos/iliadsh/RavenM/releases");
-            yield return uwr.Send();
+            var req = (HttpWebRequest)WebRequest.Create("https://api.github.com/repos/iliadsh/RavenM/releases");
+            req.Method = "GET";
+            req.Accept = "text / html,application / xhtml + xml,application / xml; q = 0.9,image / webp,image / apng,*/*;q=0.8;";
+            req.UserAgent = "Def-Not-RavenM";
+            req.Timeout = 5000;
+            using var response = new StreamReader(req.GetResponse().GetResponseStream());
 
-            var json = JSON.Parse(uwr.downloadHandler.text);
-            
+            var json = JSON.Parse(response.ReadToEnd());
+
             foreach (var kv in json.AsArray)
             {
                 var release = kv.Value;
@@ -85,17 +52,36 @@ namespace RavenM.Updater
                 {
                     if (release_version > mod_version)
                     {
-                        Logger.LogInfo($"Newer version found: {tag}");
+                        Logger.LogWarning($"Newer version found: {tag}. Downloading...");
 
                         var download_url = release["assets"][0]["browser_download_url"];
                         using var client = new WebClient();
-                        client.DownloadFile(download_url, STAGING_DIR + "latest.zip");
+                        using var zip = new MemoryStream(client.DownloadData(download_url));
 
-                        Logger.LogWarning("Downloaded new version. Update will be applied on next launch.");
+                        Logger.LogWarning("Downloaded new version. Updating...");
+
+                        using var archive = new ZipArchive(zip, ZipArchiveMode.Read);
+                        foreach (var s in archive.Entries)
+                        {
+                            // We can't update the updater, since it's already locked by BepInEx.
+                            if (s.Name != "RavenM.Updater.dll")
+                            {
+                                try
+                                {
+                                    s.ExtractToFile(PLUGIN_DIR + s.Name, true);
+                                }
+                                catch (Exception e)
+                                {
+                                    Logger.LogError($"Failed to update file {s.Name}. {e}");
+                                }
+                            }
+                        }
                         break;
                     }
                 }
             }
+
+            Logger.LogInfo("All done... have a nice day :)");
         }
     }
 }
