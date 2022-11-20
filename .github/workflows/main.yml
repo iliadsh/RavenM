@@ -1,25 +1,29 @@
-name: Build RavenM
- 
 on: [push]
  
 jobs:
   build:
-
+    name: Build
     runs-on: windows-latest
- 
     steps:
     - uses: actions/checkout@v3
       name: Checkout Code
-     
-    - name: Setup MSBuild Path
+
+    - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v1.1
-       
-    - name: Build RavenM
+
+    - name: Build
       run: dotnet build -c Release
- 
-    - name: Upload Artifact
+
+    - name: Upload RavenM
       uses: actions/upload-artifact@v3
       with:
         name: RavenM
-        path: .\RavenM\bin\Release\net46\
+        path: .\RavenM\bin\Release\net46\RavenM.dll
+        if-no-files-found: error
+
+    - name: Upload Updater
+      uses: actions/upload-artifact@v3
+      with:
+        name: Updater
+        path: .\RavenM.Updater\bin\Release\net461\RavenM.Updater.dll
         if-no-files-found: error
