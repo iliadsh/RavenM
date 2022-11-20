@@ -72,7 +72,7 @@ namespace RavenM.Updater
             }
             else if (update_channel.Value == "dev")
             {
-                var response = MakeRequest("https://api.github.com/repos/Hiteke/RavenM/actions/artifacts?name=RavenM&per_page=1");
+                var response = MakeRequest("https://api.github.com/repos/iliadsh/RavenM/actions/artifacts?name=RavenM&per_page=1");
                 var json = JSON.Parse(new StreamReader(response).ReadToEnd());
                 var artifact = json["artifacts"][0];
                 time = artifact["updated_at"];
