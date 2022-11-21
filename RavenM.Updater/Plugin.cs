@@ -17,8 +17,13 @@ namespace RavenM.Updater
     class Plugin : BaseUnityPlugin
     {
         static readonly string PLUGIN_DIR = "BepInEx/plugins/";
-        static readonly string GITHUB_TOKEN = "Bearer TOKEN";
-        static readonly string MOD_FILE = PLUGIN_DIR + "RavenM.dll";
+        static readonly string DEV_DOWNLOAD_URL = "https://nightly.link/iliadsh/RavenM/workflows/main/master/RavenM.zip";
+
+        enum UpdateChannel
+        {
+            Release,
+            Dev
+        }
 
         private Stream MakeRequest(string url)
         {
@@ -41,8 +46,7 @@ namespace RavenM.Updater
 
             var update_channel = Config.Bind("General",
                                              "Update Channel",
-                                             "release",
-                                             "release\ndev");
+                                             UpdateChannel.Release);
 
             if (force_current_version.Value)
             {
@@ -56,13 +60,13 @@ namespace RavenM.Updater
             string time;
             string download_url;
 
-            if (File.Exists(MOD_FILE))
+            var mod_file = PLUGIN_DIR + "RavenM.dll";
+            if (File.Exists(mod_file))
             {
-                mod_creation_time = File.GetCreationTime(MOD_FILE)
-                .Add(DateTimeOffset.Now.Offset);
+                mod_creation_time = File.GetCreationTime(mod_file)
             }
 
-            if (update_channel.Value == "release")
+            if (update_channel.Value == UpdateChannel.Release)
             {
                 var response = MakeRequest("https://api.github.com/repos/iliadsh/RavenM/releases/latest");
                 var json = JSON.Parse(new StreamReader(response).ReadToEnd());
@@ -70,13 +74,13 @@ namespace RavenM.Updater
                 time = asset["updated_at"];
                 download_url = asset["browser_download_url"];
             }
-            else if (update_channel.Value == "dev")
+            else if (update_channel.Value == UpdateChannel.Dev)
             {
                 var response = MakeRequest("https://api.github.com/repos/iliadsh/RavenM/actions/artifacts?name=RavenM&per_page=1");
                 var json = JSON.Parse(new StreamReader(response).ReadToEnd());
                 var artifact = json["artifacts"][0];
                 time = artifact["updated_at"];
-                download_url = artifact["archive_download_url"];
+                download_url = DEV_DOWNLOAD_URL;
             }
             else
             {
@@ -104,7 +108,7 @@ namespace RavenM.Updater
                             try
                             {
                                 s.ExtractToFile(PLUGIN_DIR + s.Name, true);
-                                File.SetCreationTime(PLUGIN_DIR + s.Name, DateTime.Now);
+                                File.SetCreationTime(PLUGIN_DIR + s.Name, upload_time);
                             }
                             catch (Exception e)
                             {
