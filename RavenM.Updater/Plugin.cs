@@ -30,7 +30,6 @@ namespace RavenM.Updater
             var req = (HttpWebRequest)WebRequest.Create(url);
             req.Method = "GET";
             req.Accept = "application/vnd.github+json";
-            req.Headers[HttpRequestHeader.Authorization] = GITHUB_TOKEN;
             req.UserAgent = "Def-Not-RavenM";
             req.Timeout = 5000;
 
@@ -111,8 +110,6 @@ namespace RavenM.Updater
                             {
                                 s.ExtractToFile(PLUGIN_DIR + s.Name, true);
                                 File.SetCreationTime(PLUGIN_DIR + s.Name, upload_time);
-                                PlayerPrefs.GetString("UpdateChannel", update_channel.Value.ToString());
-                                PlayerPrefs.Save();
                             }
                             catch (Exception e)
                             {
@@ -120,6 +117,10 @@ namespace RavenM.Updater
                             }
                         }
                     }
+
+                    PlayerPrefs.SetString("UpdateChannel", update_channel.Value.ToString());
+                    PlayerPrefs.Save();
+
                 }
             }
 
