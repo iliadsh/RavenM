@@ -48,6 +48,8 @@ namespace RavenM.Updater
                                              "Update Channel",
                                              UpdateChannel.Release);
 
+            var current_update_channel = (UpdateChannel)Enum.Parse(typeof(UpdateChannel), PlayerPrefs.GetString("UpdateChannel", "Release"), true);
+
             if (force_current_version.Value)
             {
                 Logger.LogWarning("Updates are disabled!");
@@ -91,7 +93,7 @@ namespace RavenM.Updater
             DateTime upload_time;
             if (DateTime.TryParse(time, out upload_time))
             {
-                if (upload_time > mod_creation_time)
+                if ((current_update_channel == update_channel.Value && upload_time > mod_creation_time) || current_update_channel != update_channel.Value)
                 {
                     Logger.LogWarning($"Newer version found: {time}. Downloading...");
 
@@ -109,6 +111,8 @@ namespace RavenM.Updater
                             {
                                 s.ExtractToFile(PLUGIN_DIR + s.Name, true);
                                 File.SetCreationTime(PLUGIN_DIR + s.Name, upload_time);
+                                PlayerPrefs.GetString("UpdateChannel", update_channel.Value.ToString());
+                                PlayerPrefs.Save();
                             }
                             catch (Exception e)
                             {
