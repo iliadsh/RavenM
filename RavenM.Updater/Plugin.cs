@@ -64,7 +64,7 @@ namespace RavenM.Updater
             var mod_file = PLUGIN_DIR + "RavenM.dll";
             if (File.Exists(mod_file))
             {
-                mod_creation_time = File.GetCreationTime(mod_file)
+                mod_creation_time = File.GetCreationTime(mod_file);
             }
 
             if (update_channel.Value == UpdateChannel.Release)
