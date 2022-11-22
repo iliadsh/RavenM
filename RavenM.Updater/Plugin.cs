@@ -89,8 +89,7 @@ namespace RavenM.Updater
                 return;
             }
 
-            DateTime upload_time;
-            if (DateTime.TryParse(time, out upload_time))
+            if (DateTime.TryParse(time, out DateTime upload_time))
             {
                 if ((current_update_channel == update_channel.Value && upload_time > mod_creation_time) || current_update_channel != update_channel.Value)
                 {
