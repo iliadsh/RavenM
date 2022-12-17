@@ -1258,6 +1258,10 @@ namespace RavenM
                     {
                         GUILayout.Label("<color=red>This lobby is running on a different version of RavenM!</color>");
                     }
+                    else if (ModManager.instance.noContentMods && modCount > 0)
+                    {
+                        GUILayout.Label("<color=red>Lobby is using mods! Please run Ravenfield with mods enabled to join.</color>");
+                    }
                     else if (GUILayout.Button("JOIN"))
                     {
                         SteamMatchmaking.JoinLobby(LobbyView);
