@@ -76,7 +76,7 @@ namespace RavenM
 
             configRavenMDevMod = Config.Bind("General.Toggles",
                                                 "Enable Dev Mode",
-                                                false,
+                                                true,
                                                 "Change GUID to bb3ef199-df63-4e99-a8a1-89a27d9e2fcb");
             configRavenMAddToBuiltInMutators = Config.Bind("General.Toggles",
                 "Enable Custom Build In Mutators",

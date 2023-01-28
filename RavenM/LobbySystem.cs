@@ -210,6 +210,11 @@ namespace RavenM
             if (!LobbySystem.instance.InLobby || !LobbySystem.instance.LobbyDataReady || LobbySystem.instance.IsLobbyOwner || LobbySystem.instance.ModsToDownload.Count > 0)
                 return;
 
+            // Sort vehicles
+            var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
+            moddedVehicles.Sort((x, y) => x.name.CompareTo(y.name));
+            LobbySystem.instance.sortedModdedVehicles = moddedVehicles;
+
             SteamMatchmaking.SetLobbyMemberData(LobbySystem.instance.ActualLobbyID, "loaded", "yes");
         }
     }
@@ -329,6 +334,8 @@ namespace RavenM
         public bool nameTagsEnabled = true;
 
         public bool nameTagsForTeamOnly = false;
+
+        public List<GameObject> sortedModdedVehicles = new List<GameObject>();
         private void Awake()
         {
             instance = this;
@@ -389,10 +396,6 @@ namespace RavenM
 
             LobbyDataReady = true;
             ActualLobbyID = new CSteamID(pCallback.m_ulSteamIDLobby);
-
-            // Sort vehicles
-            var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
-            moddedVehicles.Sort((x, y) => x.name.CompareTo(y.name));
 
             if (IsLobbyOwner)
             {
@@ -737,7 +740,7 @@ namespace RavenM
                         if (idx == -1)
                         {
                             isDefault = false;
-                            idx = ModManager.AllVehiclePrefabs().ToList().IndexOf(prefab);
+                            idx = sortedModdedVehicles.IndexOf(prefab);
                         }
 
                         SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "vehicle_" + type, prefab == null ? "NULL" : isDefault + "," + idx);
@@ -877,9 +880,8 @@ namespace RavenM
                                 newPrefab = ActorManager.instance.defaultVehiclePrefabs[idx];
                             }
                             else
-                            {
-                                var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
-                                newPrefab = moddedVehicles[idx];
+                            {    
+                                newPrefab = sortedModdedVehicles[idx];
                             }
                         }
 
