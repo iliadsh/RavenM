@@ -390,6 +390,10 @@ namespace RavenM
             LobbyDataReady = true;
             ActualLobbyID = new CSteamID(pCallback.m_ulSteamIDLobby);
 
+            // Sort vehicles
+            var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
+            moddedVehicles.Sort((x, y) => x.name.CompareTo(y.name));
+
             if (IsLobbyOwner)
             {
                 OwnerID = SteamUser.GetSteamID();
@@ -406,28 +410,6 @@ namespace RavenM
 
                 bool needsToReload = false;
                 List<PublishedFileId_t> mods = new List<PublishedFileId_t>();
-                
-                // Sort vehicles
-                for (int i = 0; i < 2; i++)
-                {
-                    var teamInfo = GameManager.instance.gameInfo.team[i];
-
-                    foreach (var vehiclePrefab in teamInfo.vehiclePrefab)
-                    {
-                        var type = vehiclePrefab.Key;
-                        var prefab = vehiclePrefab.Value;
-
-                        // Returns -1 if the vehicle is NOT default
-                        int idx = Array.IndexOf(ActorManager.instance.defaultVehiclePrefabs, prefab);
-
-                        if (idx == -1)
-                        {
-                            // Vehicle is custom
-                            var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
-                            moddedVehicles.Sort((x, y) => x.name.CompareTo(y.name));
-                        }
-                    }
-                }
 
                 foreach (var mod in ModManager.instance.GetActiveMods())
                 {
@@ -755,7 +737,7 @@ namespace RavenM
                         if (idx == -1)
                         {
                             isDefault = false;
-                            idx = ModManager.instance.vehiclePrefabs[type].IndexOf(prefab);
+                            idx = ModManager.AllVehiclePrefabs().ToList().IndexOf(prefab);
                         }
 
                         SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "vehicle_" + type, prefab == null ? "NULL" : isDefault + "," + idx);
@@ -897,7 +879,6 @@ namespace RavenM
                             else
                             {
                                 var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
-                                moddedVehicles.Sort((x, y) => x.name.CompareTo(y.name));
                                 newPrefab = moddedVehicles[idx];
                             }
                         }
@@ -930,7 +911,6 @@ namespace RavenM
                             else
                             {
                                 var moddedTurrets = ModManager.AllTurretPrefabs().ToList();
-                                moddedTurrets.Sort((x, y) => x.name.CompareTo(y.name));
                                 newPrefab = moddedTurrets[idx];
                             }
                         }
