@@ -406,6 +406,29 @@ namespace RavenM
 
                 bool needsToReload = false;
                 List<PublishedFileId_t> mods = new List<PublishedFileId_t>();
+                
+                // Sort vehicles
+                for (int i = 0; i < 2; i++)
+                {
+                    var teamInfo = GameManager.instance.gameInfo.team[i];
+
+                    foreach (var vehiclePrefab in teamInfo.vehiclePrefab)
+                    {
+                        var type = vehiclePrefab.Key;
+                        var prefab = vehiclePrefab.Value;
+
+                        // Returns -1 if the vehicle is NOT default
+                        int idx = Array.IndexOf(ActorManager.instance.defaultVehiclePrefabs, prefab);
+
+                        if (idx == -1)
+                        {
+                            // Vehicle is custom
+                            var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
+                            moddedVehicles.Sort((x, y) => x.name.CompareTo(y.name));
+                        }
+                    }
+                }
+
                 foreach (var mod in ModManager.instance.GetActiveMods())
                 {
                     if (mod.workshopItemId.ToString() == "0")
@@ -732,9 +755,7 @@ namespace RavenM
                         if (idx == -1)
                         {
                             isDefault = false;
-                            var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
-                            moddedVehicles.Sort((x, y) => x.name.CompareTo(y.name));
-                            idx = moddedVehicles.IndexOf(prefab);
+                            idx = ModManager.instance.vehiclePrefabs[type].IndexOf(prefab);
                         }
 
                         SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "vehicle_" + type, prefab == null ? "NULL" : isDefault + "," + idx);
