@@ -207,13 +207,13 @@ namespace RavenM
 
             ModManager.instance.ContentChanged();
 
-            if (!LobbySystem.instance.InLobby || !LobbySystem.instance.LobbyDataReady || LobbySystem.instance.IsLobbyOwner || LobbySystem.instance.ModsToDownload.Count > 0)
-                return;
-
             // Sort vehicles
             var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
             moddedVehicles.Sort((x, y) => x.name.CompareTo(y.name));
             LobbySystem.instance.sortedModdedVehicles = moddedVehicles;
+
+            if (!LobbySystem.instance.InLobby || !LobbySystem.instance.LobbyDataReady || LobbySystem.instance.IsLobbyOwner || LobbySystem.instance.ModsToDownload.Count > 0)
+                return;
 
             SteamMatchmaking.SetLobbyMemberData(LobbySystem.instance.ActualLobbyID, "loaded", "yes");
         }
