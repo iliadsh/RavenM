@@ -771,12 +771,16 @@ namespace RavenM
 
                 var enabledMutators = new List<int>();
                 ModManager.instance.loadedMutators.Sort((x, y) => x.name.CompareTo(y.name));
-                foreach (var mutator in ModManager.instance.loadedMutators)
+
+                for (int i = 0; i < ModManager.instance.loadedMutators.Count; i++)
                 {
+                    var mutator = ModManager.instance.loadedMutators.ElementAt(i);
+
                     if (!mutator.isEnabled)
                         continue;
 
-                    int id = mutator.name.GetHashCode();
+                    int id = i;
+
                     enabledMutators.Add(id);
 
                     var config = new List<string>();
@@ -942,14 +946,15 @@ namespace RavenM
 
                     int id = int.Parse(mutatorStr);
 
-                    foreach (var mutator in ModManager.instance.loadedMutators)
+                    for (int mutatorIndex = 0; mutatorIndex < ModManager.instance.loadedMutators.Count; mutatorIndex++)
                     {
-                        int candidate = mutator.name.GetHashCode();
-                        if (id == candidate)
+                        var mutator = ModManager.instance.loadedMutators.ElementAt(mutatorIndex);
+
+                        if (id == mutatorIndex)
                         {
                             mutator.isEnabled = true;
 
-                            string configStr = SteamMatchmaking.GetLobbyData(ActualLobbyID, candidate + "config");
+                            string configStr = SteamMatchmaking.GetLobbyData(ActualLobbyID, mutatorIndex + "config");
                             string pattern = "(?<!\\),";
                             string[] config = Regex.Split(configStr, pattern);
 
