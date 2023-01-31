@@ -8,6 +8,7 @@ using System.Text;
 using System.Diagnostics;
 using System.Linq;
 using RavenM.RSPatch.Wrapper;
+using System.Text.RegularExpressions;
 
 namespace RavenM
 {
@@ -781,7 +782,8 @@ namespace RavenM
                     var config = new List<string>();
                     foreach (var item in mutator.configuration.GetAllFields())
                     {
-                        config.Add(item.SerializeValue());
+                        string safeValue = item.SerializeValue().Replace(",", "\\,");
+                        config.Add(safeValue);
                     }
                     SteamMatchmaking.SetLobbyData(ActualLobbyID, id + "config", string.Join(",", config.ToArray()));
                 }
@@ -947,11 +949,14 @@ namespace RavenM
                         {
                             mutator.isEnabled = true;
 
-                            string[] config = SteamMatchmaking.GetLobbyData(ActualLobbyID, candidate + "config").Split(',');
+                            string configStr = SteamMatchmaking.GetLobbyData(ActualLobbyID, candidate + "config");
+                            string pattern = "(?<!\\),";
+                            string[] config = Regex.Split(configStr, pattern);
+
                             int i = 0;
                             foreach (var item in mutator.configuration.GetAllFields())
                             {
-                                item.DeserializeValue(config[i]);
+                                item.DeserializeValue(config[i].Replace("\\,", ","));
                                 i++;
                             }
                         }
