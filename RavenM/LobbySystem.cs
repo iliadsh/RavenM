@@ -809,47 +809,52 @@ namespace RavenM
                 {
                     InstantActionMaps.instance.teamDropdown.value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "team"));
                 }
-                int givenEntry = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "loadedLevelEntry"));
 
-                if (givenEntry == customMapOptionIndex)
+                if (instance.LoadedServerMods)
                 {
-                    string mapName = SteamMatchmaking.GetLobbyData(ActualLobbyID, "customMap");
+                    int givenEntry = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "loadedLevelEntry"));
 
-                    if (InstantActionMaps.instance.mapDropdown.value != customMapOptionIndex || entries[customMapOptionIndex].name != mapName)
+                    if (givenEntry == customMapOptionIndex)
                     {
-                        foreach (var mod in ModManager.instance.GetActiveMods())
+                        string mapName = SteamMatchmaking.GetLobbyData(ActualLobbyID, "customMap");
+
+                        if (InstantActionMaps.instance.mapDropdown.value != customMapOptionIndex || entries[customMapOptionIndex].name != mapName)
                         {
-                            foreach (var map in mod.content.GetMaps())
+                            foreach (var mod in ModManager.instance.GetActiveMods())
                             {
-                                string currentName = string.Empty;
-                                string[] parts = map.Name.Split('.');
-                                for (int i = 0; i < parts.Length - 1; i++)
+                                foreach (var map in mod.content.GetMaps())
                                 {
-                                    currentName += parts[i];
-                                }
-                                if (currentName == mapName)
-                                {
-                                    InstantActionMaps.MapEntry entry = new InstantActionMaps.MapEntry
+                                    string currentName = string.Empty;
+                                    string[] parts = map.Name.Split('.');
+                                    for (int i = 0; i < parts.Length - 1; i++)
                                     {
-                                        name = currentName,
-                                        sceneName = map.FullName,
-                                        isCustomMap = true,
-                                        hasLoadedMetaData = true,
-                                        image = mod.content.HasIconImage()
-                                                ? Sprite.Create(mod.iconTexture, new Rect(0f, 0f, mod.iconTexture.width, mod.iconTexture.height), Vector2.zero, 100f)
-                                                : null,
-                                        suggestedBots = 0,
-                                    };
-                                    InstantActionMaps.SelectedCustomMapEntry(entry);
+                                        currentName += parts[i];
+                                    }
+                                    if (currentName == mapName)
+                                    {
+                                        InstantActionMaps.MapEntry entry = new InstantActionMaps.MapEntry
+                                        {
+                                            name = currentName,
+                                            sceneName = map.FullName,
+                                            isCustomMap = true,
+                                            hasLoadedMetaData = true,
+                                            image = mod.content.HasIconImage()
+                                                    ? Sprite.Create(mod.iconTexture, new Rect(0f, 0f, mod.iconTexture.width, mod.iconTexture.height), Vector2.zero, 100f)
+                                                    : null,
+                                            suggestedBots = 0,
+                                        };
+                                        InstantActionMaps.SelectedCustomMapEntry(entry);
+                                    }
                                 }
                             }
                         }
                     }
+                    else
+                    {
+                        InstantActionMaps.instance.mapDropdown.value = givenEntry;
+                    }
                 }
-                else
-                {
-                    InstantActionMaps.instance.mapDropdown.value = givenEntry;
-                }
+
 
                 for (int i = 0; i < 2; i++)
                 {
@@ -1270,10 +1275,6 @@ namespace RavenM
                     if (Plugin.BuildGUID != SteamMatchmaking.GetLobbyData(LobbyView, "build_id"))
                     {
                         GUILayout.Label("<color=red>This lobby is running on a different version of RavenM!</color>");
-                    }
-                    else if (ModManager.instance.noContentMods && modCount > 0)
-                    {
-                        GUILayout.Label("<color=red>Lobby is using mods! Please run Ravenfield with mods enabled to join.</color>");
                     }
                     else if (GUILayout.Button("JOIN"))
                     {
