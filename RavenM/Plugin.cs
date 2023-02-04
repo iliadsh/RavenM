@@ -128,6 +128,10 @@ namespace RavenM
                 lobbyObject.AddComponent<LobbySystem>();
                 DontDestroyOnLoad(lobbyObject);
 
+                var chatObject = new GameObject();
+                chatObject.AddComponent<ChatManager>();
+                DontDestroyOnLoad(chatObject);
+
                 var netObject = new GameObject();
                 netObject.AddComponent<IngameNetManager>();
                 DontDestroyOnLoad(netObject);

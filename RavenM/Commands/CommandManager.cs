@@ -69,11 +69,11 @@ namespace RavenM.Commands
         }
         private void PrintNotEnoughArguments(Command cmd)
         {
-            IngameNetManager.instance.PushCommandChatMessage($"Not enough Arguments for Command {cmd.CommandName}. \nUsage: {GetRequiredArgTypes(cmd)}.", Color.red,true, false); ;
+            ChatManager.instance.PushCommandChatMessage($"Not enough Arguments for Command {cmd.CommandName}. \nUsage: {GetRequiredArgTypes(cmd)}.", Color.red,true, false); ;
         }
         private void PrintCouldNotConvert(Command cmd)
         {
-            IngameNetManager.instance.PushCommandChatMessage($"Could not convert Argument(s) for Command {cmd.CommandName}. \nUsage: {GetRequiredArgTypes(cmd)}.", Color.red,true, false); ;
+            ChatManager.instance.PushCommandChatMessage($"Could not convert Argument(s) for Command {cmd.CommandName}. \nUsage: {GetRequiredArgTypes(cmd)}.", Color.red,true, false); ;
         }
         public bool HasRequiredArgs(Command cmd, string[] command)
         {
@@ -156,7 +156,7 @@ namespace RavenM.Commands
             }
             if (local == !command.Global)
                 return true;
-            IngameNetManager.instance.PushCommandChatMessage($"You do not have permission to run this command!", Color.red, false, false);
+            ChatManager.instance.PushCommandChatMessage($"You do not have permission to run this command!", Color.red, false, false);
             return false;
         }
     }

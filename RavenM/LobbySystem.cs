@@ -351,8 +351,6 @@ namespace RavenM
         private void Start()
         {
             Callback<LobbyEnter_t>.Create(OnLobbyEnter);
-            Callback<LobbyChatUpdate_t>.Create(OnLobbyChatUpdate);
-            Callback<LobbyChatMsg_t>.Create(OnLobbyChatMessage);
             Callback<DownloadItemResult_t>.Create(OnItemDownload);
             Callback<LobbyMatchList_t>.Create(OnLobbyList);
             Callback<LobbyDataUpdate_t>.Create(OnLobbyData);
@@ -550,84 +548,6 @@ namespace RavenM
                 var mod_id = ModsToDownload[0];
                 bool isDownloading = SteamUGC.DownloadItem(mod_id, true);
                 Plugin.logger.LogInfo($"Downloading mod with id: {mod_id} -- {isDownloading}");
-            }
-        }
-
-        private void OnLobbyChatUpdate(LobbyChatUpdate_t pCallback)
-        {
-            // Anything other than a join...
-            if ((pCallback.m_rgfChatMemberStateChange & (uint)EChatMemberStateChange.k_EChatMemberStateChangeEntered) == 0)
-            {
-                var id = new CSteamID(pCallback.m_ulSteamIDUserChanged);
-
-                // ...means the owner left.
-                if (OwnerID == id)
-                {
-                    NotificationText = "Lobby closed by host.";
-                    SteamMatchmaking.LeaveLobby(ActualLobbyID);
-                }
-            }
-            else
-            {
-                var id = new CSteamID(pCallback.m_ulSteamIDUserChanged);
-
-                if (CurrentKickedMembers.Contains(id))
-                {
-                    SendLobbyChat($"/kick {id}");
-                }
-            }
-        }
-
-        public void SendLobbyChat(string message)
-        {
-            var bytes = Encoding.UTF8.GetBytes(message);
-            SteamMatchmaking.SendLobbyChatMsg(ActualLobbyID, bytes, bytes.Length);
-        }
-
-        public string DecodeLobbyChat(byte[] bytes, int len)
-        {
-            // Don't want some a-hole crashing the lobby.
-            try
-            {
-                return Encoding.UTF8.GetString(bytes, 0, len);
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
-
-        private void OnLobbyChatMessage(LobbyChatMsg_t pCallback)
-        {
-            var buf = new byte[4096];
-            int len = SteamMatchmaking.GetLobbyChatEntry(ActualLobbyID, (int)pCallback.m_iChatID, out CSteamID user, buf, buf.Length, out EChatEntryType chatType);
-            string chat = DecodeLobbyChat(buf, len);
-
-            if (chat.StartsWith("/") && user == OwnerID)
-            {
-                var parts = chat.Split(' ');
-                if (parts.Length < 1)
-                    return;
-                var command = parts[0];
-                if (command == "/kick")
-                {
-                    if (parts.Length != 2)
-                        return;
-                    var userIdS = parts[1];
-                    if (ulong.TryParse(userIdS, out ulong memberIdI))
-                    {
-                        var member = new CSteamID(memberIdI);
-                        if (member == SteamUser.GetSteamID())
-                        {
-                            NotificationText = "You were kicked from the lobby! You can no longer join this lobby.";
-                            SteamMatchmaking.LeaveLobby(ActualLobbyID);
-                        }
-                        else if (!CurrentKickedMembers.Contains(member))
-                        {
-                            CurrentKickedMembers.Add(member);
-                        }
-                    }
-                }
             }
         }
 
@@ -1370,7 +1290,7 @@ namespace RavenM
                     {
                         if (GUILayout.Button($"<color=red>KICK {name}</color>"))
                         {
-                            SendLobbyChat($"/kick {memberId}");
+                            ChatManager.instance.SendLobbyChat($"/kick {memberId}");
                             CurrentKickedMembers.Add(memberId);
                             foreach (var connection in IngameNetManager.instance.ServerConnections)
                             {
@@ -1390,6 +1310,8 @@ namespace RavenM
 
                 GUILayout.EndVertical();
                 GUILayout.EndArea();
+
+                ChatManager.instance.CreateChatArea(true);
             }
 
             if (ModsToDownload.Count > 0)
