@@ -14,10 +14,11 @@ namespace RavenM.Commands
         public CommandManager()
         {
             Commands = new List<Command>();
-            Commands.Add(new Command("help",new object[] { null },false,false));
-            Commands.Add(new Command("nametags", new object[] { true }, true, true));
-            Commands.Add(new Command("kill", new object[] { "actor" }, true, true));
-            Commands.Add(new Command("nametagsteamonly", new object[] { true }, true, true));
+            Commands.Add(new Command("help", new object[] { null }, false, false, true, true));
+            Commands.Add(new Command("nametags", new object[] { true }, true, true, true, true));
+            Commands.Add(new Command("kill", new object[] { "actor" }, true, true, false, true));
+            Commands.Add(new Command("nametagsteamonly", new object[] { true }, true, true, true, true));
+            Commands.Add(new Command("kick", new object[] { "actor" }, false, true, false, true));
             Plugin.logger.LogInfo("CommandManager registered commands: " + Commands.Count);
         }
         public Command GetCommandFromName(string command)
@@ -38,6 +39,22 @@ namespace RavenM.Commands
         public List<Command> GetAllCommands()
         {
             return Commands;
+        }
+        public List<Command> GetAllLobbyCommands()
+        {
+            IEnumerable<Command> commands = Commands;
+
+            commands = commands.Where(command => command.AllowInLobby == true);
+
+            return commands.ToList();
+        }
+        public List<Command> GetAllIngameCommands()
+        {
+            IEnumerable<Command> commands = Commands;
+
+            commands = commands.Where(command => command.AllowInGame == true);
+
+            return commands.ToList();
         }
         public void AddCustomCommand(Command cmd)
         {

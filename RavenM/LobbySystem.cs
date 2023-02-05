@@ -880,7 +880,7 @@ namespace RavenM
                             mutator.isEnabled = true;
 
                             string configStr = SteamMatchmaking.GetLobbyData(ActualLobbyID, mutatorIndex + "config");
-                            string pattern = "(?<!\\),";
+                            string pattern = @"(?<!\),";
                             string[] config = Regex.Split(configStr, pattern);
 
                             int i = 0;
@@ -1311,7 +1311,11 @@ namespace RavenM
                 GUILayout.EndVertical();
                 GUILayout.EndArea();
 
-                ChatManager.instance.CreateChatArea(true);
+                if (!IngameNetManager.instance.IsClient)
+                {
+                    ChatManager.instance.CreateChatArea(true, 300f, 400f, 570f);
+                }
+
             }
 
             if (ModsToDownload.Count > 0)

@@ -478,20 +478,6 @@ namespace RavenM
 
         public Vector3 MarkerPosition = Vector3.zero;
 
-        //public string CurrentChatMessage = string.Empty;
-
-        //public string FullChatLink = string.Empty;
-
-        //public Vector2 ChatScrollPosition = Vector2.zero;
-
-        //public Texture2D GreyBackground = new Texture2D(1, 1);
-
-        //public bool JustFocused = false;
-
-        //public bool TypeIntention = false;
-
-        //public bool ChatMode = false;
-
         public bool UsingMicrophone = false;
 
         public Texture2D MicTexture = new Texture2D(2, 2);
@@ -512,9 +498,6 @@ namespace RavenM
 
         public KeyCode PlaceMarkerKeybind = KeyCode.BackQuote;
 
-        //public KeyCode GlobalChatKeybind = KeyCode.Y;
-
-        //public KeyCode TeamChatKeybind = KeyCode.U;
         private void Awake()
         {
             instance = this;
@@ -782,7 +765,7 @@ namespace RavenM
             MarkerPosition = Vector3.zero;
 
             ChatManager.instance.CurrentChatMessage = string.Empty;
-            ChatManager.instance.FullChatLink = string.Empty;
+            //ChatManager.instance.FullChatLink = string.Empty;
             ChatManager.instance.ChatScrollPosition = Vector2.zero;
             ChatManager.instance.JustFocused = false;
             ChatManager.instance.TypeIntention = false;

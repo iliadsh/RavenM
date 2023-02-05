@@ -13,13 +13,17 @@ namespace RavenM.Commands
         public bool Global { get; }
         public bool HostOnly { get; }
         public bool Scripted { get; }
-        public Command(string _name, object[] _reqArgs,bool _global, bool _hostOnly, bool scripted = false)
+        public bool AllowInLobby { get; }
+        public bool AllowInGame { get;  }
+        public Command(string _name, object[] _reqArgs,bool _global, bool _hostOnly, bool scripted = false, bool allowInLobby = false, bool allowInGame = true)
         {
             CommandName = _name;
             reqArgs = _reqArgs;
             Global = _global;
             HostOnly = _hostOnly;
             Scripted = scripted;
+            AllowInLobby = allowInLobby;
+            AllowInGame = allowInGame;
         }
 
     }

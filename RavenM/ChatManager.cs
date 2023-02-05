@@ -194,7 +194,7 @@ namespace RavenM
             IngameNetManager.instance.SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
         }
 
-        public void ProccessLobbyChatCommand(string message, ulong id, bool local)
+        public void ProcessLobbyChatCommand(string message, ulong id, bool local)
         {
             string[] command = message.Trim().Substring(1, message.Length - 1).Split(' ');
             string initCommand = command[0];
@@ -259,9 +259,25 @@ namespace RavenM
 
                     break;
                 case "help":
-                    foreach (Command availableCommand in CommandManager.GetAllCommands())
+                    foreach (Command availableCommand in CommandManager.GetAllLobbyCommands())
                     {
                         PushLobbyCommandChatMessage($"{CommandManager.GetRequiredArgTypes(availableCommand)} Host Only: {availableCommand.HostOnly}", availableCommand.Scripted ? Color.green : Color.yellow, true, false);
+                    }
+                    break;
+                case "kick":
+                    var userIdS = command[1];
+                    if (ulong.TryParse(userIdS, out ulong memberIdI))
+                    {
+                        var member = new CSteamID(memberIdI);
+                        if (member == SteamId)
+                        {
+                            LobbySystem.instance.NotificationText = "You were kicked from the lobby! You can no longer join this lobby.";
+                            SteamMatchmaking.LeaveLobby(LobbySystem.instance.ActualLobbyID);
+                        }
+                        else if (!LobbySystem.instance.CurrentKickedMembers.Contains(member))
+                        {
+                            LobbySystem.instance.CurrentKickedMembers.Add(member);
+                        }
                     }
                     break;
                 default:
@@ -358,6 +374,22 @@ namespace RavenM
                     targetActor.Kill(new DamageInfo(DamageInfo.DamageSourceType.FallDamage, actor, null));
                     PushCommandChatMessage($"Killed actor {targetActor.name}", Color.green, false, false);
                     break;
+                case "kick":
+                    var userIdS = command[1];
+                    if (ulong.TryParse(userIdS, out ulong memberIdI))
+                    {
+                        var member = new CSteamID(memberIdI);
+                        if (member == SteamId)
+                        {
+                            LobbySystem.instance.NotificationText = "You were kicked from the lobby! You can no longer join this lobby.";
+                            SteamMatchmaking.LeaveLobby(LobbySystem.instance.ActualLobbyID);
+                        }
+                        else if (!LobbySystem.instance.CurrentKickedMembers.Contains(member))
+                        {
+                            LobbySystem.instance.CurrentKickedMembers.Add(member);
+                        }
+                    }
+                    break;
                 default:
                     // If it's not build in command pass it to RS
                     Plugin.logger.LogInfo("onReceiveCommand " + initCommand);
@@ -393,29 +425,11 @@ namespace RavenM
 
             if (chat.StartsWith("/") && user == LobbySystem.instance.OwnerID)
             {
-                var parts = chat.Split(' ');
-                if (parts.Length < 1)
-                    return;
-                var command = parts[0];
-                if (command == "/kick")
-                {
-                    if (parts.Length != 2)
-                        return;
-                    var userIdS = parts[1];
-                    if (ulong.TryParse(userIdS, out ulong memberIdI))
-                    {
-                        var member = new CSteamID(memberIdI);
-                        if (member == SteamId)
-                        {
-                            LobbySystem.instance.NotificationText = "You were kicked from the lobby! You can no longer join this lobby.";
-                            SteamMatchmaking.LeaveLobby(LobbySystem.instance.ActualLobbyID);
-                        }
-                        else if (!LobbySystem.instance.CurrentKickedMembers.Contains(member))
-                        {
-                            LobbySystem.instance.CurrentKickedMembers.Add(member);
-                        }
-                    }
-                }
+                ProcessLobbyChatCommand(chat, SteamId.m_SteamID, true);
+            }
+            else
+            {
+                SendLobbyChat(chat);
             }
         }
 
@@ -463,7 +477,7 @@ namespace RavenM
             }
         }
 
-        public void CreateChatArea(bool isLobbyChat = false)
+        public void InitializeChatArea(bool isLobbyChat = false, float chatWidth = 500f)
         {
             if (Event.current.isKey && Event.current.keyCode == KeyCode.None && JustFocused)
             {
@@ -478,12 +492,12 @@ namespace RavenM
             if (TypeIntention)
             {
                 GUI.SetNextControlName("chat");
-                CurrentChatMessage = GUI.TextField(new Rect(10f, Screen.height - 160f, 500f, 25f), CurrentChatMessage);
+                CurrentChatMessage = GUI.TextField(new Rect(10f, Screen.height - 160f, (chatWidth - 70f), 25f), CurrentChatMessage);
                 GUI.FocusControl("chat");
 
                 string color = !ChatMode ? "green" : (GameManager.PlayerTeam() == 0 ? "blue" : "red");
                 string text = ChatMode ? "GLOBAL" : "TEAM";
-                GUI.Label(new Rect(510f, Screen.height - 160f, 70f, 25f), $"<color={color}><b>{text}</b></color>");
+                GUI.Label(new Rect((chatWidth - 50f), Screen.height - 160f, 70f, 25f), $"<color={color}><b>{text}</b></color>");
 
                 if (Event.current.isKey && Event.current.keyCode == KeyCode.Escape && TypeIntention)
                 {
@@ -499,7 +513,7 @@ namespace RavenM
                         {
                             if (isLobbyChat)
                             {
-                                ProccessLobbyChatCommand(CurrentChatMessage, SteamId.m_SteamID, true);
+                                ProcessLobbyChatCommand(CurrentChatMessage, SteamId.m_SteamID, true);
                             }
                             else
                             {
@@ -550,16 +564,21 @@ namespace RavenM
                 ChatMode = true;
             }
 
-            if (Event.current.isKey && Event.current.keyCode == TeamChatKeybind && !TypeIntention)
+            if (Event.current.isKey && Event.current.keyCode == TeamChatKeybind && !TypeIntention && !isLobbyChat)
             {
                 TypeIntention = true;
                 JustFocused = true;
                 ChatMode = false;
             }
+        }
+
+        public void CreateChatArea(bool isLobbyChat = false, float chatWidth = 500f, float chatHeight = 200f, float chatYOffset = 370f)
+        {
+            InitializeChatArea(isLobbyChat, chatWidth);
 
             var chatStyle = new GUIStyle();
             chatStyle.normal.background = GreyBackground;
-            GUILayout.BeginArea(new Rect(10f, Screen.height - 370f, 500f, 200f), string.Empty, chatStyle);
+            GUILayout.BeginArea(new Rect(10f, Screen.height - chatYOffset, chatWidth, chatHeight), string.Empty, chatStyle);
             ChatScrollPosition = GUILayout.BeginScrollView(ChatScrollPosition, GUILayout.Width(500f), GUILayout.Height(200f));
             // Any player can break the formatting by using Rich Text e.g. <color=abcd> <b> - Chai
             GUILayout.Label(FullChatLink);
