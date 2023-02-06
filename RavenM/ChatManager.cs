@@ -147,17 +147,11 @@ namespace RavenM
             }
         }
 
-        public void PushLobbyChatMessage(string message)
+        public void PushLobbyChatMessage(string message, string steamUsername)
         {
-            string name;
-            if (SteamUsername != null)
-                name = SteamUsername;
-            else
-                name = "";
-
             // Players have no team in lobby so everyone is the same color
             string color = "white";
-            FullChatLink += $"<color={color}><b><{name}></b></color> {message}\n";
+            FullChatLink += $"<color={color}><b><{steamUsername}></b></color> {message}\n";
 
             _chatScrollPosition.y = Mathf.Infinity;
         }
@@ -419,18 +413,23 @@ namespace RavenM
 
         private void OnLobbyChatMessage(LobbyChatMsg_t pCallback)
         {
+            ulong steamId = pCallback.m_ulSteamIDUser;
             var buf = new byte[4096];
             int len = SteamMatchmaking.GetLobbyChatEntry(LobbySystem.instance.ActualLobbyID, (int)pCallback.m_iChatID, out CSteamID user, buf, buf.Length, out EChatEntryType chatType);
             string chat = DecodeLobbyChat(buf, len);
 
-            if (chat.StartsWith("/") && user == LobbySystem.instance.OwnerID)
+            if (steamId != SteamId.m_SteamID)
             {
-                ProcessLobbyChatCommand(chat, SteamId.m_SteamID, true);
+                if (chat.StartsWith("/") && user == LobbySystem.instance.OwnerID)
+                {
+                    ProcessLobbyChatCommand(chat, SteamId.m_SteamID, true);
+                }
+                else
+                {
+                    PushLobbyChatMessage(chat, SteamFriends.GetFriendPersonaName((CSteamID)steamId));
+                }
             }
-            else
-            {
-                SendLobbyChat(chat);
-            }
+
         }
 
         private void OnLobbyChatUpdate(LobbyChatUpdate_t pCallback)
@@ -526,7 +525,7 @@ namespace RavenM
                         {
                             if (isLobbyChat)
                             {
-                                PushLobbyChatMessage(CurrentChatMessage);
+                                PushLobbyChatMessage(CurrentChatMessage, SteamUsername);
                                 SendLobbyChat(CurrentChatMessage);
                             }
                             else

@@ -1216,6 +1216,11 @@ namespace RavenM
 
             if (InLobby && LobbyDataReady)
             {
+                if (!IngameNetManager.instance.IsClient)
+                {
+                    ChatManager.instance.CreateChatArea(true, 300f, 400f, 570f);
+                }
+
                 GUILayout.BeginArea(new Rect(10f, 10f, 150f, 10000f), string.Empty);
                 GUILayout.BeginVertical(lobbyStyle);
 
@@ -1310,11 +1315,6 @@ namespace RavenM
 
                 GUILayout.EndVertical();
                 GUILayout.EndArea();
-
-                if (!IngameNetManager.instance.IsClient)
-                {
-                    ChatManager.instance.CreateChatArea(true, 300f, 400f, 570f);
-                }
 
             }
 

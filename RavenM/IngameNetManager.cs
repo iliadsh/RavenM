@@ -765,7 +765,7 @@ namespace RavenM
             MarkerPosition = Vector3.zero;
 
             ChatManager.instance.CurrentChatMessage = string.Empty;
-            //ChatManager.instance.FullChatLink = string.Empty;
+            ChatManager.instance.FullChatLink = string.Empty;
             ChatManager.instance.ChatScrollPosition = Vector2.zero;
             ChatManager.instance.JustFocused = false;
             ChatManager.instance.TypeIntention = false;
