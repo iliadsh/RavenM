@@ -8,6 +8,7 @@ using System.Text;
 using System.Diagnostics;
 using System.Linq;
 using RavenM.RSPatch.Wrapper;
+using System.Text.RegularExpressions;
 
 namespace RavenM
 {
@@ -207,6 +208,11 @@ namespace RavenM
 
             ModManager.instance.ContentChanged();
 
+            // Sort vehicles
+            var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
+            moddedVehicles.Sort((x, y) => x.name.CompareTo(y.name));
+            LobbySystem.instance.sortedModdedVehicles = moddedVehicles;
+
             if (!LobbySystem.instance.InLobby || !LobbySystem.instance.LobbyDataReady || LobbySystem.instance.IsLobbyOwner || LobbySystem.instance.ModsToDownload.Count > 0)
                 return;
 
@@ -329,6 +335,8 @@ namespace RavenM
         public bool nameTagsEnabled = true;
 
         public bool nameTagsForTeamOnly = false;
+
+        public List<GameObject> sortedModdedVehicles = new List<GameObject>();
         private void Awake()
         {
             instance = this;
@@ -406,6 +414,7 @@ namespace RavenM
 
                 bool needsToReload = false;
                 List<PublishedFileId_t> mods = new List<PublishedFileId_t>();
+
                 foreach (var mod in ModManager.instance.GetActiveMods())
                 {
                     if (mod.workshopItemId.ToString() == "0")
@@ -732,9 +741,7 @@ namespace RavenM
                         if (idx == -1)
                         {
                             isDefault = false;
-                            var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
-                            moddedVehicles.Sort((x, y) => x.name.CompareTo(y.name));
-                            idx = moddedVehicles.IndexOf(prefab);
+                            idx = sortedModdedVehicles.IndexOf(prefab);
                         }
 
                         SteamMatchmaking.SetLobbyData(ActualLobbyID, i + "vehicle_" + type, prefab == null ? "NULL" : isDefault + "," + idx);
@@ -764,18 +771,23 @@ namespace RavenM
 
                 var enabledMutators = new List<int>();
                 ModManager.instance.loadedMutators.Sort((x, y) => x.name.CompareTo(y.name));
-                foreach (var mutator in ModManager.instance.loadedMutators)
+
+                for (int i = 0; i < ModManager.instance.loadedMutators.Count; i++)
                 {
+                    var mutator = ModManager.instance.loadedMutators.ElementAt(i);
+
                     if (!mutator.isEnabled)
                         continue;
 
-                    int id = mutator.name.GetHashCode();
+                    int id = i;
+
                     enabledMutators.Add(id);
 
                     var config = new List<string>();
                     foreach (var item in mutator.configuration.GetAllFields())
                     {
-                        config.Add(item.SerializeValue());
+                        string safeValue = item.SerializeValue().Replace(",", "\\,");
+                        config.Add(safeValue);
                     }
                     SteamMatchmaking.SetLobbyData(ActualLobbyID, id + "config", string.Join(",", config.ToArray()));
                 }
@@ -797,47 +809,52 @@ namespace RavenM
                 {
                     InstantActionMaps.instance.teamDropdown.value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "team"));
                 }
-                int givenEntry = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "loadedLevelEntry"));
 
-                if (givenEntry == customMapOptionIndex)
+                if (instance.LoadedServerMods)
                 {
-                    string mapName = SteamMatchmaking.GetLobbyData(ActualLobbyID, "customMap");
+                    int givenEntry = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "loadedLevelEntry"));
 
-                    if (InstantActionMaps.instance.mapDropdown.value != customMapOptionIndex || entries[customMapOptionIndex].name != mapName)
+                    if (givenEntry == customMapOptionIndex)
                     {
-                        foreach (var mod in ModManager.instance.GetActiveMods())
+                        string mapName = SteamMatchmaking.GetLobbyData(ActualLobbyID, "customMap");
+
+                        if (InstantActionMaps.instance.mapDropdown.value != customMapOptionIndex || entries[customMapOptionIndex].name != mapName)
                         {
-                            foreach (var map in mod.content.GetMaps())
+                            foreach (var mod in ModManager.instance.GetActiveMods())
                             {
-                                string currentName = string.Empty;
-                                string[] parts = map.Name.Split('.');
-                                for (int i = 0; i < parts.Length - 1; i++)
+                                foreach (var map in mod.content.GetMaps())
                                 {
-                                    currentName += parts[i];
-                                }
-                                if (currentName == mapName)
-                                {
-                                    InstantActionMaps.MapEntry entry = new InstantActionMaps.MapEntry
+                                    string currentName = string.Empty;
+                                    string[] parts = map.Name.Split('.');
+                                    for (int i = 0; i < parts.Length - 1; i++)
                                     {
-                                        name = currentName,
-                                        sceneName = map.FullName,
-                                        isCustomMap = true,
-                                        hasLoadedMetaData = true,
-                                        image = mod.content.HasIconImage()
-                                                ? Sprite.Create(mod.iconTexture, new Rect(0f, 0f, mod.iconTexture.width, mod.iconTexture.height), Vector2.zero, 100f)
-                                                : null,
-                                        suggestedBots = 0,
-                                    };
-                                    InstantActionMaps.SelectedCustomMapEntry(entry);
+                                        currentName += parts[i];
+                                    }
+                                    if (currentName == mapName)
+                                    {
+                                        InstantActionMaps.MapEntry entry = new InstantActionMaps.MapEntry
+                                        {
+                                            name = currentName,
+                                            sceneName = map.FullName,
+                                            isCustomMap = true,
+                                            hasLoadedMetaData = true,
+                                            image = mod.content.HasIconImage()
+                                                    ? Sprite.Create(mod.iconTexture, new Rect(0f, 0f, mod.iconTexture.width, mod.iconTexture.height), Vector2.zero, 100f)
+                                                    : null,
+                                            suggestedBots = 0,
+                                        };
+                                        InstantActionMaps.SelectedCustomMapEntry(entry);
+                                    }
                                 }
                             }
                         }
                     }
+                    else
+                    {
+                        InstantActionMaps.instance.mapDropdown.value = givenEntry;
+                    }
                 }
-                else
-                {
-                    InstantActionMaps.instance.mapDropdown.value = givenEntry;
-                }
+
 
                 for (int i = 0; i < 2; i++)
                 {
@@ -874,10 +891,8 @@ namespace RavenM
                                 newPrefab = ActorManager.instance.defaultVehiclePrefabs[idx];
                             }
                             else
-                            {
-                                var moddedVehicles = ModManager.AllVehiclePrefabs().ToList();
-                                moddedVehicles.Sort((x, y) => x.name.CompareTo(y.name));
-                                newPrefab = moddedVehicles[idx];
+                            {    
+                                newPrefab = sortedModdedVehicles[idx];
                             }
                         }
 
@@ -909,7 +924,6 @@ namespace RavenM
                             else
                             {
                                 var moddedTurrets = ModManager.AllTurretPrefabs().ToList();
-                                moddedTurrets.Sort((x, y) => x.name.CompareTo(y.name));
                                 newPrefab = moddedTurrets[idx];
                             }
                         }
@@ -937,18 +951,22 @@ namespace RavenM
 
                     int id = int.Parse(mutatorStr);
 
-                    foreach (var mutator in ModManager.instance.loadedMutators)
+                    for (int mutatorIndex = 0; mutatorIndex < ModManager.instance.loadedMutators.Count; mutatorIndex++)
                     {
-                        int candidate = mutator.name.GetHashCode();
-                        if (id == candidate)
+                        var mutator = ModManager.instance.loadedMutators.ElementAt(mutatorIndex);
+
+                        if (id == mutatorIndex)
                         {
                             mutator.isEnabled = true;
 
-                            string[] config = SteamMatchmaking.GetLobbyData(ActualLobbyID, candidate + "config").Split(',');
+                            string configStr = SteamMatchmaking.GetLobbyData(ActualLobbyID, mutatorIndex + "config");
+                            string pattern = @"(?<!\),";
+                            string[] config = Regex.Split(configStr, pattern);
+
                             int i = 0;
                             foreach (var item in mutator.configuration.GetAllFields())
                             {
-                                item.DeserializeValue(config[i]);
+                                item.DeserializeValue(config[i].Replace("\\,", ","));
                                 i++;
                             }
                         }
