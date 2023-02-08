@@ -660,7 +660,7 @@ namespace RavenM
             chatStyle.normal.background = GreyBackground;
             
             var textStyle = new GUIStyle();
-            textStyle.wordWrap = true;
+            textStyle.wordWrap = wordWrap;
             textStyle.normal.textColor = Color.white;
             if (!wordWrap)
                 textStyle.wordWrap = false;
