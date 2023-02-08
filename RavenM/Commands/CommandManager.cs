@@ -14,11 +14,51 @@ namespace RavenM.Commands
         public CommandManager()
         {
             Commands = new List<Command>();
-            Commands.Add(new Command("help", new object[] { null }, false, false, true, true));
-            Commands.Add(new Command("nametags", new object[] { true }, true, true, true, true));
-            Commands.Add(new Command("kill", new object[] { "actor" }, true, true, false, true));
-            Commands.Add(new Command("nametagsteamonly", new object[] { true }, true, true, true, true));
-            Commands.Add(new Command("kick", new object[] { "actor" }, false, true, false, true));
+            Commands.Add(new Command(
+                _name: "help",
+                _reqArgs: new object[] { null }, 
+                _global: false, 
+                _hostOnly: false, 
+                scripted: true,
+                allowInLobby: true,
+                allowInGame: true)
+            );
+            Commands.Add(new Command(
+                _name: "nametags",
+                _reqArgs: new object[] { true },
+                _global: true, 
+                _hostOnly: true, 
+                scripted: true, 
+                allowInLobby: true,
+                allowInGame: true)
+            );
+            Commands.Add(new Command(
+                _name: "kill", 
+                _reqArgs: new object[] { "actor" }, 
+                _global: true, 
+                _hostOnly: true, 
+                scripted: false, 
+                allowInLobby: false, 
+                allowInGame: true)
+            );
+            Commands.Add(new Command(
+                _name: "nametagsteamonly", 
+                _reqArgs: new object[] { true }, 
+                _global: true, 
+                _hostOnly: true, 
+                scripted: true, 
+                allowInLobby: true,
+                allowInGame: true)
+            );
+            Commands.Add(new Command(
+                _name: "kick", 
+                _reqArgs: new object[] { "actor" },
+                _global: false,
+                _hostOnly: true,
+                scripted: true,
+                allowInLobby: true,
+                allowInGame: true)
+            );
             Plugin.logger.LogInfo("CommandManager registered commands: " + Commands.Count);
         }
         public Command GetCommandFromName(string command)
@@ -42,19 +82,11 @@ namespace RavenM.Commands
         }
         public List<Command> GetAllLobbyCommands()
         {
-            IEnumerable<Command> commands = Commands;
-
-            commands = commands.Where(command => command.AllowInLobby == true);
-
-            return commands.ToList();
+            return Commands.Where(command => command.AllowInLobby == true).ToList();
         }
         public List<Command> GetAllIngameCommands()
         {
-            IEnumerable<Command> commands = Commands;
-
-            commands = commands.Where(command => command.AllowInGame == true);
-
-            return commands.ToList();
+            return Commands.Where(command => command.AllowInGame == true).ToList();
         }
         public void AddCustomCommand(Command cmd)
         {

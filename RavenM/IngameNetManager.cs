@@ -32,6 +32,7 @@ namespace RavenM
                 SteamNetworkingSockets.CloseListenSocket(IngameNetManager.instance.ServerSocket);
 
             IngameNetManager.instance.ResetState();
+            ChatManager.instance.ResetChat();
         }
     }
 
@@ -765,7 +766,6 @@ namespace RavenM
             MarkerPosition = Vector3.zero;
 
             ChatManager.instance.CurrentChatMessage = string.Empty;
-            ChatManager.instance.FullChatLink = string.Empty;
             ChatManager.instance.ChatScrollPosition = Vector2.zero;
             ChatManager.instance.JustFocused = false;
             ChatManager.instance.TypeIntention = false;
@@ -2115,8 +2115,16 @@ namespace RavenM
                                     var commandPacket = dataStream.ReadChatCommandPacket();
 
                                     var actor = ClientActors.ContainsKey(commandPacket.Id) ? ClientActors[commandPacket.Id] : null;
-                                    if (actor != null)
-                                        ChatManager.instance.ProcessChatCommand(commandPacket.Command, actor,commandPacket.SteamID, false);
+                                    bool inLobby = LobbySystem.instance.InLobby;
+
+                                    if (!inLobby && actor != null)
+                                    {
+                                         ChatManager.instance.ProcessChatCommand(commandPacket.Command, actor, commandPacket.SteamID, false);
+                                    }
+                                    else
+                                    {
+                                        ChatManager.instance.ProcessLobbyChatCommand(commandPacket.Command, commandPacket.SteamID, false);
+                                    }
 
                                 }
                                 break;
