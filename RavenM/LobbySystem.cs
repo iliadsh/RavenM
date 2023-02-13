@@ -882,7 +882,7 @@ namespace RavenM
                             mutator.isEnabled = true;
 
                             string configStr = SteamMatchmaking.GetLobbyData(ActualLobbyID, mutatorIndex + "config");
-                            string pattern = @"(?<!\),";
+                            string pattern = @"/(?<!\\),/g";
                             string[] config = Regex.Split(configStr, pattern);
 
                             int i = 0;
@@ -1234,6 +1234,7 @@ namespace RavenM
                     SteamMatchmaking.LeaveLobby(ActualLobbyID);
                     LobbyDataReady = false;
                     InLobby = false;
+                    ChatManager.instance.ResetChat();
                 }
 
                 GUILayout.BeginHorizontal();

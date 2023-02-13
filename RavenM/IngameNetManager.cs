@@ -32,7 +32,6 @@ namespace RavenM
                 SteamNetworkingSockets.CloseListenSocket(IngameNetManager.instance.ServerSocket);
 
             IngameNetManager.instance.ResetState();
-            ChatManager.instance.ResetChat();
         }
     }
 
