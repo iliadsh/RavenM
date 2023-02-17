@@ -216,6 +216,27 @@ namespace RavenM.UI
             nameTagsAssetBundle.Unload(false);
             InitNameTags();
         }
+        public void SetNameTagForActor(Actor actor, string newName)
+        {
+            foreach (var kv in nameTagObjects.Keys)
+            {
+                Actor actorValue = kv.actor;
+                Text tag = nameTagObjects[kv];   
+                if(actorValue == actor)
+                {
+                    tag.text = newName;
+                }
+            }
+        }
+        public void ResetNameTagsToOriginal()
+        {
+            foreach (var kv in nameTagObjects.Keys)
+            {
+                Actor actorValue = kv.actor;
+                Text tag = nameTagObjects[kv];
+                tag.text = actorValue.name;
+            }
+        }
         void Update()
         {
             if (!nameTagsEnabled)

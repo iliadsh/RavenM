@@ -44,6 +44,7 @@ namespace RavenM.RSPatch.Wrapper
                     continue;
                 actors.Add(actor);
             }
+            actors.Add(ActorManager.instance.player);
             return actors;
         }
         public static void SendServerChatMessage(string message, Color color)
@@ -58,7 +59,7 @@ namespace RavenM.RSPatch.Wrapper
             using MemoryStream memoryStream = new MemoryStream();
             var chatPacket = new ChatPacket
             {
-                Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
+                Id = -1,
                 Message = input,
                 TeamOnly = false,
             };
