@@ -22,7 +22,7 @@ namespace RavenM.RSPatch
             "data",
 
         })]
-        public ScriptEvent<Actor,int, string> onReceivePacket { get; protected set; }
+        public ScriptEvent<int, string> onReceivePacket { get; protected set; }
 
 
         [CallbackSignature(new string[]
