@@ -882,7 +882,7 @@ namespace RavenM
                             mutator.isEnabled = true;
 
                             string configStr = SteamMatchmaking.GetLobbyData(ActualLobbyID, mutatorIndex + "config");
-                            string pattern = @"/(?<!\\),/g";
+                            string pattern = @"(?<!\\),";
                             string[] config = Regex.Split(configStr, pattern);
 
                             int i = 0;
