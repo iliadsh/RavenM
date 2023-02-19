@@ -231,6 +231,8 @@ namespace RavenM
             if (LobbySystem.instance.LoadedServerMods)
                 LobbySystem.instance.RequestModReload = true;
             LobbySystem.instance.IsLobbyOwner = false;
+
+            ChatManager.instance.ResetChat();
         }
     }
 
