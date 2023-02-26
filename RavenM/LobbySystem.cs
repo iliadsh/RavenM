@@ -30,6 +30,7 @@ namespace RavenM
             if (LobbySystem.instance.InLobby && !LobbySystem.instance.IsLobbyOwner && !LobbySystem.instance.ReadyToPlay)
                 return false;
             OptionsPatch.SetConfigValues(false);
+
             // Only start if all members are ready.
             if (LobbySystem.instance.LobbyDataReady && LobbySystem.instance.IsLobbyOwner)
             {
@@ -48,6 +49,7 @@ namespace RavenM
 
                 SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "started", "yes");
             }
+
             LobbySystem.instance.ReadyToPlay = false;
             return true;
         }
@@ -255,7 +257,9 @@ namespace RavenM
                 return;
 
             if (LobbySystem.instance.IsLobbyOwner)
+            {
                 SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "started", "false");
+            }
 
             SteamMatchmaking.SetLobbyMemberData(LobbySystem.instance.ActualLobbyID, "ready", "no");
         }
@@ -433,6 +437,7 @@ namespace RavenM
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "owner", OwnerID.ToString());
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "mods", string.Join(",", mods.ToArray()));
                 SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "loaded", "yes");
+                SteamMatchmaking.SetLobbyData(ActualLobbyID, "started", "false");
             }
             else
             {
@@ -1356,7 +1361,7 @@ namespace RavenM
 
                     GUILayout.BeginHorizontal();
                     GUILayout.FlexibleSpace();
-                    GUILayout.Label($"{punBytesDownloaded / 1024}KB/{punBytesTotal / 1024}KB");
+                    GUILayout.Label($"{Math.Round( punBytesDownloaded / Math.Pow(1024, 2), 2 )}MB/{Math.Round( punBytesTotal / Math.Pow(1024, 2), 2)}MB");
                     GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 

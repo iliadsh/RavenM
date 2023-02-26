@@ -668,7 +668,7 @@ namespace RavenM
             GUILayout.BeginArea(new Rect(10f, Screen.height - chatYOffset, chatWidth, chatHeight), string.Empty, chatStyle);
             GUILayout.BeginVertical();
             GUILayout.Space(10);
-            ChatScrollPosition = GUILayout.BeginScrollView(ChatScrollPosition, GUILayout.Width(500f), GUILayout.Height(200f));
+            ChatScrollPosition = GUILayout.BeginScrollView(ChatScrollPosition, GUILayout.Width(chatWidth), GUILayout.Height(chatHeight - 15f));
             // Any player can break the formatting by using Rich Text e.g. <color=abcd> <b> - Chai
             GUILayout.Label(FullChatLink, textStyle, GUILayout.Width(chatWidth - 30f));
             GUILayout.EndScrollView();
