@@ -1,17 +1,14 @@
 ﻿using HarmonyLib;
 using Lua;
 using Lua.Proxy;
-using Lua.Wrapper;
 using MoonSharp.Interpreter;
+using RavenM.rspatch;
 using RavenM.rspatch.Proxy;
 using RavenM.RSPatch.Proxy;
 using RavenM.RSPatch.Wrapper;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace RavenM.RSPatch
@@ -26,6 +23,7 @@ namespace RavenM.RSPatch
             script.Globals["GameEventsOnline"] = typeof(RavenscriptEventsMProxy);
             script.Globals["GameObjectM"] = typeof(GameObjectMProxy);
             script.Globals["CommandManager"] = typeof(CommandManagerProxy);
+            script.Globals["GameObjectNetConfig"] = typeof(GameObjectNetConfigProxy);
             return true;
         }
     }
@@ -42,6 +40,9 @@ namespace RavenM.RSPatch
             Script.GlobalOptions.CustomConverters.SetScriptToClrCustomConversion(DataType.UserData, typeof(RavenscriptMultiplayerEvents), (DynValue v) => v.ToObject<RavenscriptEventsMProxy>()._value);
             UserData.RegisterType(typeof(GameObjectMProxy), InteropAccessMode.Default, null);
             UserData.RegisterType(typeof(CommandManagerProxy),InteropAccessMode.Default, null);
+            UserData.RegisterType(typeof(GameObjectNetConfigProxy), InteropAccessMode.Default, null);
+            Script.GlobalOptions.CustomConverters.SetClrToScriptCustomConversion<GameObjectNetConfig>((Script s, GameObjectNetConfig v) => DynValue.FromObject(s, GameObjectNetConfigProxy.New(v)));
+            Script.GlobalOptions.CustomConverters.SetScriptToClrCustomConversion(DataType.UserData, typeof(GameObjectNetConfig), (DynValue v) => v.ToObject<GameObjectNetConfigProxy>()._value);
             return true;
         }
     }
@@ -58,6 +59,7 @@ namespace RavenM.RSPatch
             proxyTypesList.Add(typeof(RavenscriptEventsMProxy));
             proxyTypesList.Add(typeof(GameObjectMProxy));
             proxyTypesList.Add(typeof(CommandManagerProxy));
+            proxyTypesList.Add(typeof(GameObjectNetConfigProxy));
             __result = proxyTypesList.ToArray();
         }
     }
@@ -144,6 +146,11 @@ namespace RavenM.RSPatch
     }
     public class RSPatch
     {
+        public static HashSet<int> OwnedObjects = new HashSet<int>();
+
+        public static Dictionary<int, NetworkTransform> ClientObjects = new Dictionary<int, NetworkTransform>();
+
+        public static Dictionary<int, NetworkGameObjectPacket> TargetGameObjectState = new Dictionary<int, NetworkGameObjectPacket>();
         public static void FixedUpdate(Packet packet, ProtocolReader dataStream)
         {
             switch (packet.Id)
@@ -151,18 +158,27 @@ namespace RavenM.RSPatch
                 case PacketType.CreateCustomGameObject:
                     {
                         SpawnCustomGameObjectPacket customGO_packet = dataStream.ReadSpawnCustomGameObjectPacket();
-                        Plugin.logger.LogInfo("Create Custom Game Object Packet: " + WLobby.GetNetworkPrefabByHash(customGO_packet.PrefabHash).name);
-                        GameObject networkPrefab = WLobby.GetNetworkPrefabByHash(customGO_packet.PrefabHash);
-                        GameObject InstantiatedPrefab = GameObject.Instantiate(networkPrefab);
-                        InstantiatedPrefab.transform.position = customGO_packet.Position;
-                        InstantiatedPrefab.transform.eulerAngles = customGO_packet.Rotation;
-                        Plugin.logger.LogInfo("InstantiatedPrefab at " + InstantiatedPrefab.transform.position);
-                        if (networkPrefab == null)
+                        if (OwnedObjects.Contains(customGO_packet.GameObjectID))
                         {
-                            Plugin.logger.LogError("Network prefab is null");
                             break;
                         }
-                        Plugin.logger.LogDebug($"Created custom gameobject {networkPrefab.name} with hash {customGO_packet.PrefabHash}");
+                        //Plugin.logger.LogInfo("Create Custom Game Object Packet: " + WLobby.GetNetworkPrefabByHash(customGO_packet.PrefabHash).name);
+                        GameObject networkPrefab = WLobby.GetNetworkPrefabByHash(customGO_packet.PrefabHash);
+                        if (networkPrefab == null)
+                        {
+                            Plugin.logger.LogError("Network prefab is null for " + customGO_packet.PrefabHash);
+                            break;
+                        }
+                        GameObject InstantiatedPrefab = GameObject.Instantiate(networkPrefab);
+                        InstantiatedPrefab.transform.position = customGO_packet.Position;
+                        InstantiatedPrefab.transform.rotation = customGO_packet.Rotation;
+                        NetworkTransform networkTransform = InstantiatedPrefab.AddComponent<NetworkTransform>();
+
+                        networkTransform.SourceID = customGO_packet.SourceID;
+                        networkTransform.GameObjectID = customGO_packet.GameObjectID;
+                        ClientObjects.Add(customGO_packet.GameObjectID, networkTransform);
+                        Plugin.logger.LogDebug("InstantiatedPrefab at " + networkTransform.transform.position);
+                        Plugin.logger.LogDebug($"Created custom game object {networkPrefab.name} with PrefabHash {customGO_packet.PrefabHash} SourceID {customGO_packet.SourceID} GameObjectID {customGO_packet.GameObjectID}");
                     }
                     break;
                 case PacketType.NetworkGameObjectsHashes:
@@ -178,6 +194,33 @@ namespace RavenM.RSPatch
                     //Plugin.logger.LogInfo($"Received scripted packet {scriptedPacket.Id} Data: {scriptedPacket.Data} from {targetActor.name}");
                     Plugin.logger.LogInfo($"Received scripted packet {scriptedPacket.Id} Data: {scriptedPacket.Data}");
                     RavenscriptEventsManagerPatch.events.onReceivePacket.Invoke(scriptedPacket.Id, scriptedPacket.Data);
+                    break;
+                case PacketType.NetworkGameObject:
+                    NetworkGameObjectPacket networkGameObjectPacket = dataStream.ReadNetworkGameObjectPacket();
+                    if (OwnedObjects.Contains(networkGameObjectPacket.GameObjectID))
+                        break;
+                    if (!ClientObjects.ContainsKey(networkGameObjectPacket.GameObjectID))
+                    {
+                        Plugin.logger.LogInfo($"Could not update gameobject with id {networkGameObjectPacket.GameObjectID} SourceID: {networkGameObjectPacket.SourceID} because it was not registered");
+                        break;
+                    }
+                    NetworkTransform networkTransformFromPacket = ClientObjects[networkGameObjectPacket.GameObjectID];
+                    if (networkTransformFromPacket.gameObject == null)
+                    {
+                        Plugin.logger.LogInfo($"Could not update gameobject with id {networkGameObjectPacket.GameObjectID} SourceID: {networkGameObjectPacket.SourceID} because gameobject is null");
+                        break;
+                    }
+                    
+                    TargetGameObjectState[networkGameObjectPacket.GameObjectID] = networkGameObjectPacket;
+                    // Only update the game objects that you spawned
+                    Plugin.logger.LogInfo($"Updating pos from {networkTransformFromPacket.transform.position} to {networkGameObjectPacket.Position}");
+                    // Temporary Solution
+                    //networkTransformFromPacket.transform.position = networkGameObjectPacket.Position;
+                    //networkTransformFromPacket.transform.rotation = networkGameObjectPacket.Rotation;
+                    //networkTransformFromPacket.transform.position = Vector3.Lerp(networkTransformFromPacket.transform.position, networkGameObjectPacket.Position,Time.deltaTime);
+                    //networkTransformFromPacket.transform.rotation = Quaternion.Slerp(networkTransformFromPacket.transform.rotation, networkGameObjectPacket.Rotation, Time.deltaTime);
+                    //networkTransformFromPacket.transform.localScale = networkGameObjectPacket.Scale;
+                    Plugin.logger.LogInfo($"Got game object update from {networkGameObjectPacket.SourceID} for {networkGameObjectPacket.GameObjectID}");
                     break;
             }
         }

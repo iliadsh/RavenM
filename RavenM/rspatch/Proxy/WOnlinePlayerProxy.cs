@@ -61,6 +61,10 @@ namespace RavenM.RSPatch.Proxy
         {
             GameUI.instance.SetNameTagForActor(actor, newName);
         }
+        public static void ResetNameTags()
+        {
+            GameUI.instance.ResetNameTagsToOriginal();
+        }
         public static Actor GetPlayerFromName(string name)
         {
             return WOnlinePlayer.GetPlayerFromName(name);
