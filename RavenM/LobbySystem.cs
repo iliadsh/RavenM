@@ -544,6 +544,14 @@ namespace RavenM
                     return;
                 }
             }
+
+            InstantActionMaps.instance.teamDropdown.onValueChanged.AddListener(delegate
+            {
+                OnTeamChange(InstantActionMaps.instance.teamDropdown);
+            });
+
+            // Initialize currently selected team
+            OnTeamChange(InstantActionMaps.instance.teamDropdown);
         }
 
         private void OnItemDownload(DownloadItemResult_t pCallback)
@@ -615,6 +623,11 @@ namespace RavenM
             }
         }
 
+        private void OnTeamChange(UnityEngine.UI.Dropdown dropdown)
+        {
+            SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "team", dropdown.value == 0 ? "<color=blue>E</color>" : "<color=red>R</color>");
+        }
+
         private void Update()
         {
             if (GameManager.instance == null || GameManager.IsIngame() || GameManager.IsInLoadingScreen())
@@ -658,7 +671,7 @@ namespace RavenM
             {
                 InstantActionMaps.instance.teamDropdown.value = 0;
             }
-            SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "team", InstantActionMaps.instance.teamDropdown.value == 0 ? "<color=blue>E</color>" : "<color=red>R</color>");
+            
             if (IsLobbyOwner)
             {
                 SteamMatchmaking.SetLobbyData(ActualLobbyID, "gameMode", InstantActionMaps.instance.gameModeDropdown.value.ToString());
