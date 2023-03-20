@@ -10,27 +10,33 @@ A Ravenfield multiplayer mod.
 ## This mod is very <b>W.I.P.</b> There are a lot of bugs and opportunities to crash, so please report anything you find!
 
 # Building
-There are several dependencies on game assemblies located in `Ravenfield/ravenfield_Data/Managed/`. To resolve them, create a `libs/` folder in the root folder and place the following assemblies there:
-- Assembly-CSharp.dll
-- Assembly-CSharp-firstpass.dll
-- netstandard.dll
-- UnityEngine.dll
-- UnityEngine.AnimationModule.dll
-- UnityEngine.AssetBundleModule.dll
-- UnityEngine.AudioModule.dll
-- UnityEngine.CoreModule.dll
-- UnityEngine.ImageConversionModule.dll
-- UnityEngine.IMGUIModule.dll
-- UnityEngine.InputLegacyModule.dll
-- UnityEngine.PhysicsModule.dll
-- UnityEngine.UI.dll
-- UnityEngine.UIModule.dll
 
-Afterwards, you should be able to build the project as normal. Visual Studio 2019+ is recommended. .NET 4.6 is required.
+Visual Studio 2019+ is recommended. .NET 4.6 is required.
+
+## Steps to build:
+
+1. Clone the repository to your local machine
+   
+   ```bash
+    $ git clone https://github.com/iliadsh/RavenM.git
+    $ git checkout master
+    ```
+
+2. Build project
+
+    ```bash
+    $ dotnet build RavenM
+    ```
+
+    Dependencies should be restored when building. If not, run the following command:
+
+    ```bash
+    $ dotnet restore
+    ```
 
 # Installing
 
-<b>Important Note:</b> RavenM does not support BepInEx version 6. Please ensure to install the latest version of BepInEx 5.x.x to complete the installation.
+<br>Important Note:</b> RavenM does not support BepInEx version 6. Please ensure to install the latest version of BepInEx 5.x.x to complete the installation.
 
 This mod depends on [BepInEx](https://github.com/BepInEx/BepInEx), a cross-platform Unity modding framework. First, install BepInEx into Ravenfield following the installation instructions [here](https://docs.bepinex.dev/articles/user_guide/installation/index.html). As per the instructions, make sure to run the game at least once with BepInEx installed before adding the mod to generate config files.
 
@@ -39,7 +45,10 @@ Next, place `RavenM.dll` into `Ravenfield/BepInEx/plugins/`. Optionally, you may
 Run the game and RavenM should now be installed.
 
 # Playing
+
 <b>Tl;dr</b>: The connection menu is opened with `M` while in the `Instant Action` menu.
+
+<b>Please be aware pirated/non-official copies of Ravenfield may encounter issues when using RavenM.</b> The mod relies entirely on Steam to transfer game data and mods securely between players.
 
 To play together, one player must be the host. This player will control the behaviour of all the bots, the game parameters, and the current game state. All other players will connect to the host during the match. Despite this, no port-forwarding is required! All data is routed through the Steam relay servers, which means fast, easy and encrypted connections with DDoS protection and Steam authentication.
 
