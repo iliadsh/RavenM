@@ -9,31 +9,6 @@ A Ravenfield multiplayer mod.
 
 ## This mod is very <b>W.I.P.</b> There are a lot of bugs and opportunities to crash, so please report anything you find!
 
-# Building
-
-Visual Studio 2019+ is recommended. .NET 4.6 is required.
-
-## Steps to build:
-
-1. Clone the repository to your local machine
-   
-   ```bash
-    $ git clone https://github.com/iliadsh/RavenM.git
-    $ git checkout master
-    ```
-
-2. Build project
-
-    ```bash
-    $ dotnet build RavenM
-    ```
-
-    Dependencies should be restored when building. If not, run the following command:
-
-    ```bash
-    $ dotnet restore
-    ```
-
 # Installing
 
 <b>Important Note:</b> RavenM does not support BepInEx version 6. Please ensure to install the latest version of BepInEx 5.x.x to complete the installation.
@@ -59,6 +34,31 @@ Starting the game will put everyone in the lobby in a match and terminate the lo
 
 ## Joining
 Go to the `Instant Action` menu and press `M`. Press `Join` and paste the `Lobby ID` of an existing lobby. At this point, you cannot edit any of the options in the `Instant Action` page except for your team. You also cannot start the match. The settings chosen by the host will reflect on your own options.
+
+# Building from source
+
+Visual Studio 2019+ is recommended. .NET 4.6 is required.
+
+## Steps to build:
+
+1. Clone the repository to your local machine
+   
+   ```bash
+    $ git clone https://github.com/iliadsh/RavenM.git
+    $ git checkout master
+    ```
+
+2. Build project
+
+    ```bash
+    $ dotnet build RavenM
+    ```
+
+    Dependencies should be restored when building. If not, run the following command:
+
+    ```bash
+    $ dotnet restore
+    ```
 
 Have fun!
 
