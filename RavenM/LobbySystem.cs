@@ -165,7 +165,7 @@ namespace RavenM
                 else
                     root.AddComponent<GuidComponent>().guid = id;
 
-                IngameNetManager.instance.ClientDestructibles.Add(id, root);
+                IngameNetManager.instance.ClientDestructibles[id] = root;
 
                 Plugin.logger.LogInfo($"Registered new destructible root with name: {root.name} and id: {id}");
             }

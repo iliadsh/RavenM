@@ -755,6 +755,7 @@ namespace RavenM
             TargetVehicleStates.Clear();
             OwnedProjectiles.Clear();
             ClientProjectiles.Clear();
+            ClientDestructibles.Clear();
 
             ClientCanSpawnBot = false;
 
