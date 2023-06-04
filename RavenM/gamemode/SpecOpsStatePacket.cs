@@ -63,7 +63,7 @@ namespace RavenM
                     FpsActorController.instance.playerSquad.AddMember(actor.controller);
                 }
             }
-            var specOpsObj = (GameModeBase.instance as SpecOpsMode);
+            var specOpsObj = (GameModeBase.activeGameMode as SpecOpsMode);
             specOpsObj.attackerActors = attackers.ToArray();
             specOpsObj.attackerSquad = FpsActorController.instance.playerSquad;
             return false;

@@ -737,7 +737,7 @@ namespace RavenM
                 {
                     var mutator = ModManager.instance.loadedMutators.ElementAt(i);
 
-                    if (!mutator.isEnabled)
+                    if (!GameManager.instance.gameInfo.activeMutators.Contains(mutator))
                         continue;
 
                     int id = i;
@@ -902,8 +902,7 @@ namespace RavenM
                 }
 
                 string[] enabledMutators = SteamMatchmaking.GetLobbyData(LobbySystem.instance.ActualLobbyID, "mutators").Split(',');
-                foreach (var mutator in ModManager.instance.loadedMutators)
-                    mutator.isEnabled = false;
+                GameManager.instance.gameInfo.activeMutators.Clear();
                 foreach (var mutatorStr in enabledMutators)
                 {
                     if (mutatorStr == string.Empty)
@@ -917,7 +916,7 @@ namespace RavenM
 
                         if (id == mutatorIndex)
                         {
-                            mutator.isEnabled = true;
+                            GameManager.instance.gameInfo.activeMutators.Add(mutator);
 
                             string configStr = SteamMatchmaking.GetLobbyData(LobbySystem.instance.ActualLobbyID, mutatorIndex + "config");
                             string pattern = @"(?<!\\),";
