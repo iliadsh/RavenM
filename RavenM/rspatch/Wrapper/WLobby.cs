@@ -53,7 +53,7 @@ namespace RavenM.RSPatch.Wrapper
                 return;
             }
             string input = $"<b>Server</b> <color=#{ColorUtility.ToHtmlStringRGB(color)}>{message}</color>";
-            IngameNetManager.instance.PushChatMessage(null, input, true, -1);
+            ChatManager.instance.PushChatMessage(null, input, true, -1);
             
             using MemoryStream memoryStream = new MemoryStream();
             var chatPacket = new ChatPacket

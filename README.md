@@ -9,25 +9,6 @@ A Ravenfield multiplayer mod.
 
 ## This mod is very <b>W.I.P.</b> There are a lot of bugs and opportunities to crash, so please report anything you find!
 
-# Building
-There are several dependencies on game assemblies located in `Ravenfield/ravenfield_Data/Managed/`. To resolve them, create a `libs/` folder in the root folder and place the following assemblies there:
-- Assembly-CSharp.dll
-- Assembly-CSharp-firstpass.dll
-- netstandard.dll
-- UnityEngine.dll
-- UnityEngine.AnimationModule.dll
-- UnityEngine.AssetBundleModule.dll
-- UnityEngine.AudioModule.dll
-- UnityEngine.CoreModule.dll
-- UnityEngine.ImageConversionModule.dll
-- UnityEngine.IMGUIModule.dll
-- UnityEngine.InputLegacyModule.dll
-- UnityEngine.PhysicsModule.dll
-- UnityEngine.UI.dll
-- UnityEngine.UIModule.dll
-
-Afterwards, you should be able to build the project as normal. Visual Studio 2019+ is recommended. .NET 4.6 is required.
-
 # Installing
 
 <b>Important Note:</b> RavenM does not support BepInEx version 6. Please ensure to install the latest version of BepInEx 5.x.x to complete the installation.
@@ -39,7 +20,10 @@ Next, place `RavenM.dll` into `Ravenfield/BepInEx/plugins/`. Optionally, you may
 Run the game and RavenM should now be installed.
 
 # Playing
+
 <b>Tl;dr</b>: The connection menu is opened with `M` while in the `Instant Action` menu.
+
+<b>Please be aware pirated/non-official copies of Ravenfield may encounter issues when using RavenM.</b> The mod relies entirely on Steam to transfer game data and mods securely between players.
 
 To play together, one player must be the host. This player will control the behaviour of all the bots, the game parameters, and the current game state. All other players will connect to the host during the match. Despite this, no port-forwarding is required! All data is routed through the Steam relay servers, which means fast, easy and encrypted connections with DDoS protection and Steam authentication.
 
@@ -50,6 +34,31 @@ Starting the game will put everyone in the lobby in a match and terminate the lo
 
 ## Joining
 Go to the `Instant Action` menu and press `M`. Press `Join` and paste the `Lobby ID` of an existing lobby. At this point, you cannot edit any of the options in the `Instant Action` page except for your team. You also cannot start the match. The settings chosen by the host will reflect on your own options.
+
+# Building from source
+
+Visual Studio 2019+ is recommended. .NET 4.6 is required.
+
+## Steps to build:
+
+1. Clone the repository to your local machine
+   
+   ```bash
+    $ git clone https://github.com/iliadsh/RavenM.git
+    $ git checkout master
+    ```
+
+2. Build project
+
+    ```bash
+    $ dotnet build RavenM
+    ```
+
+    Dependencies should be restored when building. If not, run the following command:
+
+    ```bash
+    $ dotnet restore
+    ```
 
 Have fun!
 

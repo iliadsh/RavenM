@@ -480,7 +480,6 @@ namespace RavenM
             Write(value.Command);
             Write(value.Scripted);
         }
-
     }
 
     public class ProtocolReader : BinaryReader

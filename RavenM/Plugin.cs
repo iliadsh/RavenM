@@ -1,8 +1,10 @@
-﻿using BepInEx;
+﻿using System;
+using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
 using Steamworks;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 namespace RavenM
@@ -49,7 +51,10 @@ namespace RavenM
         public static bool addToBuiltInMutators = false;
         public static string customBuildInMutators;
         public static List<string> customMutatorsDirectories = new List<string>();
-        
+
+        public static bool JoinedLobbyFromArgument = false;
+        public static Dictionary<string, string> Arguments = new Dictionary<string, string>();
+
         public static string BuildGUID
         {
             get
@@ -102,8 +107,23 @@ namespace RavenM
             }
             var harmony = new Harmony("patch.ravenm");
             harmony.PatchAll();
-
-
+            
+            string[] args = Environment.GetCommandLineArgs();
+            foreach (var argument in args)
+            {
+                if (argument.Contains("="))
+                {
+                    string[] argumentVals = argument.Split('=');
+                    string argumentName = argumentVals[0];
+                    string argumentValue = argumentVals[1];
+                    Arguments.Add(argumentName, argumentValue);
+                }
+                else
+                {
+                    Arguments.Add(argument, "");
+                }
+            }
+            
             // Test code
         }
         private void OnGUI()
@@ -128,6 +148,10 @@ namespace RavenM
                 lobbyObject.AddComponent<LobbySystem>();
                 DontDestroyOnLoad(lobbyObject);
 
+                var chatObject = new GameObject();
+                chatObject.AddComponent<ChatManager>();
+                DontDestroyOnLoad(chatObject);
+
                 var netObject = new GameObject();
                 netObject.AddComponent<IngameNetManager>();
                 DontDestroyOnLoad(netObject);
@@ -136,6 +160,20 @@ namespace RavenM
                 discordObject.AddComponent<DiscordIntegration>();
                 DontDestroyOnLoad(discordObject);
             }
+            else if (!JoinedLobbyFromArgument && Arguments.ContainsKey("-ravenm-lobby"))
+            {
+                JoinLobbyFromArgument();
+            }
+        }
+
+        void JoinLobbyFromArgument()
+        {
+            JoinedLobbyFromArgument = true;
+            CSteamID lobbyId = new CSteamID(ulong.Parse(Arguments["-ravenm-lobby"]));
+            SteamMatchmaking.JoinLobby(lobbyId);
+            LobbySystem.instance.InLobby = true;
+            LobbySystem.instance.IsLobbyOwner = false;
+            LobbySystem.instance.LobbyDataReady = false;
         }
     }
 }

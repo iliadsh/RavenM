@@ -478,20 +478,6 @@ namespace RavenM
 
         public Vector3 MarkerPosition = Vector3.zero;
 
-        public string CurrentChatMessage = string.Empty;
-
-        public string FullChatLink = string.Empty;
-
-        public Vector2 ChatScrollPosition = Vector2.zero;
-
-        public Texture2D GreyBackground = new Texture2D(1, 1);
-
-        public bool JustFocused = false;
-
-        public bool TypeIntention = false;
-
-        public bool ChatMode = false;
-
         public bool UsingMicrophone = false;
 
         public Texture2D MicTexture = new Texture2D(2, 2);
@@ -501,7 +487,6 @@ namespace RavenM
         public static readonly Dictionary<Tuple<int, ulong>, GameObject> PrefabCache = new Dictionary<Tuple<int, ulong>, GameObject>();
 
         public CommandManager commandManager;
-
 
         public Type Steamworks_NativeMethods;
 
@@ -513,9 +498,6 @@ namespace RavenM
 
         public KeyCode PlaceMarkerKeybind = KeyCode.BackQuote;
 
-        public KeyCode GlobalChatKeybind = KeyCode.Y;
-
-        public KeyCode TeamChatKeybind = KeyCode.U;
         private void Awake()
         {
             instance = this;
@@ -527,8 +509,8 @@ namespace RavenM
 
             MarkerTexture.LoadImage(imageBytes);
 
-            GreyBackground.SetPixel(0, 0, Color.grey * 0.3f);
-            GreyBackground.Apply();
+            ChatManager.instance.GreyBackground.SetPixel(0, 0, Color.grey * 0.3f);
+            ChatManager.instance.GreyBackground.Apply();
 
             using var micResource = Assembly.GetExecutingAssembly().GetManifestResourceStream("RavenM.assets.mic.png");
             resourceMemory.SetLength(0);
@@ -743,245 +725,13 @@ namespace RavenM
                     continue;
                 DrawMarker(controller.Targets.MarkerPosition ?? Vector3.zero);
             }
-            if (Event.current.isKey && Event.current.keyCode == KeyCode.None && JustFocused)
-            {
-                Event.current.Use();
-                JustFocused = false;
-                return;
-            }
 
-            if (Event.current.isKey && (Event.current.keyCode == KeyCode.Tab || Event.current.character == '\t'))
-                Event.current.Use();
-
-            if (TypeIntention)
-            {
-                GUI.SetNextControlName("chat");
-                CurrentChatMessage = GUI.TextField(new Rect(10f, Screen.height - 160f, 500f, 25f), CurrentChatMessage);
-                GUI.FocusControl("chat");
-
-                string color = !ChatMode ? "green" : (GameManager.PlayerTeam() == 0 ? "blue" : "red");
-                string text = ChatMode ? "GLOBAL" : "TEAM";
-                GUI.Label(new Rect(510f, Screen.height - 160f, 70f, 25f), $"<color={color}><b>{text}</b></color>");
-
-                if (Event.current.isKey && Event.current.keyCode == KeyCode.Escape && TypeIntention)
-                {
-                    TypeIntention = false;
-                }
-
-                if (Event.current.isKey && Event.current.keyCode == KeyCode.Return)
-                {
-                    if (!string.IsNullOrEmpty(CurrentChatMessage))
-                    {
-                        bool isCommand = CurrentChatMessage.Trim().StartsWith("/") ? true : false;
-                        if (isCommand)
-                        {
-                            ProcessChatCommand(CurrentChatMessage, ActorManager.instance.player,SteamUser.GetSteamID().m_SteamID, true);
-                            CurrentChatMessage = string.Empty;
-                        }
-                        else
-                        {
-
-                            PushChatMessage(ActorManager.instance.player, CurrentChatMessage, ChatMode, GameManager.PlayerTeam());
-
-                            using MemoryStream memoryStream = new MemoryStream();
-                            var chatPacket = new ChatPacket
-                            {
-                                Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
-                                Message = CurrentChatMessage,
-                                TeamOnly = !ChatMode,
-                            };
-
-                            using (var writer = new ProtocolWriter(memoryStream))
-                            {
-                                writer.Write(chatPacket);
-                            }
-                            byte[] data = memoryStream.ToArray();
-
-                            SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
-
-                            CurrentChatMessage = string.Empty;
-                        }
-                    }
-                    TypeIntention = false;
-                }
-            }
-
-            if (Event.current.isKey && Event.current.keyCode == GlobalChatKeybind && !TypeIntention)
-            {
-                TypeIntention = true;
-                JustFocused = true;
-                ChatMode = true;
-            }
-
-            if (Event.current.isKey && Event.current.keyCode == TeamChatKeybind && !TypeIntention)
-            {
-                TypeIntention = true;
-                JustFocused = true;
-                ChatMode = false;
-            }
-
-            var chatStyle = new GUIStyle();
-            chatStyle.normal.background = GreyBackground;
-            GUILayout.BeginArea(new Rect(10f, Screen.height - 370f, 500f, 200f), string.Empty, chatStyle);
-            ChatScrollPosition = GUILayout.BeginScrollView(ChatScrollPosition, GUILayout.Width(500f), GUILayout.Height(200f));
-            // Any player can break the formatting by using Rich Text e.g. <color=abcd> <b> - Chai
-            GUILayout.Label(FullChatLink);
-            GUILayout.EndScrollView();
-            GUILayout.EndArea();
+            ChatManager.instance.CreateChatArea(false);
 
             if (UsingMicrophone)
                 GUI.DrawTexture(new Rect(315f, Screen.height - 60f, 50f, 50f), MicTexture);
         }
 
-        public void PushChatMessage(Actor actor, string message, bool global, int team)
-        {
-            string name;
-            if (actor != null)
-                name = actor.name;
-            else
-                name = "";
-            if (!global && GameManager.PlayerTeam() != team)
-                return;
-
-            if (team == -1)
-                FullChatLink += $"<color=#eeeeee>{message}</color>\n";
-            else
-            {
-                string color = !global ? "green" : (team == 0 ? "blue" : "red");
-                FullChatLink += $"<color={color}><b><{name}></b></color> {message}\n";
-                RSPatch.RavenscriptEventsManagerPatch.events.onReceiveChatMessage.Invoke(actor, message);
-            }
-
-            ChatScrollPosition.y = Mathf.Infinity;
-        }
-        public void PushCommandChatMessage(string message,Color color, bool teamOnly,bool sendToAll)
-        {
-
-            FullChatLink += $"<color=#{ColorUtility.ToHtmlStringRGB(color)}><b>{message}</b></color>\n";
-            ChatScrollPosition.y = Mathf.Infinity;
-            if (!sendToAll)
-                   return;
-            using MemoryStream memoryStream = new MemoryStream();
-            var chatPacket = new ChatPacket
-            {
-                Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
-                Message = message,
-                TeamOnly = teamOnly,
-            };
-
-            using (var writer = new ProtocolWriter(memoryStream))
-            {
-                writer.Write(chatPacket);
-            }
-            byte[] data = memoryStream.ToArray();
-
-            SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
-        }
-        private void ProcessChatCommand(string message, Actor actor,ulong id, bool local)
-        {
-            string[] command = message.Trim().Substring(1, message.Length - 1).Split(' ');
-            string initCommand = command[0];
-            if (string.IsNullOrEmpty(initCommand))
-            {
-                return;
-            }
-            if (!commandManager.ContainsCommand(initCommand))
-            {
-                PushCommandChatMessage($"No Command with name {initCommand} found.\nFor more information use Command /help", Color.red, false, false);
-                return;
-            }
-            Command cmd = commandManager.GetCommandFromName(initCommand);
-            if (cmd == null) {
-                Plugin.logger.LogError($"Command {initCommand} is not a registered Command!");
-                return;
-            }
-            bool hasCommandPermission = commandManager.HasPermission(cmd, id, local);
-            // For Commands like /help that have reqArgs[0] = null we don't have to check for arguments
-            bool hasRequiredArgs = true;
-            if (cmd.reqArgs[0] != null)
-                hasRequiredArgs = commandManager.HasRequiredArgs(cmd, command);
-            switch (cmd.CommandName)
-            {
-                case "nametags":
-
-                    if (!local)
-                    {
-                        UI.GameUI.instance.ToggleNameTags();
-                        PushCommandChatMessage("Set nametags to " + command[1], Color.green, false, false);
-                        return;
-                    }
-                    if (!hasCommandPermission || !hasRequiredArgs)
-                        return;
-                    bool parsedArg = bool.TryParse(command[1], out bool result);
-                    if (parsedArg)
-                    {
-                        SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "nameTags", result.ToString());
-                        PushCommandChatMessage("Set nameTags to " + result.ToString(), Color.green,false,false);
-                        UI.GameUI.instance.ToggleNameTags();
-                    }
-                    
-                    break;
-                case "nametagsteamonly":
-
-                    if (!local)
-                    {
-                        UI.GameUI.instance.ToggleNameTags();
-                        PushCommandChatMessage("Set nameTags for Team only to " + command[1], Color.green, false, false);
-                        return;
-                    }
-                    if (!hasCommandPermission || !hasRequiredArgs)
-                        return;
-                    bool parsedArg2 = bool.TryParse(command[1], out bool result2);
-                    if (parsedArg2)
-                    {
-                        SteamMatchmaking.SetLobbyData(LobbySystem.instance.ActualLobbyID, "nameTagsForTeamOnly", result2.ToString());
-                        PushCommandChatMessage("Set nameTags for Team only to " + result2.ToString(), Color.green, false, false);
-                        UI.GameUI.instance.ToggleNameTags();
-                    }
-
-                    break;
-                case "help":
-                    foreach(Command availableCommand in commandManager.GetAllCommands())
-                    {
-                        PushCommandChatMessage($"{commandManager.GetRequiredArgTypes(availableCommand)} Host Only: {availableCommand.HostOnly}", availableCommand.Scripted ? Color.green: Color.yellow, true, false);
-                    }
-                    break;
-                case "kill":
-                    if (!hasCommandPermission || !hasRequiredArgs)
-                        return;
-                    string target = command[1];
-                    Actor targetActor = commandManager.GetActorByName(target);
-                    if (targetActor == null)
-                    {
-                        return;
-                    }
-                    targetActor.Kill(new DamageInfo(DamageInfo.DamageSourceType.FallDamage, actor, null));
-                    PushCommandChatMessage($"Killed actor {targetActor.name}", Color.green, false, false);
-                    break;
-                default:
-                    // If it's not build in command pass it to RS
-                    Plugin.logger.LogInfo("onReceiveCommand " + initCommand);
-                    RSPatch.RavenscriptEventsManagerPatch.events.onReceiveCommand.Invoke(actor, command, new bool[] { hasCommandPermission,hasRequiredArgs,local} );
-                    break;
-            }
-            if (!cmd.Global == local)
-                return;
-            using MemoryStream memoryStream = new MemoryStream();
-            var chatCommandPacket = new ChatCommandPacket
-            {
-                Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
-                SteamID = SteamUser.GetSteamID().m_SteamID,
-                Command = CurrentChatMessage,
-                Scripted = cmd.Scripted,
-            };
-
-            using (var writer = new ProtocolWriter(memoryStream))
-            {
-                writer.Write(chatCommandPacket);
-            }
-            byte[] data = memoryStream.ToArray();
-            SendPacketToServer(data, PacketType.ChatCommand, Constants.k_nSteamNetworkingSend_Reliable);
-        }
         public void ResetState()
         {
             _ticker2 = 0f;
@@ -1014,12 +764,11 @@ namespace RavenM
 
             MarkerPosition = Vector3.zero;
 
-            CurrentChatMessage = string.Empty;
-            FullChatLink = string.Empty;
-            ChatScrollPosition = Vector2.zero;
-            JustFocused = false;
-            TypeIntention = false;
-            ChatMode = false;
+            ChatManager.instance.CurrentChatMessage = string.Empty;
+            ChatManager.instance.ChatScrollPosition = Vector2.zero;
+            ChatManager.instance.JustFocused = false;
+            ChatManager.instance.TypeIntention = false;
+            ChatManager.instance.ChatMode = false;
 
             UsingMicrophone = false;
             PlayVoiceQueue.Clear();
@@ -1251,7 +1000,7 @@ namespace RavenM
                                 {
                                     var leaveMsg = $"{actor.name} has left the match.\n";
 
-                                    PushChatMessage(null, leaveMsg, true, -1);
+                                    ChatManager.instance.PushChatMessage(null, leaveMsg, true, -1);
 
                                     using MemoryStream memoryStream = new MemoryStream();
                                     var chatPacket = new ChatPacket
@@ -1363,7 +1112,7 @@ namespace RavenM
                                                 {
                                                     var enterMsg = $"{actor_packet.Name} has joined the match.\n";
 
-                                                    PushChatMessage(null, enterMsg, true, -1);
+                                                    ChatManager.instance.PushChatMessage(null, enterMsg, true, -1);
 
                                                     using MemoryStream memoryStream = new MemoryStream();
                                                     var chatPacket = new ChatPacket
@@ -2206,9 +1955,9 @@ namespace RavenM
 
                                     var actor = ClientActors.ContainsKey(chatPacket.Id) ? ClientActors[chatPacket.Id] : null;
                                     if (actor == null)
-                                        PushChatMessage(null, chatPacket.Message, true, -1);
+                                        ChatManager.instance.PushChatMessage(null, chatPacket.Message, true, -1);
                                     else
-                                        PushChatMessage(actor, chatPacket.Message, !chatPacket.TeamOnly, actor.team);
+                                        ChatManager.instance.PushChatMessage(actor, chatPacket.Message, !chatPacket.TeamOnly, actor.team);
                                 }
                                 break;
                             case PacketType.Voip:
@@ -2365,8 +2114,16 @@ namespace RavenM
                                     var commandPacket = dataStream.ReadChatCommandPacket();
 
                                     var actor = ClientActors.ContainsKey(commandPacket.Id) ? ClientActors[commandPacket.Id] : null;
-                                    if (actor != null)
-                                        ProcessChatCommand(commandPacket.Command, actor,commandPacket.SteamID, false);
+                                    bool inLobby = LobbySystem.instance.InLobby;
+
+                                    if (!inLobby && actor != null)
+                                    {
+                                         ChatManager.instance.ProcessChatCommand(commandPacket.Command, actor, commandPacket.SteamID, false);
+                                    }
+                                    else
+                                    {
+                                        ChatManager.instance.ProcessLobbyChatCommand(commandPacket.Command, commandPacket.SteamID, false);
+                                    }
 
                                 }
                                 break;

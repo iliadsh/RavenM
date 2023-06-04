@@ -14,10 +14,51 @@ namespace RavenM.Commands
         public CommandManager()
         {
             Commands = new List<Command>();
-            Commands.Add(new Command("help",new object[] { null },false,false));
-            Commands.Add(new Command("nametags", new object[] { true }, true, true));
-            Commands.Add(new Command("kill", new object[] { "actor" }, true, true));
-            Commands.Add(new Command("nametagsteamonly", new object[] { true }, true, true));
+            Commands.Add(new Command(
+                _name: "help",
+                _reqArgs: new object[] { null }, 
+                _global: false, 
+                _hostOnly: false, 
+                scripted: true,
+                allowInLobby: true,
+                allowInGame: true)
+            );
+            Commands.Add(new Command(
+                _name: "nametags",
+                _reqArgs: new object[] { true },
+                _global: true, 
+                _hostOnly: true, 
+                scripted: true, 
+                allowInLobby: true,
+                allowInGame: true)
+            );
+            Commands.Add(new Command(
+                _name: "kill", 
+                _reqArgs: new object[] { "actor" }, 
+                _global: true, 
+                _hostOnly: true, 
+                scripted: false, 
+                allowInLobby: false, 
+                allowInGame: true)
+            );
+            Commands.Add(new Command(
+                _name: "nametagsteamonly", 
+                _reqArgs: new object[] { true }, 
+                _global: true, 
+                _hostOnly: true, 
+                scripted: true, 
+                allowInLobby: true,
+                allowInGame: true)
+            );
+            Commands.Add(new Command(
+                _name: "kick", 
+                _reqArgs: new object[] { "actor" },
+                _global: false,
+                _hostOnly: true,
+                scripted: true,
+                allowInLobby: true,
+                allowInGame: true)
+            );
             Plugin.logger.LogInfo("CommandManager registered commands: " + Commands.Count);
         }
         public Command GetCommandFromName(string command)
@@ -38,6 +79,14 @@ namespace RavenM.Commands
         public List<Command> GetAllCommands()
         {
             return Commands;
+        }
+        public List<Command> GetAllLobbyCommands()
+        {
+            return Commands.Where(command => command.AllowInLobby == true).ToList();
+        }
+        public List<Command> GetAllIngameCommands()
+        {
+            return Commands.Where(command => command.AllowInGame == true).ToList();
         }
         public void AddCustomCommand(Command cmd)
         {
@@ -69,11 +118,11 @@ namespace RavenM.Commands
         }
         private void PrintNotEnoughArguments(Command cmd)
         {
-            IngameNetManager.instance.PushCommandChatMessage($"Not enough Arguments for Command {cmd.CommandName}. \nUsage: {GetRequiredArgTypes(cmd)}.", Color.red,true, false); ;
+            ChatManager.instance.PushCommandChatMessage($"Not enough Arguments for Command {cmd.CommandName}. \nUsage: {GetRequiredArgTypes(cmd)}.", Color.red,true, false); ;
         }
         private void PrintCouldNotConvert(Command cmd)
         {
-            IngameNetManager.instance.PushCommandChatMessage($"Could not convert Argument(s) for Command {cmd.CommandName}. \nUsage: {GetRequiredArgTypes(cmd)}.", Color.red,true, false); ;
+            ChatManager.instance.PushCommandChatMessage($"Could not convert Argument(s) for Command {cmd.CommandName}. \nUsage: {GetRequiredArgTypes(cmd)}.", Color.red,true, false); ;
         }
         public bool HasRequiredArgs(Command cmd, string[] command)
         {
@@ -156,7 +205,7 @@ namespace RavenM.Commands
             }
             if (local == !command.Global)
                 return true;
-            IngameNetManager.instance.PushCommandChatMessage($"You do not have permission to run this command!", Color.red, false, false);
+            ChatManager.instance.PushCommandChatMessage($"You do not have permission to run this command!", Color.red, false, false);
             return false;
         }
     }
