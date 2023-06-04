@@ -40,9 +40,13 @@ namespace RavenM
                 {
                     if (SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, memberId, "loaded") != "yes")
                     {
-                        return false;
+                        if (!LobbySystem.instance.HasCommittedToStart) {
+                            LobbySystem.instance.IntentionToStart = true;
+                            return false;
+                        }
                     }
                 }
+                LobbySystem.instance.HasCommittedToStart = false;
             }
 
             if (LobbySystem.instance.IsLobbyOwner)
@@ -350,6 +354,10 @@ namespace RavenM
         public List<GameObject> sortedModdedVehicles = new List<GameObject>();
 
         public Dictionary<string, string> LobbySetCache = new Dictionary<string, string>();
+
+        public bool IntentionToStart = false;
+
+        public bool HasCommittedToStart = false;
 
         private void Awake()
         {
@@ -991,6 +999,44 @@ namespace RavenM
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button("OK"))
                     NotificationText = string.Empty;
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.EndVertical();
+                GUILayout.EndArea();
+            }
+
+            if (GameManager.IsInMainMenu() && IntentionToStart)
+            {
+                GUILayout.BeginArea(new Rect((Screen.width - 250f) / 2f, (Screen.height - 200f) / 2f, 250f, 200f), string.Empty);
+                GUILayout.BeginVertical(lobbyStyle);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("<color=red>RavenM WARNING:</color>");
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.Space(7f);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("Starting the match before all members have loaded is experimental and may cause inconsistencies. Are you sure?");
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.Space(15f);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("<color=green>CONTINUE</color>")) {
+                    HasCommittedToStart = true;
+                    IntentionToStart = false;
+                    InstantActionMaps.instance.StartGame();
+                }
+                if (GUILayout.Button("ABORT")) {
+                    IntentionToStart = false;
+                }
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
 
