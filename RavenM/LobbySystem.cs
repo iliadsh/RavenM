@@ -512,6 +512,7 @@ namespace RavenM
                         ModsToDownload.Add(mod_id);
                     }
                 }
+                SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ModsToDownload.Count).ToString());
                 TriggerModRefresh();
                 bool nameTagsConverted = bool.TryParse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nameTags"),out bool nameTagsOn);
                 if (nameTagsConverted)
@@ -559,6 +560,9 @@ namespace RavenM
                 mod.enabled = false;
 
                 ModsToDownload.Remove(pCallback.m_nPublishedFileId);
+
+                if (InLobby && LobbyDataReady)
+                    SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ModsToDownload.Count).ToString());
 
                 TriggerModRefresh();
             }
@@ -1368,6 +1372,10 @@ namespace RavenM
                     string team = SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "team");
                     string name = SteamFriends.GetFriendPersonaName(memberId);
 
+                    string modsDownloaded = SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "modsDownloaded");
+                    // Can't use ServerMods.Count for the lobby owner.
+                    string totalMods = SteamMatchmaking.GetLobbyData(ActualLobbyID, "mods").Split(',').Length.ToString();
+
                     var readyColor = (GameManager.IsInMainMenu() ? SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "loaded") == "yes" 
                                                                     : SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "ready") == "yes") 
                                                                     ? "green" : "red";
@@ -1379,7 +1387,10 @@ namespace RavenM
                         GUILayout.FlexibleSpace();
                         GUILayout.Box($"<color={readyColor}>{name}</color>");
                         GUILayout.FlexibleSpace();
-                        GUILayout.Box(team);
+                        if (SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "loaded") == "yes")
+                            GUILayout.Box(team);
+                        else
+                            GUILayout.Box($"({modsDownloaded}/{totalMods})");
                         GUILayout.EndHorizontal();
 
                         if (Event.current.type == EventType.Repaint
