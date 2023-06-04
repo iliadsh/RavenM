@@ -216,38 +216,7 @@ namespace RavenM
             LobbySystem.instance.sortedModdedVehicles = moddedVehicles;
 
             // Sort mutators
-            string[] enabledMutators = SteamMatchmaking.GetLobbyData(LobbySystem.instance.ActualLobbyID, "mutators").Split(',');
             ModManager.instance.loadedMutators.Sort((x, y) => x.name.CompareTo(y.name));
-            foreach (var mutator in ModManager.instance.loadedMutators)
-                mutator.isEnabled = false;
-            foreach (var mutatorStr in enabledMutators)
-            {
-                if (mutatorStr == string.Empty)
-                    continue;
-
-                int id = int.Parse(mutatorStr);
-
-                for (int mutatorIndex = 0; mutatorIndex < ModManager.instance.loadedMutators.Count; mutatorIndex++)
-                {
-                    var mutator = ModManager.instance.loadedMutators.ElementAt(mutatorIndex);
-
-                    if (id == mutatorIndex)
-                    {
-                        mutator.isEnabled = true;
-
-                        string configStr = SteamMatchmaking.GetLobbyData(LobbySystem.instance.ActualLobbyID, mutatorIndex + "config");
-                        string pattern = @"(?<!\\),";
-                        string[] config = Regex.Split(configStr, pattern);
-
-                        int i = 0;
-                        foreach (var item in mutator.configuration.GetAllFields())
-                        {
-                            item.DeserializeValue(config[i].Replace("\\,", ","));
-                            i++;
-                        }
-                    }
-                }
-            }
 
             if (!LobbySystem.instance.InLobby || !LobbySystem.instance.LobbyDataReady || LobbySystem.instance.IsLobbyOwner || LobbySystem.instance.ModsToDownload.Count > 0)
                 return;
@@ -930,6 +899,38 @@ namespace RavenM
                         GamePreview.UpdatePreview();
 
                     InstantActionMaps.instance.skinDropdowns[i].value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, i + "skin"));
+                }
+
+                string[] enabledMutators = SteamMatchmaking.GetLobbyData(LobbySystem.instance.ActualLobbyID, "mutators").Split(',');
+                foreach (var mutator in ModManager.instance.loadedMutators)
+                    mutator.isEnabled = false;
+                foreach (var mutatorStr in enabledMutators)
+                {
+                    if (mutatorStr == string.Empty)
+                        continue;
+
+                    int id = int.Parse(mutatorStr);
+
+                    for (int mutatorIndex = 0; mutatorIndex < ModManager.instance.loadedMutators.Count; mutatorIndex++)
+                    {
+                        var mutator = ModManager.instance.loadedMutators.ElementAt(mutatorIndex);
+
+                        if (id == mutatorIndex)
+                        {
+                            mutator.isEnabled = true;
+
+                            string configStr = SteamMatchmaking.GetLobbyData(LobbySystem.instance.ActualLobbyID, mutatorIndex + "config");
+                            string pattern = @"(?<!\\),";
+                            string[] config = Regex.Split(configStr, pattern);
+
+                            int i = 0;
+                            foreach (var item in mutator.configuration.GetAllFields())
+                            {
+                                item.DeserializeValue(config[i].Replace("\\,", ","));
+                                i++;
+                            }
+                        }
+                    }
                 }
 
                 if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "started") == "yes")
