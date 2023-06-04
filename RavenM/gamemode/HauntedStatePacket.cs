@@ -4,7 +4,7 @@ using System.Reflection;
 namespace RavenM
 {
     // TODO: Haunted Skeleton Altars.
-    [HarmonyPatch(typeof(SpookOpsMode), "Awake")]
+    [HarmonyPatch(typeof(SpookOpsMode), "ActivateGameMode")]
     public class NoAltarPatch
     {
         static void Prefix(SpookOpsMode __instance)
