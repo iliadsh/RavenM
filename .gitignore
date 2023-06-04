@@ -396,3 +396,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Mac
+.DS_Store

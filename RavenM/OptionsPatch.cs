@@ -105,8 +105,8 @@ namespace RavenM
             IngameNetManager.instance.VoiceChatVolume = GetOptionWithName<float>(RavenMOptions.VoiceChatVolume, OptionTypes.Slider);
             IngameNetManager.instance.VoiceChatKeybind = setKeybinds[OptionKeybind.VoiceChatButton].Value;
             IngameNetManager.instance.PlaceMarkerKeybind = setKeybinds[OptionKeybind.PlaceMarkerButton].Value;
-            IngameNetManager.instance.GlobalChatKeybind = setKeybinds[OptionKeybind.GlobalChatButton].Value;
-            IngameNetManager.instance.TeamChatKeybind = setKeybinds[OptionKeybind.TeamChatButton].Value;
+            ChatManager.instance.GlobalChatKeybind = setKeybinds[OptionKeybind.GlobalChatButton].Value;
+            ChatManager.instance.TeamChatKeybind = setKeybinds[OptionKeybind.TeamChatButton].Value;
             onSettingUpdate?.Invoke();
         }
         public static T GetOptionWithName<T>(RavenMOptions option, OptionTypes type)
