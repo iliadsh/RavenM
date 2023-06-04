@@ -8,6 +8,8 @@ using System.Diagnostics;
 using System.Linq;
 using RavenM.RSPatch.Wrapper;
 using System.Text.RegularExpressions;
+using Ravenfield.Mutator.Configuration;
+using SimpleJSON;
 using System.Globalization;
 
 namespace RavenM
@@ -744,13 +746,14 @@ namespace RavenM
 
                     enabledMutators.Add(id);
 
-                    var config = new List<string>();
+                    var serializedMutators = new JSONArray();
                     foreach (var item in mutator.configuration.GetAllFields())
                     {
-                        string safeValue = item.SerializeValue().Replace(",", "\\,");
-                        config.Add(safeValue);
+                        JSONNode node = new JSONString(item.SerializeValue());
+                        serializedMutators.Add(node);
                     }
-                    SetLobbyData(id + "config", string.Join(",", config.ToArray()));
+                    
+                    SetLobbyData(id + "config", serializedMutators.ToString());
                 }
                 SetLobbyData("mutators", string.Join(",", enabledMutators.ToArray()));
             }
@@ -920,14 +923,24 @@ namespace RavenM
                             mutator.isEnabled = true;
 
                             string configStr = SteamMatchmaking.GetLobbyData(LobbySystem.instance.ActualLobbyID, mutatorIndex + "config");
-                            string pattern = @"(?<!\\),";
-                            string[] config = Regex.Split(configStr, pattern);
 
-                            int i = 0;
-                            foreach (var item in mutator.configuration.GetAllFields())
+                            JSONArray jsonConfig = JSON.Parse(configStr).AsArray;
+                            List<string> configList = new List<string>();
+
+                            foreach (var configItem in jsonConfig)
                             {
-                                item.DeserializeValue(config[i].Replace("\\,", ","));
-                                i++;
+                                configList.Add((string)configItem.Value);
+                            }
+
+                            string[] config = configList.ToArray();
+
+                            for (int i = 0; i < mutator.configuration.GetAllFields().Count(); i++)
+                            {
+                                var item = mutator.configuration.GetAllFields().ElementAt(i);
+                                if (item.SerializeValue() != "")
+                                {
+                                    item?.DeserializeValue(config[i]);
+                                }
                             }
                         }
                     }
