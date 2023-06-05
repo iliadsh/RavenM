@@ -306,6 +306,7 @@ namespace RavenM
             __instance.specOps = specOps;
 
             var target = (Vehicle)typeof(DestroyScenario).GetField("targetVehicle", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance);
+            target.isLocked = true;
 
             __instance.objective = ObjectiveUi.CreateObjective("Destroy " + target.name, target.targetLockPoint);
 

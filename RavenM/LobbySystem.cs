@@ -8,6 +8,8 @@ using System.Diagnostics;
 using System.Linq;
 using RavenM.RSPatch.Wrapper;
 using System.Text.RegularExpressions;
+using Ravenfield.Mutator.Configuration;
+using SimpleJSON;
 using System.Globalization;
 
 namespace RavenM
@@ -38,9 +40,13 @@ namespace RavenM
                 {
                     if (SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, memberId, "loaded") != "yes")
                     {
-                        return false;
+                        if (!LobbySystem.instance.HasCommittedToStart) {
+                            LobbySystem.instance.IntentionToStart = true;
+                            return false;
+                        }
                     }
                 }
+                LobbySystem.instance.HasCommittedToStart = false;
             }
 
             if (LobbySystem.instance.IsLobbyOwner)
@@ -159,7 +165,7 @@ namespace RavenM
                 else
                     root.AddComponent<GuidComponent>().guid = id;
 
-                IngameNetManager.instance.ClientDestructibles.Add(id, root);
+                IngameNetManager.instance.ClientDestructibles[id] = root;
 
                 Plugin.logger.LogInfo($"Registered new destructible root with name: {root.name} and id: {id}");
             }
@@ -349,6 +355,10 @@ namespace RavenM
 
         public Dictionary<string, string> LobbySetCache = new Dictionary<string, string>();
 
+        public bool IntentionToStart = false;
+
+        public bool HasCommittedToStart = false;
+
         private void Awake()
         {
             instance = this;
@@ -421,7 +431,7 @@ namespace RavenM
             LobbyDataReady = true;
             ActualLobbyID = new CSteamID(pCallback.m_ulSteamIDLobby);
 
-            ChatManager.instance.PushLobbyChatMessage($"Welcome to the lobby! Press {ChatManager.instance.GlobalChatKeybind} to chat.\n");
+            ChatManager.instance.PushLobbyChatMessage($"Welcome to the lobby! Press {ChatManager.instance.GlobalChatKeybind} to chat.");
 
             if (IsLobbyOwner)
             {
@@ -502,6 +512,7 @@ namespace RavenM
                         ModsToDownload.Add(mod_id);
                     }
                 }
+                SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ModsToDownload.Count).ToString());
                 TriggerModRefresh();
                 bool nameTagsConverted = bool.TryParse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nameTags"),out bool nameTagsOn);
                 if (nameTagsConverted)
@@ -549,6 +560,9 @@ namespace RavenM
                 mod.enabled = false;
 
                 ModsToDownload.Remove(pCallback.m_nPublishedFileId);
+
+                if (InLobby && LobbyDataReady)
+                    SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ModsToDownload.Count).ToString());
 
                 TriggerModRefresh();
             }
@@ -744,13 +758,14 @@ namespace RavenM
 
                     enabledMutators.Add(id);
 
-                    var config = new List<string>();
+                    var serializedMutators = new JSONArray();
                     foreach (var item in mutator.configuration.GetAllFields())
                     {
-                        string safeValue = item.SerializeValue().Replace(",", "\\,");
-                        config.Add(safeValue);
+                        JSONNode node = new JSONString(item.SerializeValue());
+                        serializedMutators.Add(node);
                     }
-                    SetLobbyData(id + "config", string.Join(",", config.ToArray()));
+                    
+                    SetLobbyData(id + "config", serializedMutators.ToString());
                 }
                 SetLobbyData("mutators", string.Join(",", enabledMutators.ToArray()));
             }
@@ -920,14 +935,24 @@ namespace RavenM
                             mutator.isEnabled = true;
 
                             string configStr = SteamMatchmaking.GetLobbyData(LobbySystem.instance.ActualLobbyID, mutatorIndex + "config");
-                            string pattern = @"(?<!\\),";
-                            string[] config = Regex.Split(configStr, pattern);
 
-                            int i = 0;
-                            foreach (var item in mutator.configuration.GetAllFields())
+                            JSONArray jsonConfig = JSON.Parse(configStr).AsArray;
+                            List<string> configList = new List<string>();
+
+                            foreach (var configItem in jsonConfig)
                             {
-                                item.DeserializeValue(config[i].Replace("\\,", ","));
-                                i++;
+                                configList.Add((string)configItem.Value);
+                            }
+
+                            string[] config = configList.ToArray();
+
+                            for (int i = 0; i < mutator.configuration.GetAllFields().Count(); i++)
+                            {
+                                var item = mutator.configuration.GetAllFields().ElementAt(i);
+                                if (item.SerializeValue() != "")
+                                {
+                                    item?.DeserializeValue(config[i]);
+                                }
                             }
                         }
                     }
@@ -978,6 +1003,44 @@ namespace RavenM
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button("OK"))
                     NotificationText = string.Empty;
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.EndVertical();
+                GUILayout.EndArea();
+            }
+
+            if (GameManager.IsInMainMenu() && IntentionToStart)
+            {
+                GUILayout.BeginArea(new Rect((Screen.width - 250f) / 2f, (Screen.height - 200f) / 2f, 250f, 200f), string.Empty);
+                GUILayout.BeginVertical(lobbyStyle);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("<color=red>RavenM WARNING:</color>");
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.Space(7f);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("Starting the match before all members have loaded is experimental and may cause inconsistencies. Are you sure?");
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.Space(15f);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("<color=green>CONTINUE</color>")) {
+                    HasCommittedToStart = true;
+                    IntentionToStart = false;
+                    InstantActionMaps.instance.StartGame();
+                }
+                if (GUILayout.Button("ABORT")) {
+                    IntentionToStart = false;
+                }
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
 
@@ -1040,7 +1103,15 @@ namespace RavenM
 
                     MidgameJoin = GUILayout.Toggle(MidgameJoin, "JOINABLE\nMIDGAME");
 
-                    nameTagsEnabled = GUILayout.Toggle(nameTagsEnabled, "NAMETAGS");
+
+                    GUILayout.Space(7f);
+                    GUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"NAMETAGS");
+                    GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    nameTagsEnabled = GUILayout.Toggle(nameTagsEnabled, "ENABLED");
 
                     nameTagsForTeamOnly = GUILayout.Toggle(nameTagsForTeamOnly, "FOR TEAM ONLY");
 
@@ -1309,6 +1380,10 @@ namespace RavenM
                     string team = SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "team");
                     string name = SteamFriends.GetFriendPersonaName(memberId);
 
+                    string modsDownloaded = SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "modsDownloaded");
+                    // Can't use ServerMods.Count for the lobby owner.
+                    string totalMods = SteamMatchmaking.GetLobbyData(ActualLobbyID, "mods").Split(',').Length.ToString();
+
                     var readyColor = (GameManager.IsInMainMenu() ? SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "loaded") == "yes" 
                                                                     : SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "ready") == "yes") 
                                                                     ? "green" : "red";
@@ -1320,7 +1395,10 @@ namespace RavenM
                         GUILayout.FlexibleSpace();
                         GUILayout.Box($"<color={readyColor}>{name}</color>");
                         GUILayout.FlexibleSpace();
-                        GUILayout.Box(team);
+                        if (SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "loaded") == "yes")
+                            GUILayout.Box(team);
+                        else
+                            GUILayout.Box($"({modsDownloaded}/{totalMods})");
                         GUILayout.EndHorizontal();
 
                         if (Event.current.type == EventType.Repaint
