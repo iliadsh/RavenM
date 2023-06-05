@@ -543,6 +543,17 @@ namespace RavenM
 
             InstantActionMaps.instance.teamDropdown.onValueChanged.AddListener(delegate
             {
+                // FIXME: This looks ugly, but Steam will drop any attempt to change lobby member data if
+                // we don't drive it home. Putting OnTeamChange in Update() bypasses a check to see if the data
+                // is the same before sending (see here: https://partner.steamgames.com/doc/api/ISteamMatchmaking#SetLobbyData).
+                // This will clog the connection to Steam and will force the client to stop listening for new lobby
+                // data changes.
+                // We should either ensure lobby data is sent reliably using a different method, or reduce
+                // the overall amount of data we send to Steam to ensure all changes are listened to.
+                OnTeamChange(InstantActionMaps.instance.teamDropdown);
+                OnTeamChange(InstantActionMaps.instance.teamDropdown);
+                OnTeamChange(InstantActionMaps.instance.teamDropdown);
+                OnTeamChange(InstantActionMaps.instance.teamDropdown);
                 OnTeamChange(InstantActionMaps.instance.teamDropdown);
             });
 
