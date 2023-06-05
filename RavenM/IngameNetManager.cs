@@ -999,7 +999,7 @@ namespace RavenM
 
                                 if ((controller.Flags & (int)ActorStateFlags.AiControlled) == 0)
                                 {
-                                    var leaveMsg = $"{actor.name} has left the match.\n";
+                                    var leaveMsg = $"{actor.name} has left the match.";
 
                                     ChatManager.instance.PushChatMessage(null, leaveMsg, true, -1);
 
@@ -1111,7 +1111,7 @@ namespace RavenM
 
                                                 if ((actor_packet.Flags & (int)ActorStateFlags.AiControlled) == 0)
                                                 {
-                                                    var enterMsg = $"{actor_packet.Name} has joined the match.\n";
+                                                    var enterMsg = $"{actor_packet.Name} has joined the match.";
 
                                                     ChatManager.instance.PushChatMessage(null, enterMsg, true, -1);
 

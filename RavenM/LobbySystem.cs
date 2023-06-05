@@ -431,7 +431,7 @@ namespace RavenM
             LobbyDataReady = true;
             ActualLobbyID = new CSteamID(pCallback.m_ulSteamIDLobby);
 
-            ChatManager.instance.PushLobbyChatMessage($"Welcome to the lobby! Press {ChatManager.instance.GlobalChatKeybind} to chat.\n");
+            ChatManager.instance.PushLobbyChatMessage($"Welcome to the lobby! Press {ChatManager.instance.GlobalChatKeybind} to chat.");
 
             if (IsLobbyOwner)
             {
