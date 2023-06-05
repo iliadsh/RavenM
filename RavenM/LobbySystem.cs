@@ -1103,7 +1103,15 @@ namespace RavenM
 
                     MidgameJoin = GUILayout.Toggle(MidgameJoin, "JOINABLE\nMIDGAME");
 
-                    nameTagsEnabled = GUILayout.Toggle(nameTagsEnabled, "NAMETAGS");
+
+                    GUILayout.Space(7f);
+                    GUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"NAMETAGS");
+                    GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    nameTagsEnabled = GUILayout.Toggle(nameTagsEnabled, "ENABLED");
 
                     nameTagsForTeamOnly = GUILayout.Toggle(nameTagsForTeamOnly, "FOR TEAM ONLY");
 
