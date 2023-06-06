@@ -30,7 +30,7 @@ namespace RavenM.RSPatch
             "data",
             "packetType"
         })]
-        public ScriptEvent<string, string> onSendPacket { get; protected set; }
+        public ScriptEvent<int, string> onSendPacket { get; protected set; }
 
         public ScriptEvent<Actor> onPlayerDisconnect { get; protected set; }
 

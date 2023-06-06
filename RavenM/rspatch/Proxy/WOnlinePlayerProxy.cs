@@ -27,27 +27,6 @@ namespace RavenM.RSPatch.Proxy
                 return WOnlinePlayer.GetOwnGUID();
             }
         }
-       
-        //public static void SendChatMessage(string input, bool global)
-        //{
-        //    IngameNetManager.instance.PushChatMessage(ActorManager.instance.player, input, global, GameManager.PlayerTeam());
-
-        //    using MemoryStream memoryStream = new MemoryStream();
-        //    var chatPacket = new ChatPacket
-        //    {
-        //        Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
-        //        Message = input,
-        //        TeamOnly = !global,
-        //    };
-
-        //    using (var writer = new ProtocolWriter(memoryStream))
-        //    {
-        //        writer.Write(chatPacket);
-        //    }
-        //    byte[] data = memoryStream.ToArray();
-
-        //    IngameNetManager.instance.SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
-        //}
 
         public static void PushChatMessage(string message)
         {
