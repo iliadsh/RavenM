@@ -258,7 +258,7 @@ namespace RavenM
 
         public override bool Countermeasures()
         {
-            return (Flags & (int)ActorStateFlags.Countermeasures) != 0;
+            return false;
         }
 
         public override bool Crouch()

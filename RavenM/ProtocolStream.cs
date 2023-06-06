@@ -480,6 +480,11 @@ namespace RavenM
             Write(value.Command);
             Write(value.Scripted);
         }
+
+        public void Write(CountermeasuresPacket value) 
+        {
+            Write(value.VehicleId);
+        }
     }
 
     public class ProtocolReader : BinaryReader
@@ -1097,5 +1102,12 @@ namespace RavenM
             };
         }
         
+        public CountermeasuresPacket ReadCountermeasuresPacket()
+        {
+            return new CountermeasuresPacket
+            {
+                VehicleId = ReadInt32(),
+            };
+        }
     }
 }

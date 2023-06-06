@@ -2128,6 +2128,20 @@ namespace RavenM
 
                                 }
                                 break;
+                            case PacketType.Countermeasures:
+                                {
+                                    var countermeasuresPacket = dataStream.ReadCountermeasuresPacket();
+
+                                    if (!ClientVehicles.ContainsKey(countermeasuresPacket.VehicleId))
+                                        break;
+
+                                    Vehicle targetVehicle = ClientVehicles[countermeasuresPacket.VehicleId];
+                                    if (targetVehicle == null)
+                                        break;
+
+                                    typeof(Vehicle).GetMethod("PopCountermeasures", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(targetVehicle, null);
+                                }
+                                break;
                             default:
                                 RSPatch.RSPatch.FixedUpdate(packet, dataStream);
                                 break;
@@ -2426,7 +2440,6 @@ namespace RavenM
         {
             int flags = 0;
             if (!actor.dead && actor.controller.Aiming()) flags |= (int)ActorStateFlags.Aiming;
-            if (!actor.dead && actor.controller.Countermeasures()) flags |= (int)ActorStateFlags.Countermeasures;
             if (!actor.dead && actor.controller.Crouch()) flags |= (int)ActorStateFlags.Crouch;
             if (!actor.dead && actor.controller.Fire()) flags |= (int)ActorStateFlags.Fire;
             if (!actor.dead && actor.controller.HoldingSprint()) flags |= (int)ActorStateFlags.HoldingSprint;
