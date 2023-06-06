@@ -1,13 +1,14 @@
-using UnityEngine;
+﻿using UnityEngine;
 
-namespace RavenM
+namespace RavenM.rspatch
 {
-    public class SpawnCustomGameObjectPacket
+    public class NetworkGameObjectPacket
     {
         public int SourceID;
         public int GameObjectID;
-        public string PrefabHash;
         public Vector3 Position;
         public Quaternion Rotation;
+        public Vector3 Scale;
+        public float Speed;
     }
 }

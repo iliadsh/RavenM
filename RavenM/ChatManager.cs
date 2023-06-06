@@ -498,7 +498,7 @@ namespace RavenM
                 default:
                     // If it's not build in command pass it to RS
                     Plugin.logger.LogInfo("Ingame onReceiveCommand " + initCommand);
-                    RSPatch.RavenscriptEventsManagerPatch.events.onReceiveCommand.Invoke(actor, command, new bool[] { hasCommandPermission, hasRequiredArgs, local });
+                    RSPatch.RavenscriptEventsManagerPatch.events.onReceiveCommand.Invoke(actor, command, new bool[] { hasCommandPermission, hasRequiredArgs, !local });
                     break;
             }
 

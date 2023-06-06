@@ -30,6 +30,7 @@
         UpdateDestructible,
         DestroyDestructible,
         ChatCommand,
-        Countermeasures
+        Countermeasures,
+        NetworkGameObject
     }
 }

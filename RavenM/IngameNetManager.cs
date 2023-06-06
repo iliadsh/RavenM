@@ -615,6 +615,26 @@ namespace RavenM
                 vehicle.transform.rotation = Quaternion.Slerp(vehicle.transform.rotation, vehiclePacket.Rotation, 5f * Time.deltaTime);
             }
 
+            foreach (var kv in RSPatch.RSPatch.TargetGameObjectState)
+            {
+                int gameObjectID = kv.Key;
+                var gameObjectPacket = kv.Value;
+                if (!RSPatch.RSPatch.ClientObjects.ContainsKey(gameObjectID))
+                    continue;
+
+                if (RSPatch.RSPatch.OwnedObjects.Contains(gameObjectID))
+                    continue;
+                var networkGameObject = RSPatch.RSPatch.ClientObjects[gameObjectID];
+                if (networkGameObject.SourceID != gameObjectPacket.SourceID)
+                    break;
+
+                if (networkGameObject == null)
+                    continue;
+
+                networkGameObject.transform.position = Vector3.Lerp(networkGameObject.transform.position, gameObjectPacket.Position, 5f * Time.deltaTime);
+
+                networkGameObject.transform.rotation = Quaternion.Slerp(networkGameObject.transform.rotation, gameObjectPacket.Rotation, 5f * Time.deltaTime);
+            }
             _ticker2 += Time.deltaTime;
 
             if (_ticker2 > 1)
@@ -775,6 +795,10 @@ namespace RavenM
             PlayVoiceQueue.Clear();
 
             ReleaseProjectilePatch.ConfigCache.Clear();
+
+            RSPatch.RSPatch.OwnedObjects.Clear();
+            RSPatch.RSPatch.ClientObjects.Clear();
+            RSPatch.RSPatch.TargetGameObjectState.Clear();
         }
 
         public void OpenRelay()
