@@ -40,13 +40,6 @@ namespace RavenM.RSPatch.Proxy
 			AddNetworkTransformToObject(gameObject, null, comp.guid, gameObjectID);
 			return gameObject;
 		}
-		/*
-		public static GameObjectProxy Instantiate(GameObjectProxy prefab,Vector3 pos, Quaternion rot, GameObjectNetConfigProxy config)
-		{
-			GameObject prefab2 = InstantiatePrefabWithPacket(prefab, pos, rot, config);
-			return GameObjectProxy.New(WGameObject.Instantiate(prefab2,pos,rot));
-		}
-		*/
 		public static GameObjectProxy Instantiate(GameObjectProxy prefab)
 		{
 			if (!ActorManager.instance.player.TryGetComponent<GuidComponent>(out GuidComponent comp))

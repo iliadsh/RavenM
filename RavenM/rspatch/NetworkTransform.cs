@@ -13,8 +13,6 @@ namespace RavenM.rspatch
         private int sourceID = -1;
 
         private Vector3 lastPosition;
-        private Quaternion lastRotation;
-        private Vector3 lastScale;
 
         public int GameObjectID { get => gameObjectID; set => gameObjectID = value; }
         public int SourceID { get => sourceID; set => sourceID = value; }

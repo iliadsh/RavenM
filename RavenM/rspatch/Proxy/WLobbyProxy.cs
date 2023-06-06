@@ -17,10 +17,6 @@ namespace RavenM.RSPatch.Proxy
                 return WLobby.GetLobbyMembers();
             }
         }
-        //public static Dic<GameObject> GetNetworkPrefabs()
-        //{
-        //    return WLobby.GetNetworkPrefabs();
-        //}
         public static bool isHost
         {
             get

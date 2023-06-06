@@ -15,8 +15,7 @@ namespace RavenM.RSPatch
     public class RavenscriptEventsManagerPatch : MonoBehaviour
     {
         private RavenscriptMultiplayerEvents _events;
-
-        // Token: 0x0400308A RID: 12426
+        
         public static RavenscriptEventsManagerPatch instance;
 
         public static RavenscriptMultiplayerEvents events
@@ -105,23 +104,4 @@ namespace RavenM.RSPatch
             return true;
         }
     }
-
-    //[HarmonyPatch(typeof(RavenscriptManager), "ResolveCurrentlyInvokingSourceScript")]
-    //public class RSPatchRavenscriptManagerResolveCurrentlyInvokingSourceScript
-    //{
-    //    static bool Prefix()
-    //    {
-    //        if (!RavenscriptEventsManagerPatch.instance._events.IsCallStackEmpty())
-    //        {
-    //            Debug.Log("Event");
-    //            ScriptedBehaviour currentInvokingListenerScript = RavenscriptManager.instance._events.GetCurrentEvent().GetCurrentInvokingListenerScript();
-    //            if (currentInvokingListenerScript != null)
-    //            {
-    //                //return currentInvokingListenerScript;
-    //            }
-    //        }
-    //        return true;
-    //    }
-
-    //}
 }

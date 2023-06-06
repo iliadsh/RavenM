@@ -190,8 +190,6 @@ namespace RavenM.RSPatch
                     break;
                 case PacketType.ScriptedPacket:
                     ScriptedPacket scriptedPacket = dataStream.ReadScriptedPacket();
-                    //var targetActor = IngameNetManager.instance.ClientActors[scriptedPacket.Id];
-                    //Plugin.logger.LogInfo($"Received scripted packet {scriptedPacket.Id} Data: {scriptedPacket.Data} from {targetActor.name}");
                     Plugin.logger.LogInfo($"Received scripted packet {scriptedPacket.Id} Data: {scriptedPacket.Data}");
                     RavenscriptEventsManagerPatch.events.onReceivePacket.Invoke(scriptedPacket.Id, scriptedPacket.Data);
                     break;

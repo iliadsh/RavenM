@@ -121,12 +121,6 @@ namespace RavenM.RSPatch.Wrapper
             {
                 return;
             }
-            /*
-            if (!WLobby.setupVehicles)
-            {
-                WLobby.AddVehiclesToNetworkPrefab();
-            }
-            */
             string hashes = "";
             foreach (KeyValuePair<string, GameObject> pair in networkGameObjects)
             {
@@ -188,8 +182,6 @@ namespace RavenM.RSPatch.Wrapper
             {
                 Plugin.logger.LogError("GetNetworkPrefabByValue no value found in dictionary for prefab name " + prefab.name);
             }
-            //KeyValuePair<string, GameObject> dictionaryPrefab = networkGameObjects
-                  //.FirstOrDefault(c => c.Value == prefab);
             return output;
         }
         public static void AddVehiclesToNetworkPrefab()
