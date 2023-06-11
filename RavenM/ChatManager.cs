@@ -548,8 +548,8 @@ namespace RavenM
         /// <summary>
         /// Creates the events for interacting with the chat area
         /// </summary>
-        /// <param name="isLobbyChat"></param>
-        /// <param name="chatWidth"></param>
+        /// <param name="isLobbyChat">If true, the chat message won't attempt to get the player's current team for their name colour. False by default</param>
+        /// <param name="chatWidth">The width of the chat area. 500f by default</param>
         public void InitializeChatArea(bool isLobbyChat = false, float chatWidth = 500f)
         {
             if (Event.current.isKey && Event.current.keyCode == KeyCode.None && JustFocused)
@@ -648,11 +648,13 @@ namespace RavenM
         /// <summary>
         /// Draws the chat area
         /// </summary>
-        /// <param name="isLobbyChat"></param>
-        /// <param name="chatWidth"></param>
-        /// <param name="chatHeight"></param>
-        /// <param name="chatYOffset"></param>
-        public void CreateChatArea(bool isLobbyChat = false, float chatWidth = 500f, float chatHeight = 200f, float chatYOffset = 370f, bool wordWrap = true)
+        /// <param name="isLobbyChat">If true, the chat message won't attempt to get the player's current team for their name colour. False by default</param>
+        /// <param name="chatWidth">The width of the chat area. 500f by default</param>
+        /// <param name="chatHeight">The height of the chat area. 200f by default</param>
+        /// <param name="chatYOffset">Sets how far from the top of the screen the chat area should be located. 370f by default</param>
+        /// <param name="wordWrap">Sets whether text should wrap. True by default</param>
+        /// <param name="resetScrollPosition">If false, the scroll position (if applicable) will be maintained when creating the chat area. True by default</param>
+        public void CreateChatArea(bool isLobbyChat = false, float chatWidth = 500f, float chatHeight = 200f, float chatYOffset = 370f, bool wordWrap = true, bool resetScrollPosition = true)
         {
             InitializeChatArea(isLobbyChat, chatWidth);
 
@@ -675,6 +677,11 @@ namespace RavenM
             GUILayout.Space(10);
             GUILayout.EndVertical();
             GUILayout.EndArea();
+            
+            if (resetScrollPosition)
+            {
+                _chatScrollPosition.y = Mathf.Infinity;
+            }
         }
 
         public void ResetChat()
