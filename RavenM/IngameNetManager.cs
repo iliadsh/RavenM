@@ -767,8 +767,17 @@ namespace RavenM
                     continue;
                 DrawMarker(controller.Targets.MarkerPosition ?? Vector3.zero);
             }
-
-            ChatManager.instance.CreateChatArea(false);
+            
+            if (ChatManager.instance.SelectedChatPosition == 1) // Position to the right
+            {
+                ChatManager.instance.CreateChatArea(false, 500f, 200f, 370f, Screen.width - 510f);
+            }
+            else
+            {
+                ChatManager.instance.CreateChatArea(false);
+            }
+            
+            // ChatManager.instance.CreateChatArea(false);
 
             if (UsingMicrophone)
                 GUI.DrawTexture(new Rect(315f, Screen.height - 60f, 50f, 50f), MicTexture);
