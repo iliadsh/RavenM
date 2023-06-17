@@ -30,6 +30,10 @@ namespace RavenM
             set { _currentChatMessage = value; }
         }
         private string _fullChatLink = string.Empty;
+        
+        /// <summary>
+        /// The full chat transcript
+        /// </summary>
         public string FullChatLink
         {
             get { return _fullChatLink; }
@@ -60,6 +64,11 @@ namespace RavenM
             set { _typeIntention = value; }
         }
         private bool _chatMode = false;
+        
+        /// <summary>
+        /// If true, chat message is global.
+        /// If false, chat message is team only.
+        /// </summary>
         public bool ChatMode
         {
             get { return _chatMode; }
@@ -523,7 +532,7 @@ namespace RavenM
         }
 
         /// <summary>
-        /// Sends a message directly to Steam. Messages sent here are not displayed in the chat area
+        /// Sends a message directly to Steam via SteamMatchmaking.SendLobbyChatMsg
         /// </summary>
         /// <param name="message"></param>
         public void SendLobbyChat(string message)
@@ -606,6 +615,12 @@ namespace RavenM
                             {
                                 PushChatMessage(ActorManager.instance.player, CurrentChatMessage, ChatMode, GameManager.PlayerTeam());
 
+                                // Send message to users in lobby if not team chat
+                                if (ChatMode)
+                                {
+                                    SendLobbyChat(CurrentChatMessage);
+                                }
+                                
                                 using MemoryStream memoryStream = new MemoryStream();
                                 var chatPacket = new ChatPacket
                                 {
