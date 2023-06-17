@@ -1340,7 +1340,14 @@ namespace RavenM
             {
                 if (!IngameNetManager.instance.IsClient)
                 {
-                    ChatManager.instance.CreateChatArea(true, 300f, 400f, 570f);
+                    if (ChatManager.instance.SelectedChatPosition == 1) // Position to the right
+                    {
+                        ChatManager.instance.CreateChatArea(true, 300f, 400f, 570f, Screen.width - 310f);
+                    }
+                    else
+                    {
+                        ChatManager.instance.CreateChatArea(true, 300f, 400f, 570f);
+                    }
                 }
 
                 GUILayout.BeginArea(new Rect(10f, 10f, 150f, 10000f), string.Empty);
