@@ -221,6 +221,28 @@ namespace RavenM
         }
     }
 
+    [HarmonyPatch(typeof(TurretSpawner), nameof(TurretSpawner.SpawnTurrets))]
+    public class SpawnTurretDetachPatch
+    {
+        // Turrets created through spawners will have their transform parent be the CapturePoint,
+        // which totally messes things up for the destructible syncing logic. We unparent them
+        // here to avoid that. Not a great solution but oh well.
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            foreach (var instruction in instructions)
+            {
+                // Pop the third argument from the evaluation stack (transform.parent) and push a null.
+                if (instruction.opcode == OpCodes.Call && ((MethodInfo)instruction.operand).Name == nameof(UnityEngine.Object.Instantiate)) 
+                {
+                    yield return new CodeInstruction(OpCodes.Pop);
+                    yield return new CodeInstruction(OpCodes.Ldnull);
+                }
+
+                yield return instruction;
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(Vehicle), "Start")]
     public class VehicleCreatedPatch
     {

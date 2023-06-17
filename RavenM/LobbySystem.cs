@@ -158,7 +158,7 @@ namespace RavenM
                 // FIXME: Shitty hack. The assumption is map destructibles are consistent
                 // and thus will always spawn in the same positions regardless of the
                 // client run. I have no idea how correct this assumption actually is.
-                int id = root.transform.position.GetHashCode();
+                int id = root.transform.position.GetHashCode() ^ root.name.GetHashCode();
 
                 if (root.TryGetComponent(out GuidComponent guid))
                     id = guid.guid;
