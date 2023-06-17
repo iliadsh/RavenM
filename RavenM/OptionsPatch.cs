@@ -191,7 +191,7 @@ namespace RavenM
                 return;
             }
             RectTransform target = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content").GetComponent<RectTransform>();
-            ConfigEntry<float> ravenMConfig = ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValue);
+            ConfigEntry<float> ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValue);
             RectTransform exampleSettingSlider = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/SFX Volume").GetComponent<RectTransform>();
             if(label)
                 exampleSettingSlider = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/Field Of View").GetComponent<RectTransform>();
@@ -221,7 +221,7 @@ namespace RavenM
                 return;
             }
             RectTransform target = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content").GetComponent<RectTransform>();
-            ConfigEntry<bool> ravenMConfig = ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValue);
+            ConfigEntry<bool> ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValue);
             RectTransform exampleSettingToggle = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/Hitmarkers").GetComponent<RectTransform>();
             GameObject newTarget = GameObject.Instantiate(exampleSettingToggle.gameObject, target);
             newTarget.GetComponent<Text>().text = name;
@@ -243,7 +243,7 @@ namespace RavenM
             }
             
             RectTransform target = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content").GetComponent<RectTransform>();
-            ConfigEntry<int> ravenMConfig = ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValueId);
+            ConfigEntry<int> ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValueId);
             RectTransform exampleSettingDropdown = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/Difficulty").GetComponent<RectTransform>();
             GameObject newTarget = GameObject.Instantiate(exampleSettingDropdown.gameObject, target);
             newTarget.GetComponent<Text>().text = name;
