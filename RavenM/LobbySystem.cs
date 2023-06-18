@@ -1402,14 +1402,14 @@ namespace RavenM
                     if (memberId != KickPrompt)
                     {
                         GUILayout.BeginHorizontal();
-                        GUILayout.Box(team);
-                        GUILayout.FlexibleSpace();
-                        GUILayout.Box($"<color={readyColor}>{name}</color>");
-                        GUILayout.FlexibleSpace();
                         if (SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "loaded") == "yes")
                             GUILayout.Box(team);
                         else
                             GUILayout.Box($"({modsDownloaded}/{totalMods})");
+                        GUILayout.FlexibleSpace();
+                        GUILayout.Box($"<color={readyColor}>{name}</color>");
+                        GUILayout.FlexibleSpace();
+                        GUILayout.Box(team);
                         GUILayout.EndHorizontal();
 
                         if (Event.current.type == EventType.Repaint
