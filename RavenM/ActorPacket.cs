@@ -92,4 +92,9 @@ namespace RavenM
     {
         public List<ActorFlagsPacket> Updates;
     }
+
+    public class RemoveActorPacket
+    {
+        public int Id;
+    }
 }

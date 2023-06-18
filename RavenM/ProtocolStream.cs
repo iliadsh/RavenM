@@ -490,11 +490,16 @@ namespace RavenM
             Write(value.Rotation);
             Write(value.Scale);
             Write(value.Speed);
-    }
+        }
 
         public void Write(CountermeasuresPacket value) 
         {
             Write(value.VehicleId);
+        }
+
+        public void Write(RemoveActorPacket value)
+        {
+            Write(value.Id);
         }
     }
 
@@ -1131,6 +1136,14 @@ namespace RavenM
             return new CountermeasuresPacket
             {
                 VehicleId = ReadInt32(),
+            };
+        }
+
+        public RemoveActorPacket ReadRemoveActorPacket()
+        {
+            return new RemoveActorPacket
+            {
+                Id = ReadInt32(),
             };
         }
     }

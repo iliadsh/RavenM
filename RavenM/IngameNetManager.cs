@@ -1028,7 +1028,7 @@ namespace RavenM
                         Plugin.logger.LogInfo($"Killing connection from {info.m_identityRemote.GetSteamID()}.");
                         SteamNetworkingSockets.CloseConnection(pCallback.m_hConn, 0, null, false);
 
-                        // We take ownership of and kill all the actors that were left behind.
+                        // We destroy all the actors that were left behind.
                         if (ServerConnections.Contains(pCallback.m_hConn))
                         {
                             ServerConnections.Remove(pCallback.m_hConn);
@@ -1042,6 +1042,7 @@ namespace RavenM
                                 break;
 
                             var actors = GuidActorOwnership[guid];
+                            GuidActorOwnership.Remove(guid);
 
                             foreach (var id in actors)
                             {
@@ -1076,10 +1077,27 @@ namespace RavenM
                                     SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
                                 }
 
-                                controller.Flags |= (int)ActorStateFlags.Dead;
-                                controller.Targets.Position = Vector3.zero;
+                                {
+                                    // Assume ownership so that we are allowed to kill the actor,
+                                    // then release it so we don't try and send updates.
+                                    OwnedActors.Add(id);
+                                    DestroyActor(actor);
+                                    OwnedActors.Remove(id);
 
-                                OwnedActors.Add(id);
+                                    using MemoryStream memoryStream = new MemoryStream();
+                                    var removeActorPacket = new RemoveActorPacket()
+                                    {
+                                        Id = id,
+                                    };
+
+                                    using (var writer = new ProtocolWriter(memoryStream))
+                                    {
+                                        writer.Write(removeActorPacket);
+                                    }
+                                    byte[] data = memoryStream.ToArray();
+
+                                    SendPacketToServer(data, PacketType.RemoveActor, Constants.k_nSteamNetworkingSend_Reliable);
+                                }
                             }
                         }
 
@@ -1208,6 +1226,8 @@ namespace RavenM
                                             net_controller.FakeWeaponParent = weapon_parent;
                                             net_controller.FakeLoadout = loadout;
                                             net_controller.ActualRotation = actor_packet.FacingDirection;
+                                            if (!actor.dead)
+                                                net_controller.SpawnedOnce = true;
 
                                             actor.controller = net_controller;
 
@@ -2197,6 +2217,24 @@ namespace RavenM
                                     typeof(Vehicle).GetMethod("PopCountermeasures", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(targetVehicle, null);
                                 }
                                 break;
+                            case PacketType.RemoveActor:
+                                {
+                                    var removeActorPacket = dataStream.ReadRemoveActorPacket();
+
+                                    if (!ClientActors.ContainsKey(removeActorPacket.Id) || OwnedActors.Contains(removeActorPacket.Id))
+                                        break;
+
+                                    Actor actor = ClientActors[removeActorPacket.Id];
+                                    if (actor == null)
+                                        break;
+
+                                    // Assume ownership so that we are allowed to kill the actor,
+                                    // then release it so we don't try and send updates.
+                                    OwnedActors.Add(removeActorPacket.Id);
+                                    DestroyActor(actor);
+                                    OwnedActors.Remove(removeActorPacket.Id);
+                                }
+                                break;
                             default:
                                 RSPatch.RSPatch.FixedUpdate(packet, dataStream);
                                 break;
@@ -2841,6 +2879,7 @@ namespace RavenM
 
             var scoreboard = typeof(ScoreboardUi).GetField("entriesOfTeam", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(ScoreboardUi.instance) as Dictionary<int, List<ScoreboardActorEntry>>;
             scoreboard[actor.team].Remove(actor.scoreboardEntry);
+            Destroy(actor.scoreboardEntry.gameObject);
 
             if (actor.IsSeated())
                 actor.LeaveSeat(false);
@@ -2861,6 +2900,9 @@ namespace RavenM
             int nextActorIndex = (int)nextActorIndexF.GetValue(ActorManager.instance);
             nextActorIndexF.SetValue(ActorManager.instance, nextActorIndex - 1);
 
+            UI.GameUI.instance.RemoveNameTag(actor);
+
+            actor.Deactivate();
             ActorManager.Drop(actor);
             Destroy(actor.controller);
             Destroy(actor);
