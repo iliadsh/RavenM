@@ -802,6 +802,10 @@ namespace RavenM
                         {
                             foreach (var mod in ModManager.instance.GetActiveMods())
                             {
+                                // TODO: What scenario is this possible?
+                                if (mod == null || mod.content == null)
+                                    continue;
+                                
                                 foreach (var map in mod.content.GetMaps())
                                 {
                                     string currentName = string.Empty;
