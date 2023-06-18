@@ -352,7 +352,7 @@ namespace RavenM
                     bool parsedArg = bool.TryParse(command[1], out bool result);
                     if (parsedArg)
                     {
-                        LobbySystem.instance.SetLobbyData("nameTags", result.ToString());
+                        LobbySystem.instance.SetLobbyDataDedup("nameTags", result.ToString());
                         PushLobbyCommandChatMessage("Set nameTags to " + result.ToString(), Color.green, false, false);
                         UI.GameUI.instance.ToggleNameTags();
                     }
@@ -371,7 +371,7 @@ namespace RavenM
                     bool parsedArg2 = bool.TryParse(command[1], out bool result2);
                     if (parsedArg2)
                     {
-                        LobbySystem.instance.SetLobbyData("nameTagsForTeamOnly", result2.ToString());
+                        LobbySystem.instance.SetLobbyDataDedup("nameTagsForTeamOnly", result2.ToString());
                         PushLobbyCommandChatMessage("Set nameTags for Team only to " + result2.ToString(), Color.green, false, false);
                         UI.GameUI.instance.ToggleNameTags();
                     }
@@ -460,7 +460,7 @@ namespace RavenM
                     bool parsedArg = bool.TryParse(command[1], out bool result);
                     if (parsedArg)
                     {
-                        LobbySystem.instance.SetLobbyData("nameTags", result.ToString());
+                        LobbySystem.instance.SetLobbyDataDedup("nameTags", result.ToString());
                         PushCommandChatMessage("Set nameTags to " + result.ToString(), Color.green, false, false);
                         UI.GameUI.instance.ToggleNameTags();
                     }
@@ -479,7 +479,7 @@ namespace RavenM
                     bool parsedArg2 = bool.TryParse(command[1], out bool result2);
                     if (parsedArg2)
                     {
-                        LobbySystem.instance.SetLobbyData("nameTagsForTeamOnly", result2.ToString());
+                        LobbySystem.instance.SetLobbyDataDedup("nameTagsForTeamOnly", result2.ToString());
                         PushCommandChatMessage("Set nameTags for Team only to " + result2.ToString(), Color.green, false, false);
                         UI.GameUI.instance.ToggleNameTags();
                     }
