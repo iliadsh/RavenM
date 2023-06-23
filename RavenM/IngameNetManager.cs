@@ -925,6 +925,27 @@ namespace RavenM
             GameManager.ReturnToMenu();
         }
 
+        public List<Actor> GetPlayers()
+        {
+            List<Actor> actors = new List<Actor>();
+            foreach (var kv in IngameNetManager.instance.ClientActors)
+            {
+                var id = kv.Key;
+                var actor = kv.Value;
+
+                if (IngameNetManager.instance.OwnedActors.Contains(id))
+                    continue;
+
+                var controller = actor.controller as NetActorController;
+
+                if ((controller.Flags & (int)ActorStateFlags.AiControlled) != 0)
+                    continue;
+                actors.Add(actor);
+            }
+            actors.Add(ActorManager.instance.player);
+            return actors;
+        }
+
         public void SendPacketToServer(byte[] data, PacketType type, int send_flags)
         {
             _totalOut++;

@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Collections;
 using System.IO;
+using System.Linq;
 using Steamworks;
 
 namespace RavenM
@@ -81,7 +82,7 @@ namespace RavenM
             {
                 if (first && instruction.opcode == OpCodes.Call)
                 {
-                    instruction.operand = typeof(NoEndPatch).GetMethod("IsSpectatingOrClient", BindingFlags.NonPublic | BindingFlags.Static);
+                    instruction.operand = typeof(NoEndPatch).GetMethod("IsSpectatingOrDefeatControl", BindingFlags.NonPublic | BindingFlags.Static);
                     first = false;
                 }
 
@@ -95,16 +96,16 @@ namespace RavenM
             }
         }
 
-        static bool IsSpectatingOrClient()
+        static bool IsSpectatingOrDefeatControl()
         {
             if (!LobbySystem.instance.InLobby)
                 return GameManager.IsSpectating();
 
-            if (IngameNetManager.instance.IsHost)
-                return false;
-
             if (FpsActorController.instance.actor.dead && !FpsActorController.instance.inPhotoMode)
                 typeof(FpsActorController).GetMethod("TogglePhotoMode", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(FpsActorController.instance, null);
+
+            if (IngameNetManager.instance.IsHost)
+                return !IngameNetManager.instance.GetPlayers().All(actor => actor.dead);
 
             return true;
         }
