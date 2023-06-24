@@ -633,10 +633,11 @@ namespace RavenM
                                 PushChatMessage(ActorManager.instance.player, CurrentChatMessage, ChatMode, GameManager.PlayerTeam());
 
                                 // Send message to users in lobby if not team chat
-                                if (ChatMode)
-                                {
-                                    SendLobbyChat(CurrentChatMessage);
-                                }
+                                // TODO: Get messages sent from in game -> lobby
+                                // if (ChatMode)
+                                // {
+                                //     SendLobbyChat(CurrentChatMessage);
+                                // }
                                 
                                 using MemoryStream memoryStream = new MemoryStream();
                                 var chatPacket = new ChatPacket
