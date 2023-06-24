@@ -71,6 +71,24 @@ namespace RavenM
         }
     }
 
+    [HarmonyPatch(typeof(Actor), nameof(Actor.SpawnAt))]
+    public class GiveAttackersHeroArmorPatch
+    {
+        static void Postfix(Actor __instance) 
+        {
+            if (!LobbySystem.instance.InLobby)
+                return;
+
+            if (GameModeBase.instance.gameModeType != GameModeType.SpecOps)
+                return;
+
+            if (__instance.team != (GameModeBase.instance as SpecOpsMode).attackingTeam)
+                return;
+
+            __instance.hasHeroArmor = true;
+        }
+    }
+
     [HarmonyPatch(typeof(SpecOpsMode), "Update")]
     public class NoEndPatch
     {
