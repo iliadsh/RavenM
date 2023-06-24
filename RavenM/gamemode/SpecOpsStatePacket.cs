@@ -89,6 +89,37 @@ namespace RavenM
         }
     }
 
+    [HarmonyPatch(typeof(ExfilHelicopter), "AllAttackersPickedUp")]
+    public class AllPlayersPickedUpPatch
+    {
+        static bool Prefix(ExfilHelicopter __instance, ref bool __result) 
+        {
+            if (!LobbySystem.instance.InLobby)
+                return true;
+
+            if (FpsActorController.instance.playerSquad == null)
+            {
+                __result = false;
+                return false;
+            }
+
+            var helicopter = typeof(ExfilHelicopter).GetField("helicopter", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance) as Helicopter;
+            foreach (Actor actor in IngameNetManager.instance.GetPlayers())
+            {
+                if (actor.dead)
+                    continue;
+
+                if (!actor.IsSeated() || actor.seat.vehicle != helicopter)
+                {
+                    __result = false;
+                    return false;
+                }
+            }
+            __result = true;
+            return false;
+        }
+    }
+
     [HarmonyPatch(typeof(SpecOpsMode), "Update")]
     public class NoEndPatch
     {
