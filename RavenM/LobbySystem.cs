@@ -642,7 +642,8 @@ namespace RavenM
                     if (SteamUGC.GetItemDownloadInfo(new PublishedFileId_t(modId.m_PublishedFileId),
                             out ulong punBytesDownloaded, out ulong punBytesTotal))
                     {
-                        if (punBytesDownloaded == punBytesTotal)
+                        EItemState itemState = (EItemState)SteamUGC.GetItemState(new PublishedFileId_t(modId.m_PublishedFileId));
+                        if ( (itemState & EItemState.k_EItemStateInstalled) != 0 )
                         {
                             // Mod already downloaded, remove it from the batch
                             Plugin.logger.LogInfo($"Mod with id: {modId} already downloaded! Removing from batch.");
