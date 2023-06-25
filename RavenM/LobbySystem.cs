@@ -737,7 +737,7 @@ namespace RavenM
             {
                 // Equivalent to Facepunch: item.IsInstalled
                 EItemState itemState = (EItemState)SteamUGC.GetItemState(new PublishedFileId_t(fileId.m_PublishedFileId));
-                return (itemState & EItemState.k_EItemStateDownloading) != 0;
+                return (itemState & EItemState.k_EItemStateInstalled) != 0;
             }
                 
 
