@@ -11,6 +11,8 @@ using System.Text.RegularExpressions;
 using Ravenfield.Mutator.Configuration;
 using SimpleJSON;
 using System.Globalization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace RavenM
 {
@@ -331,6 +333,13 @@ namespace RavenM
 
         public List<PublishedFileId_t> ModDownloadBatch = new List<PublishedFileId_t>();
 
+        public int ModBatchLimit = 4;
+        
+        /// <summary>
+        /// Invoked after an item is downloaded.
+        /// </summary>
+        public static event Action<DownloadItemResult_t> OnDownloadItemResult;
+
         public bool LoadedServerMods = false;
 
         public bool RequestModReload = false;
@@ -539,7 +548,7 @@ namespace RavenM
                 {
                     for (int i = 0; i < ModsToDownload.Count; i++)
                     {
-                        if (i < 5)
+                        if (i < ModBatchLimit)
                         {
                             AddModToBatch();
                         }
@@ -597,11 +606,20 @@ namespace RavenM
             }
         }
 
-        private void DownloadMod(PublishedFileId_t modToDownload)
+        private async void DownloadMod(PublishedFileId_t modToDownload)
         {
             var mod_id = modToDownload;
-            bool isDownloading = SteamUGC.DownloadItem(mod_id, false);
-            Plugin.logger.LogInfo($"Downloading mod with id: {mod_id} -- {isDownloading}");
+
+            try
+            {
+                Plugin.logger.LogInfo($"Downloading mod asynchronously with id: {mod_id}");
+                await DownloadAsync(mod_id);
+                Plugin.logger.LogInfo($"Download for mod with id: {mod_id} -- complete!");
+            }
+            catch (Exception ex)
+            {
+                Plugin.logger.LogError($"Caught error downloading mod with id {mod_id}: {ex}");
+            }
         }
         
         public void TriggerModRefresh()
@@ -613,7 +631,7 @@ namespace RavenM
             }
             else
             {
-                if (ModDownloadBatch.Count < 5 && ModsToDownload.Count != 0)
+                if (ModDownloadBatch.Count < ModBatchLimit && ModsToDownload.Count != 0)
                 {
                     AddModToBatch();
                 }
@@ -694,7 +712,97 @@ namespace RavenM
                     ModManager.instance.mods[i].enabled = oldState[i];
             }
         }
-        
+
+        /// <summary>
+        /// Method stolen from Facepunch.Steamworks
+        /// (https://github.com/Facepunch/Facepunch.Steamworks/blob/master/Facepunch.Steamworks/SteamUgc.cs#L75)
+        /// </summary>
+        /// <param name="fileId">The ID of the file you download.</param>
+        /// <param name="progress">An optional callback</param>
+        /// <param name="ct">Allows to send a message to cancel the download anywhere during the process.</param>
+        /// <param name="milisecondsUpdateDelay">How often to call the progress function.</param>
+        /// <returns><see langword="true"/> if downloaded and installed properly.</returns>
+        public static async Task<bool> DownloadAsync( PublishedFileId_t fileId, Action<float> progress = null, int milisecondsUpdateDelay = 60, CancellationToken ct = default )
+        {
+            ulong punDownloadedBytes;
+            ulong punBytesTotal;
+            var item = SteamUGC.GetItemDownloadInfo(new PublishedFileId_t(fileId.m_PublishedFileId),
+                out punDownloadedBytes, out punBytesTotal);
+            if ( ct == default )
+                ct = new CancellationTokenSource( TimeSpan.FromSeconds( 60 ) ).Token;
+
+            progress?.Invoke( 0.0f );
+
+            if (SteamUGC.DownloadItem(fileId, true) == false)
+            {
+                // Equivalent to Facepunch: item.IsInstalled
+                EItemState itemState = (EItemState)SteamUGC.GetItemState(new PublishedFileId_t(fileId.m_PublishedFileId));
+                return (itemState & EItemState.k_EItemStateDownloading) != 0;
+            }
+                
+
+            // Steam docs about Download:
+            // If the return value is true then register and wait
+            // for the Callback DownloadItemResult_t before calling 
+            // GetItemInstallInfo or accessing the workshop item on disk.
+
+            // Wait for DownloadItemResult_t
+            {
+                Action<DownloadItemResult_t> onDownloadStarted = null;
+
+                try
+                {
+                    var downloadStarted = false;
+					
+                    onDownloadStarted = r => downloadStarted = true;
+                    OnDownloadItemResult += onDownloadStarted;
+
+                    while ( downloadStarted == false )
+                    {
+                        if ( ct.IsCancellationRequested )
+                            break;
+
+                        await Task.Delay( milisecondsUpdateDelay );
+                    }
+                }
+                finally
+                {
+                    OnDownloadItemResult -= onDownloadStarted;
+                }
+            }
+
+            progress?.Invoke( 0.2f );
+            await Task.Delay( milisecondsUpdateDelay );
+
+            //Wait for downloading completion
+            {
+                while ( true )
+                {
+                    if ( ct.IsCancellationRequested )
+                        break;
+
+                    SteamUGC.GetItemDownloadInfo(new PublishedFileId_t(fileId.m_PublishedFileId),
+                        out punDownloadedBytes, out punBytesTotal);
+                    
+                    // Equivalent to Facepunch: progress?.Invoke( 0.2f + item.DownloadAmount * 0.8f );
+                    progress?.Invoke( 0.2f + ((float)punBytesTotal / punDownloadedBytes * 100) * 0.8f );
+
+                    // Equivalent to Facepunch: if ( !item.IsDownloading && item.IsInstalled )
+                    EItemState itemState = (EItemState)SteamUGC.GetItemState(new PublishedFileId_t(fileId.m_PublishedFileId));
+                    if ( (itemState & EItemState.k_EItemStateDownloading) == 0 && ( itemState & EItemState.k_EItemStateInstalled ) != 0 )
+                        break;
+
+                    await Task.Delay( milisecondsUpdateDelay );
+                }
+            }
+
+            progress?.Invoke( 1.0f );
+
+            // Equivalent to Facepunch: return item.IsInstalled;
+            EItemState finalItemState = (EItemState)SteamUGC.GetItemState(new PublishedFileId_t(fileId.m_PublishedFileId));
+            return ( finalItemState & EItemState.k_EItemStateInstalled ) != 0;
+        }
+
         private void StartAsClient()
         {
             ReadyToPlay = true;
