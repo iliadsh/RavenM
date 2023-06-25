@@ -590,6 +590,7 @@ namespace RavenM
 
         private void OnItemDownload(DownloadItemResult_t pCallback)
         {
+            OnDownloadItemResult?.Invoke(pCallback);
             Plugin.logger.LogInfo($"Downloaded mod! {pCallback.m_nPublishedFileId}");
             if (ModDownloadBatch.Contains(pCallback.m_nPublishedFileId))
             {
@@ -643,7 +644,7 @@ namespace RavenM
                             out ulong punBytesDownloaded, out ulong punBytesTotal))
                     {
                         EItemState itemState = (EItemState)SteamUGC.GetItemState(new PublishedFileId_t(modId.m_PublishedFileId));
-                        if ( (itemState & EItemState.k_EItemStateInstalled) != 0 )
+                        if ( (itemState & EItemState.k_EItemStateInstalled) != 0 && (itemState & EItemState.k_EItemStateDownloading) == 0)
                         {
                             // Mod already downloaded, remove it from the batch
                             Plugin.logger.LogInfo($"Mod with id: {modId} already downloaded! Removing from batch.");
@@ -1678,7 +1679,8 @@ namespace RavenM
                 
                 foreach (var modID in ModDownloadBatch)
                 {
-                    if (SteamUGC.GetItemDownloadInfo(new PublishedFileId_t(modID.m_PublishedFileId), out ulong punBytesDownloaded, out ulong punBytesTotal))
+                    if (SteamUGC.GetItemDownloadInfo(new PublishedFileId_t(modID.m_PublishedFileId), 
+                            out ulong punBytesDownloaded, out ulong punBytesTotal))
                     {
                         GUILayout.BeginHorizontal();
                         GUILayout.FlexibleSpace();
