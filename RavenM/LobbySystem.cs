@@ -537,7 +537,20 @@ namespace RavenM
 
                     if (!alreadyHasMod)
                     {
-                        ModsToDownload.Add(mod_id);
+                        // Check if the workshop item was already downloaded. This may happen if a user downloads the mod
+                        // then rejoins a lobby later on using the same mod.
+                        // Saves a lot of headache when downloading mods later on...
+                        EItemState itemState = (EItemState)SteamUGC.GetItemState(mod_id);
+                        if (itemState != EItemState.k_EItemStateInstalled)
+                        {
+                            ModsToDownload.Add(mod_id);
+                        }
+                        else
+                        {
+                            var mod = (ModInformation)typeof(ModManager).GetMethod("AddWorkshopItemAsMod", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ModManager.instance, new object[] { mod_id });
+                            mod.hideInModList = true;
+                            mod.enabled = false;
+                        }
                     }
                 }
                 SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ( ModsToDownload.Count + ModDownloadBatch.Count )).ToString());
@@ -599,7 +612,7 @@ namespace RavenM
                 mod.enabled = false;
 
                 ModDownloadBatch.Remove(pCallback.m_nPublishedFileId);
-
+                
                 if (InLobby && LobbyDataReady)
                     SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ( ModsToDownload.Count + ModDownloadBatch.Count )).ToString());
                 
@@ -609,18 +622,43 @@ namespace RavenM
 
         private async void DownloadMod(PublishedFileId_t modToDownload)
         {
-            var mod_id = modToDownload;
-
             try
             {
-                Plugin.logger.LogInfo($"Downloading mod asynchronously with id: {mod_id}");
-                await DownloadAsync(mod_id);
-                Plugin.logger.LogInfo($"Download for mod with id: {mod_id} -- complete!");
+                await DownloadAsync(modToDownload);
             }
             catch (Exception ex)
             {
-                Plugin.logger.LogError($"Caught error downloading mod with id {mod_id}: {ex}");
+                Plugin.logger.LogError($"Caught error downloading mod with id {modToDownload}: {ex}");
             }
+        }
+        
+        /// <summary>
+        /// Method stolen from https://github.com/Yukinii/Async-Await-Steamworks.NET/blob/master/Plugins/Steamworks.NET/autogen/isteamugc.cs#L493
+        /// </summary>
+        /// <param name="downloadItem"></param>
+        /// <returns></returns>
+        public static Task DownloadAsync(PublishedFileId_t downloadItem)
+        {
+            return Task.Run(() =>
+            {
+                if (!SteamUGC.DownloadItem(downloadItem, true))
+                    return;
+                Plugin.logger.LogInfo($"Starting download for mod with id: {downloadItem}");
+                ulong lastProgress = 0;
+                while (true)
+                {
+                    ulong downloaded;
+                    ulong total;
+
+                    if (!SteamUGC.GetItemDownloadInfo(downloadItem, out downloaded, out total))
+                        break;
+
+                    if (downloaded > 0 && total > 0 && downloaded == total)
+                        break;
+                    
+                    Thread.Sleep(10);
+                }
+            });
         }
         
         public void TriggerModRefresh()
@@ -640,35 +678,12 @@ namespace RavenM
                 for (int i = 0; i < ModDownloadBatch.Count; i++)
                 {
                     var modId = ModDownloadBatch[i];
-                    if (SteamUGC.GetItemDownloadInfo(new PublishedFileId_t(modId.m_PublishedFileId),
-                            out ulong punBytesDownloaded, out ulong punBytesTotal))
-                    {
-                        EItemState itemState = (EItemState)SteamUGC.GetItemState(new PublishedFileId_t(modId.m_PublishedFileId));
-                        if ( (itemState & EItemState.k_EItemStateInstalled) != 0 && (itemState & EItemState.k_EItemStateDownloading) == 0)
-                        {
-                            // Mod already downloaded, remove it from the batch
-                            Plugin.logger.LogInfo($"Mod with id: {modId} already downloaded! Removing from batch.");
-                            if (ModDownloadBatch.ElementAtOrDefault(i) != null)
-                            {
-                                var mod = (ModInformation)typeof(ModManager).GetMethod("AddWorkshopItemAsMod", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ModManager.instance, new object[] { new PublishedFileId_t(modId.m_PublishedFileId) });
-                                mod.hideInModList = true;
-                                mod.enabled = false;
-                                
-                                ModDownloadBatch.RemoveAt(i);
-                                AddModToBatch();
-
-                                if (InLobby && LobbyDataReady)
-                                    SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ( ModsToDownload.Count + ModDownloadBatch.Count )).ToString());
-                            }
-                        }
-                    }
-
+                    
                     if (ModDownloadBatch.Count > 0)
                     {
                         if (ModDownloadBatch.ElementAtOrDefault(i) != null)
                         {
-                            Plugin.logger.LogInfo($"Attempting to download mod with id: {modId}");
-                            DownloadMod(ModDownloadBatch[i]);
+                            DownloadMod(modId);
                         }
                     }
                     else if (ModsToDownload.Count == 0)
@@ -713,96 +728,6 @@ namespace RavenM
                 for (int i = 0; i < ModManager.instance.mods.Count; i++)
                     ModManager.instance.mods[i].enabled = oldState[i];
             }
-        }
-
-        /// <summary>
-        /// Method stolen from Facepunch.Steamworks
-        /// (https://github.com/Facepunch/Facepunch.Steamworks/blob/master/Facepunch.Steamworks/SteamUgc.cs#L75)
-        /// </summary>
-        /// <param name="fileId">The ID of the file you download.</param>
-        /// <param name="progress">An optional callback</param>
-        /// <param name="ct">Allows to send a message to cancel the download anywhere during the process.</param>
-        /// <param name="milisecondsUpdateDelay">How often to call the progress function.</param>
-        /// <returns><see langword="true"/> if downloaded and installed properly.</returns>
-        public static async Task<bool> DownloadAsync( PublishedFileId_t fileId, Action<float> progress = null, int milisecondsUpdateDelay = 60, CancellationToken ct = default )
-        {
-            ulong punDownloadedBytes;
-            ulong punBytesTotal;
-            var item = SteamUGC.GetItemDownloadInfo(new PublishedFileId_t(fileId.m_PublishedFileId),
-                out punDownloadedBytes, out punBytesTotal);
-            if ( ct == default )
-                ct = new CancellationTokenSource( TimeSpan.FromSeconds( 60 ) ).Token;
-
-            progress?.Invoke( 0.0f );
-
-            if (SteamUGC.DownloadItem(fileId, true) == false)
-            {
-                // Equivalent to Facepunch: item.IsInstalled
-                EItemState itemState = (EItemState)SteamUGC.GetItemState(new PublishedFileId_t(fileId.m_PublishedFileId));
-                return (itemState & EItemState.k_EItemStateInstalled) != 0;
-            }
-                
-
-            // Steam docs about Download:
-            // If the return value is true then register and wait
-            // for the Callback DownloadItemResult_t before calling 
-            // GetItemInstallInfo or accessing the workshop item on disk.
-
-            // Wait for DownloadItemResult_t
-            {
-                Action<DownloadItemResult_t> onDownloadStarted = null;
-
-                try
-                {
-                    var downloadStarted = false;
-					
-                    onDownloadStarted = r => downloadStarted = true;
-                    OnDownloadItemResult += onDownloadStarted;
-
-                    while ( downloadStarted == false )
-                    {
-                        if ( ct.IsCancellationRequested )
-                            break;
-
-                        await Task.Delay( milisecondsUpdateDelay );
-                    }
-                }
-                finally
-                {
-                    OnDownloadItemResult -= onDownloadStarted;
-                }
-            }
-
-            progress?.Invoke( 0.2f );
-            await Task.Delay( milisecondsUpdateDelay );
-
-            //Wait for downloading completion
-            {
-                while ( true )
-                {
-                    if ( ct.IsCancellationRequested )
-                        break;
-
-                    SteamUGC.GetItemDownloadInfo(new PublishedFileId_t(fileId.m_PublishedFileId),
-                        out punDownloadedBytes, out punBytesTotal);
-                    
-                    // Equivalent to Facepunch: progress?.Invoke( 0.2f + item.DownloadAmount * 0.8f );
-                    progress?.Invoke( 0.2f + ((float)punBytesTotal / punDownloadedBytes * 100) * 0.8f );
-
-                    // Equivalent to Facepunch: if ( !item.IsDownloading && item.IsInstalled )
-                    EItemState itemState = (EItemState)SteamUGC.GetItemState(new PublishedFileId_t(fileId.m_PublishedFileId));
-                    if ( (itemState & EItemState.k_EItemStateDownloading) == 0 && ( itemState & EItemState.k_EItemStateInstalled ) != 0 )
-                        break;
-
-                    await Task.Delay( milisecondsUpdateDelay );
-                }
-            }
-
-            progress?.Invoke( 1.0f );
-
-            // Equivalent to Facepunch: return item.IsInstalled;
-            EItemState finalItemState = (EItemState)SteamUGC.GetItemState(new PublishedFileId_t(fileId.m_PublishedFileId));
-            return ( finalItemState & EItemState.k_EItemStateInstalled ) != 0;
         }
 
         private void StartAsClient()
