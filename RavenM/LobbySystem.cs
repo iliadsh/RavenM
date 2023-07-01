@@ -334,11 +334,6 @@ namespace RavenM
         public List<PublishedFileId_t> ModDownloadBatch = new List<PublishedFileId_t>();
 
         public int ModBatchLimit = 4;
-        
-        /// <summary>
-        /// Invoked after an item is downloaded.
-        /// </summary>
-        public static event Action<DownloadItemResult_t> OnDownloadItemResult;
 
         public bool LoadedServerMods = false;
 
@@ -573,6 +568,7 @@ namespace RavenM
                 }
                 
                 TriggerModRefresh();
+                StartProcessingBatch();
                 bool nameTagsConverted = bool.TryParse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nameTags"),out bool nameTagsOn);
                 if (nameTagsConverted)
                 {
@@ -603,7 +599,6 @@ namespace RavenM
 
         private void OnItemDownload(DownloadItemResult_t pCallback)
         {
-            OnDownloadItemResult?.Invoke(pCallback);
             Plugin.logger.LogInfo($"Downloaded mod! {pCallback.m_nPublishedFileId}");
             if (ModDownloadBatch.Contains(pCallback.m_nPublishedFileId))
             {
@@ -674,24 +669,40 @@ namespace RavenM
                 {
                     AddModToBatch();
                 }
+            }
+        }
 
-                for (int i = 0; i < ModDownloadBatch.Count; i++)
+        private async void StartProcessingBatch()
+        {
+            await ProcessBatch();
+        }
+        
+        private Task ProcessBatch()
+        {
+            return Task.Run(() =>
+            {
+                while (true)
                 {
-                    var modId = ModDownloadBatch[i];
-                    
-                    if (ModDownloadBatch.Count > 0)
+                    for (int i = 0; i < ModDownloadBatch.Count; i++)
                     {
-                        if (ModDownloadBatch.ElementAtOrDefault(i) != null)
+                        var modId = ModDownloadBatch[i];
+
+                        if (ModDownloadBatch.Count > 0)
                         {
-                            DownloadMod(modId);
+                            if (ModDownloadBatch.ElementAtOrDefault(i) != null)
+                            {
+                                DownloadMod(modId);
+                            }
                         }
-                    }
-                    else if (ModsToDownload.Count == 0)
-                    {
-                        FinalizeModDownloads();
+                        else if (ModsToDownload.Count == 0)
+                        {
+                            FinalizeModDownloads();
+                            break;
+                        }
+                        Thread.Sleep(5000);
                     }
                 }
-            }
+            });
         }
 
         private void AddModToBatch(int index = 0)
@@ -709,7 +720,6 @@ namespace RavenM
         private void FinalizeModDownloads()
         {
             Plugin.logger.LogInfo($"All server mods downloaded.");
-
             if (InLobby && LobbyDataReady && !IsLobbyOwner)
             {
                 List<bool> oldState = new List<bool>();
