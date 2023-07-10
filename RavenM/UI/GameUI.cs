@@ -1,6 +1,7 @@
 ﻿using HarmonyLib;
 using Steamworks;
 using System;
+using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -94,6 +95,20 @@ namespace RavenM.UI
             ToggleNameTags();
             loaded = true;
         }
+
+        public void RemoveNameTag(Actor actor) 
+        {
+            var nametags = nameTagObjects.Where(kv => kv.Key.actor == actor).ToArray();
+
+            foreach (var nametag in nametags) 
+            {
+                nametag.Value.enabled = false;
+                nametag.Key.canvasGroup.alpha = 0f;
+
+                nameTagObjects.Remove(nametag.Key);
+            }
+        }
+
         public void ToggleNameTags()
         {
             if (instance == null)
@@ -237,7 +252,7 @@ namespace RavenM.UI
                 tag.text = actorValue.name;
             }
         }
-        void Update()
+        void LateUpdate()
         {
             if (!nameTagsEnabled)
             {

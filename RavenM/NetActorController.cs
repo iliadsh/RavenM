@@ -94,6 +94,8 @@ namespace RavenM
         public TimedAction SeatResolverCooldown = new TimedAction(1.5f);
         public TimedAction DamageCooldown = new TimedAction(1.0f);
 
+        public bool SpawnedOnce = false;
+
         private void Update()
         {
             if (RespawnCooldown.TrueDone())
@@ -104,6 +106,9 @@ namespace RavenM
                 if (!((Flags & (int)ActorStateFlags.Dead) != 0) && actor.dead)
                     actor.SpawnAt(Targets.Position, Quaternion.identity);
             }
+
+            if (!SpawnedOnce)
+                return;
 
             // *tiny* slack. We don't want de-sync, but we also don't want the actor
             // to glitch out with its colliders and such.
@@ -565,6 +570,8 @@ namespace RavenM
 
         public override void SpawnAt(Vector3 position, Quaternion rotation)
         {
+            SpawnedOnce = true;
+
             RespawnCooldown.Start();
         }
 

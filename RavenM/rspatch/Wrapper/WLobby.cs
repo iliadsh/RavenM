@@ -29,23 +29,7 @@ namespace RavenM.RSPatch.Wrapper
         }
         public static IList<Actor> GetPlayers()
         {
-            List<Actor> actors = new List<Actor>();
-            foreach (var kv in IngameNetManager.instance.ClientActors)
-            {
-                var id = kv.Key;
-                var actor = kv.Value;
-
-                if (IngameNetManager.instance.OwnedActors.Contains(id))
-                    continue;
-
-                var controller = actor.controller as NetActorController;
-
-                if ((controller.Flags & (int)ActorStateFlags.AiControlled) != 0)
-                    continue;
-                actors.Add(actor);
-            }
-            actors.Add(ActorManager.instance.player);
-            return actors;
+            return IngameNetManager.instance.GetPlayers();
         }
         public static void SendServerChatMessage(string message, Color color)
         {

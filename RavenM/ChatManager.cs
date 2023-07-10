@@ -30,6 +30,10 @@ namespace RavenM
             set { _currentChatMessage = value; }
         }
         private string _fullChatLink = string.Empty;
+        
+        /// <summary>
+        /// The full chat transcript
+        /// </summary>
         public string FullChatLink
         {
             get { return _fullChatLink; }
@@ -40,6 +44,21 @@ namespace RavenM
         {
             get { return _chatScrollPosition; }
             set { _chatScrollPosition = value; }
+        }
+        private List<string> _chatPositionOptions = new List<string>
+        {
+            "Left",
+            "Right"
+        };
+        public List<string> ChatPositionOptions
+        {
+            get { return _chatPositionOptions; }
+        }
+        private int _selectedChatPosition;
+        public int SelectedChatPosition
+        {
+            get { return _selectedChatPosition; }
+            set { _selectedChatPosition = value; }
         }
         private Texture2D _greyBackground = new Texture2D(1, 1);
         public Texture2D GreyBackground
@@ -60,6 +79,11 @@ namespace RavenM
             set { _typeIntention = value; }
         }
         private bool _chatMode = false;
+        
+        /// <summary>
+        /// If true, chat message is global.
+        /// If false, chat message is team only.
+        /// </summary>
         public bool ChatMode
         {
             get { return _chatMode; }
@@ -328,7 +352,7 @@ namespace RavenM
                     bool parsedArg = bool.TryParse(command[1], out bool result);
                     if (parsedArg)
                     {
-                        LobbySystem.instance.SetLobbyData("nameTags", result.ToString());
+                        LobbySystem.instance.SetLobbyDataDedup("nameTags", result.ToString());
                         PushLobbyCommandChatMessage("Set nameTags to " + result.ToString(), Color.green, false, false);
                         UI.GameUI.instance.ToggleNameTags();
                     }
@@ -347,7 +371,7 @@ namespace RavenM
                     bool parsedArg2 = bool.TryParse(command[1], out bool result2);
                     if (parsedArg2)
                     {
-                        LobbySystem.instance.SetLobbyData("nameTagsForTeamOnly", result2.ToString());
+                        LobbySystem.instance.SetLobbyDataDedup("nameTagsForTeamOnly", result2.ToString());
                         PushLobbyCommandChatMessage("Set nameTags for Team only to " + result2.ToString(), Color.green, false, false);
                         UI.GameUI.instance.ToggleNameTags();
                     }
@@ -436,7 +460,7 @@ namespace RavenM
                     bool parsedArg = bool.TryParse(command[1], out bool result);
                     if (parsedArg)
                     {
-                        LobbySystem.instance.SetLobbyData("nameTags", result.ToString());
+                        LobbySystem.instance.SetLobbyDataDedup("nameTags", result.ToString());
                         PushCommandChatMessage("Set nameTags to " + result.ToString(), Color.green, false, false);
                         UI.GameUI.instance.ToggleNameTags();
                     }
@@ -455,7 +479,7 @@ namespace RavenM
                     bool parsedArg2 = bool.TryParse(command[1], out bool result2);
                     if (parsedArg2)
                     {
-                        LobbySystem.instance.SetLobbyData("nameTagsForTeamOnly", result2.ToString());
+                        LobbySystem.instance.SetLobbyDataDedup("nameTagsForTeamOnly", result2.ToString());
                         PushCommandChatMessage("Set nameTags for Team only to " + result2.ToString(), Color.green, false, false);
                         UI.GameUI.instance.ToggleNameTags();
                     }
@@ -523,7 +547,7 @@ namespace RavenM
         }
 
         /// <summary>
-        /// Sends a message directly to Steam. Messages sent here are not displayed in the chat area
+        /// Sends a message directly to Steam via SteamMatchmaking.SendLobbyChatMsg
         /// </summary>
         /// <param name="message"></param>
         public void SendLobbyChat(string message)
@@ -548,9 +572,11 @@ namespace RavenM
         /// <summary>
         /// Creates the events for interacting with the chat area
         /// </summary>
-        /// <param name="isLobbyChat"></param>
-        /// <param name="chatWidth"></param>
-        public void InitializeChatArea(bool isLobbyChat = false, float chatWidth = 500f)
+        /// <param name="isLobbyChat">If true, the chat message won't attempt to get the player's current team for their name colour. False by default</param>
+        /// <param name="chatWidth">The width of the chat area. 500f by default</param>
+        /// <param name="yOffset">Sets how far from the top of the screen the chat input box should be located. 160f by default</param>
+        /// <param name="xOffset">Sets how far from the left side of the screen the chat input box should be located. 10f by default</param>
+        public void InitializeChatArea(bool isLobbyChat = false, float chatWidth = 500f, float yOffset = 160f, float xOffset = 10f)
         {
             if (Event.current.isKey && Event.current.keyCode == KeyCode.None && JustFocused)
             {
@@ -565,12 +591,12 @@ namespace RavenM
             if (TypeIntention)
             {
                 GUI.SetNextControlName("chat");
-                CurrentChatMessage = GUI.TextField(new Rect(10f, Screen.height - 160f, (chatWidth - 70f), 25f), CurrentChatMessage);
+                CurrentChatMessage = GUI.TextField(new Rect(xOffset, Screen.height - 160f, (chatWidth - 70f), 25f), CurrentChatMessage);
                 GUI.FocusControl("chat");
 
                 string color = !ChatMode ? "green" : (GameManager.PlayerTeam() == 0 ? "blue" : "red");
                 string text = ChatMode ? "GLOBAL" : "TEAM";
-                GUI.Label(new Rect((chatWidth - 50f), Screen.height - 160f, 70f, 25f), $"<color={color}><b>{text}</b></color>");
+                GUI.Label(new Rect(xOffset + (chatWidth - 60f), Screen.height - yOffset, 70f, 25f), $"<color={color}><b>{text}</b></color>");
 
                 if (Event.current.isKey && Event.current.keyCode == KeyCode.Escape && TypeIntention)
                 {
@@ -606,6 +632,13 @@ namespace RavenM
                             {
                                 PushChatMessage(ActorManager.instance.player, CurrentChatMessage, ChatMode, GameManager.PlayerTeam());
 
+                                // Send message to users in lobby if not team chat
+                                // TODO: Get messages sent from in game -> lobby
+                                // if (ChatMode)
+                                // {
+                                //     SendLobbyChat(CurrentChatMessage);
+                                // }
+                                
                                 using MemoryStream memoryStream = new MemoryStream();
                                 var chatPacket = new ChatPacket
                                 {
@@ -648,13 +681,16 @@ namespace RavenM
         /// <summary>
         /// Draws the chat area
         /// </summary>
-        /// <param name="isLobbyChat"></param>
-        /// <param name="chatWidth"></param>
-        /// <param name="chatHeight"></param>
-        /// <param name="chatYOffset"></param>
-        public void CreateChatArea(bool isLobbyChat = false, float chatWidth = 500f, float chatHeight = 200f, float chatYOffset = 370f, bool wordWrap = true)
+        /// <param name="isLobbyChat">If true, the chat message won't attempt to get the player's current team for their name colour. False by default</param>
+        /// <param name="chatWidth">The width of the chat area. 500f by default</param>
+        /// <param name="chatHeight">The height of the chat area. 200f by default</param>
+        /// <param name="chatYOffset">Sets how far from the top of the screen the chat area should be located. 370f by default</param>
+        /// <param name="chatXOffset">Sets how far from the left side of the screen the chat area should be located. 10f by default</param>
+        /// <param name="wordWrap">Sets whether text should wrap. True by default</param>
+        /// <param name="resetScrollPosition">If false, the scroll position (if applicable) will be maintained when creating the chat area. True by default</param>
+        public void CreateChatArea(bool isLobbyChat = false, float chatWidth = 500f, float chatHeight = 200f, float chatYOffset = 370f, float chatXOffset = 10f, bool wordWrap = true, bool resetScrollPosition = true)
         {
-            InitializeChatArea(isLobbyChat, chatWidth);
+            InitializeChatArea(isLobbyChat, chatWidth, 160f, chatXOffset);
 
             var chatStyle = new GUIStyle();
             chatStyle.normal.background = GreyBackground;
@@ -665,7 +701,7 @@ namespace RavenM
             if (!wordWrap)
                 textStyle.wordWrap = false;
                 
-            GUILayout.BeginArea(new Rect(10f, Screen.height - chatYOffset, chatWidth, chatHeight), string.Empty, chatStyle);
+            GUILayout.BeginArea(new Rect(chatXOffset, Screen.height - chatYOffset, chatWidth, chatHeight), string.Empty, chatStyle);
             GUILayout.BeginVertical();
             GUILayout.Space(10);
             ChatScrollPosition = GUILayout.BeginScrollView(ChatScrollPosition, GUILayout.Width(chatWidth), GUILayout.Height(chatHeight - 15f));
@@ -675,6 +711,11 @@ namespace RavenM
             GUILayout.Space(10);
             GUILayout.EndVertical();
             GUILayout.EndArea();
+            
+            if (resetScrollPosition)
+            {
+                _chatScrollPosition.y = Mathf.Infinity;
+            }
         }
 
         public void ResetChat()

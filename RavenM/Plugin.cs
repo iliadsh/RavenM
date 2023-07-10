@@ -61,11 +61,11 @@ namespace RavenM
             {
                 if (!changeGUID)
                 {
-                    return Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString();
+                    return $"INDEV-{Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString().Split('-').Last()}";
                 }
                 else
                 {
-                    return "bb3ef199-df63-4e99-a8a1-89a27d9e2fcb";
+                    return "WARNING-TESTING-MODE-89a27d9e2fcb";
                 }
             }
         }
@@ -82,7 +82,7 @@ namespace RavenM
             configRavenMDevMod = Config.Bind("General.Toggles",
                                                 "Enable Dev Mode",
                                                 false,
-                                                "Change GUID to bb3ef199-df63-4e99-a8a1-89a27d9e2fcb");
+                                                "Change GUID to WARNING-TESTING-MODE-89a27d9e2fcb");
             configRavenMAddToBuiltInMutators = Config.Bind("General.Toggles",
                 "Enable Custom Build In Mutators",
                 false,

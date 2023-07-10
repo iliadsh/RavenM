@@ -31,6 +31,7 @@
         DestroyDestructible,
         ChatCommand,
         Countermeasures,
-        NetworkGameObject
+        NetworkGameObject,
+        RemoveActor
     }
 }

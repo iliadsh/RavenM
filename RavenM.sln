@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RavenM", "RavenM\RavenM.csp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RavenM.Updater", "RavenM.Updater\RavenM.Updater.csproj", "{B8EC1D77-EC6E-4DE5-95D1-721A80E70A84}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RavenM.Installer", "RavenM.Installer\RavenM.Installer.csproj", "{6022A4DB-A472-4BF2-9790-8C484D97FFC3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{B8EC1D77-EC6E-4DE5-95D1-721A80E70A84}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B8EC1D77-EC6E-4DE5-95D1-721A80E70A84}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B8EC1D77-EC6E-4DE5-95D1-721A80E70A84}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6022A4DB-A472-4BF2-9790-8C484D97FFC3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6022A4DB-A472-4BF2-9790-8C484D97FFC3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6022A4DB-A472-4BF2-9790-8C484D97FFC3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6022A4DB-A472-4BF2-9790-8C484D97FFC3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
