@@ -125,7 +125,7 @@ namespace RavenM
                 IngameDialog.PrintActorText("p unknown", "do some shenaniganery, " + FpsActorController.instance.actor.name + ". hehehe :)");
                 IngameDialog.HideAfter(5);
                 Actor host = CheckIfHostMethod.getHost();
-                Plugin.logger.LogInfo($"host {host.name} is not on this client's team! (spawned) (cringe) (wow)");
+                Plugin.logger.LogInfo($"host {host.name} is not on this client's team! (spawned) (cringe) (ww)");
 
                 var attackers = new List<Actor>
                         {
