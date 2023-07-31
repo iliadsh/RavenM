@@ -11,12 +11,12 @@ using UnityEngine.UI;
 
 namespace RavenM.UI
 {
-    [HarmonyPatch(typeof(IngameUi),"Awake")]
+    [HarmonyPatch(typeof(IngameUI),"Awake")]
     public class IngameUIPatch
     {
        static void Postfix()
        {
-            IngameUi.instance.gameObject.AddComponent<GameUI>();
+            IngameUI.instance.gameObject.AddComponent<GameUI>();
        }
     }
 
@@ -82,7 +82,8 @@ namespace RavenM.UI
             playerTeamID = ActorManager.instance.player.team;
             // Copy the Scoreboard Canvas instead of the IngameUI because it's easier to get rid of the other components
             NoDupeScoreboardPatch.Lock = true;
-            GameObject scoreBoardCanvas = IngameUi.instance.canvas.transform.parent.Find("Scoreboard Canvas").gameObject;
+            GameObject scoreBoardCanvas = (typeof(IngameUI).GetField("canvas", BindingFlags.Instance | BindingFlags.NonPublic)
+                                                           .GetValue(IngameUI.instance) as Canvas).transform.parent.Find("Scoreboard Canvas").gameObject;
             ravenMUICanvas = Instantiate(scoreBoardCanvas, scoreBoardCanvas.transform.parent).GetComponent<Canvas>();
             ravenMUICanvas.enabled = true;
             DestroyImmediate(ravenMUICanvas.GetComponent<ScoreboardUi>());

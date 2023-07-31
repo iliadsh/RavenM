@@ -2555,7 +2555,7 @@ namespace RavenM
             int flags = 0;
             if (!actor.dead && actor.controller.Aiming()) flags |= (int)ActorStateFlags.Aiming;
             if (!actor.dead && actor.controller.Crouch()) flags |= (int)ActorStateFlags.Crouch;
-            if (!actor.dead && actor.controller.Fire()) flags |= (int)ActorStateFlags.Fire;
+            if (!actor.dead && actor.controller.WantsToFire()) flags |= (int)ActorStateFlags.Fire;
             if (!actor.dead && actor.controller.HoldingSprint()) flags |= (int)ActorStateFlags.HoldingSprint;
             if (!actor.dead && actor.controller.IdlePose()) flags |= (int)ActorStateFlags.IdlePose;
             if (!actor.dead && actor.controller.IsAirborne()) flags |= (int)ActorStateFlags.IsAirborne;
