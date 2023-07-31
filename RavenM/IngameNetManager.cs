@@ -221,6 +221,28 @@ namespace RavenM
         }
     }
 
+    [HarmonyPatch(typeof(TurretSpawner), nameof(TurretSpawner.SpawnTurrets))]
+    public class SpawnTurretDetachPatch
+    {
+        // Turrets created through spawners will have their transform parent be the CapturePoint,
+        // which totally messes things up for the destructible syncing logic. We unparent them
+        // here to avoid that. Not a great solution but oh well.
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            foreach (var instruction in instructions)
+            {
+                // Pop the third argument from the evaluation stack (transform.parent) and push a null.
+                if (instruction.opcode == OpCodes.Call && ((MethodInfo)instruction.operand).Name == nameof(UnityEngine.Object.Instantiate)) 
+                {
+                    yield return new CodeInstruction(OpCodes.Pop);
+                    yield return new CodeInstruction(OpCodes.Ldnull);
+                }
+
+                yield return instruction;
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(Vehicle), "Start")]
     public class VehicleCreatedPatch
     {
@@ -615,6 +637,26 @@ namespace RavenM
                 vehicle.transform.rotation = Quaternion.Slerp(vehicle.transform.rotation, vehiclePacket.Rotation, 5f * Time.deltaTime);
             }
 
+            foreach (var kv in RSPatch.RSPatch.TargetGameObjectState)
+            {
+                int gameObjectID = kv.Key;
+                var gameObjectPacket = kv.Value;
+                if (!RSPatch.RSPatch.ClientObjects.ContainsKey(gameObjectID))
+                    continue;
+
+                if (RSPatch.RSPatch.OwnedObjects.Contains(gameObjectID))
+                    continue;
+                var networkGameObject = RSPatch.RSPatch.ClientObjects[gameObjectID];
+                if (networkGameObject.SourceID != gameObjectPacket.SourceID)
+                    break;
+
+                if (networkGameObject == null)
+                    continue;
+
+                networkGameObject.transform.position = Vector3.Lerp(networkGameObject.transform.position, gameObjectPacket.Position, 5f * Time.deltaTime);
+
+                networkGameObject.transform.rotation = Quaternion.Slerp(networkGameObject.transform.rotation, gameObjectPacket.Rotation, 5f * Time.deltaTime);
+            }
             _ticker2 += Time.deltaTime;
 
             if (_ticker2 > 1)
@@ -725,8 +767,17 @@ namespace RavenM
                     continue;
                 DrawMarker(controller.Targets.MarkerPosition ?? Vector3.zero);
             }
-
-            ChatManager.instance.CreateChatArea(false);
+            
+            if (ChatManager.instance.SelectedChatPosition == 1) // Position to the right
+            {
+                ChatManager.instance.CreateChatArea(false, 500f, 200f, 370f, Screen.width - 510f);
+            }
+            else
+            {
+                ChatManager.instance.CreateChatArea(false);
+            }
+            
+            // ChatManager.instance.CreateChatArea(false);
 
             if (UsingMicrophone)
                 GUI.DrawTexture(new Rect(315f, Screen.height - 60f, 50f, 50f), MicTexture);
@@ -755,6 +806,7 @@ namespace RavenM
             TargetVehicleStates.Clear();
             OwnedProjectiles.Clear();
             ClientProjectiles.Clear();
+            ClientDestructibles.Clear();
 
             ClientCanSpawnBot = false;
 
@@ -774,6 +826,10 @@ namespace RavenM
             PlayVoiceQueue.Clear();
 
             ReleaseProjectilePatch.ConfigCache.Clear();
+
+            RSPatch.RSPatch.OwnedObjects.Clear();
+            RSPatch.RSPatch.ClientObjects.Clear();
+            RSPatch.RSPatch.TargetGameObjectState.Clear();
         }
 
         public void OpenRelay()
@@ -867,6 +923,27 @@ namespace RavenM
             }
 
             GameManager.ReturnToMenu();
+        }
+
+        public List<Actor> GetPlayers()
+        {
+            List<Actor> actors = new List<Actor>();
+            foreach (var kv in IngameNetManager.instance.ClientActors)
+            {
+                var id = kv.Key;
+                var actor = kv.Value;
+
+                if (IngameNetManager.instance.OwnedActors.Contains(id))
+                    continue;
+
+                var controller = actor.controller as NetActorController;
+
+                if ((controller.Flags & (int)ActorStateFlags.AiControlled) != 0)
+                    continue;
+                actors.Add(actor);
+            }
+            actors.Add(ActorManager.instance.player);
+            return actors;
         }
 
         public void SendPacketToServer(byte[] data, PacketType type, int send_flags)
@@ -972,7 +1049,7 @@ namespace RavenM
                         Plugin.logger.LogInfo($"Killing connection from {info.m_identityRemote.GetSteamID()}.");
                         SteamNetworkingSockets.CloseConnection(pCallback.m_hConn, 0, null, false);
 
-                        // We take ownership of and kill all the actors that were left behind.
+                        // We destroy all the actors that were left behind.
                         if (ServerConnections.Contains(pCallback.m_hConn))
                         {
                             ServerConnections.Remove(pCallback.m_hConn);
@@ -986,6 +1063,7 @@ namespace RavenM
                                 break;
 
                             var actors = GuidActorOwnership[guid];
+                            GuidActorOwnership.Remove(guid);
 
                             foreach (var id in actors)
                             {
@@ -998,7 +1076,7 @@ namespace RavenM
 
                                 if ((controller.Flags & (int)ActorStateFlags.AiControlled) == 0)
                                 {
-                                    var leaveMsg = $"{actor.name} has left the match.\n";
+                                    var leaveMsg = $"{actor.name} has left the match.";
 
                                     ChatManager.instance.PushChatMessage(null, leaveMsg, true, -1);
 
@@ -1020,10 +1098,27 @@ namespace RavenM
                                     SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
                                 }
 
-                                controller.Flags |= (int)ActorStateFlags.Dead;
-                                controller.Targets.Position = Vector3.zero;
+                                {
+                                    // Assume ownership so that we are allowed to kill the actor,
+                                    // then release it so we don't try and send updates.
+                                    OwnedActors.Add(id);
+                                    DestroyActor(actor);
+                                    OwnedActors.Remove(id);
 
-                                OwnedActors.Add(id);
+                                    using MemoryStream memoryStream = new MemoryStream();
+                                    var removeActorPacket = new RemoveActorPacket()
+                                    {
+                                        Id = id,
+                                    };
+
+                                    using (var writer = new ProtocolWriter(memoryStream))
+                                    {
+                                        writer.Write(removeActorPacket);
+                                    }
+                                    byte[] data = memoryStream.ToArray();
+
+                                    SendPacketToServer(data, PacketType.RemoveActor, Constants.k_nSteamNetworkingSend_Reliable);
+                                }
                             }
                         }
 
@@ -1110,7 +1205,7 @@ namespace RavenM
 
                                                 if ((actor_packet.Flags & (int)ActorStateFlags.AiControlled) == 0)
                                                 {
-                                                    var enterMsg = $"{actor_packet.Name} has joined the match.\n";
+                                                    var enterMsg = $"{actor_packet.Name} has joined the match.";
 
                                                     ChatManager.instance.PushChatMessage(null, enterMsg, true, -1);
 
@@ -1152,6 +1247,8 @@ namespace RavenM
                                             net_controller.FakeWeaponParent = weapon_parent;
                                             net_controller.FakeLoadout = loadout;
                                             net_controller.ActualRotation = actor_packet.FacingDirection;
+                                            if (!actor.dead)
+                                                net_controller.SpawnedOnce = true;
 
                                             actor.controller = net_controller;
 
@@ -2127,6 +2224,38 @@ namespace RavenM
 
                                 }
                                 break;
+                            case PacketType.Countermeasures:
+                                {
+                                    var countermeasuresPacket = dataStream.ReadCountermeasuresPacket();
+
+                                    if (!ClientVehicles.ContainsKey(countermeasuresPacket.VehicleId))
+                                        break;
+
+                                    Vehicle targetVehicle = ClientVehicles[countermeasuresPacket.VehicleId];
+                                    if (targetVehicle == null)
+                                        break;
+
+                                    typeof(Vehicle).GetMethod("PopCountermeasures", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(targetVehicle, null);
+                                }
+                                break;
+                            case PacketType.RemoveActor:
+                                {
+                                    var removeActorPacket = dataStream.ReadRemoveActorPacket();
+
+                                    if (!ClientActors.ContainsKey(removeActorPacket.Id) || OwnedActors.Contains(removeActorPacket.Id))
+                                        break;
+
+                                    Actor actor = ClientActors[removeActorPacket.Id];
+                                    if (actor == null)
+                                        break;
+
+                                    // Assume ownership so that we are allowed to kill the actor,
+                                    // then release it so we don't try and send updates.
+                                    OwnedActors.Add(removeActorPacket.Id);
+                                    DestroyActor(actor);
+                                    OwnedActors.Remove(removeActorPacket.Id);
+                                }
+                                break;
                             default:
                                 RSPatch.RSPatch.FixedUpdate(packet, dataStream);
                                 break;
@@ -2425,7 +2554,6 @@ namespace RavenM
         {
             int flags = 0;
             if (!actor.dead && actor.controller.Aiming()) flags |= (int)ActorStateFlags.Aiming;
-            if (!actor.dead && actor.controller.Countermeasures()) flags |= (int)ActorStateFlags.Countermeasures;
             if (!actor.dead && actor.controller.Crouch()) flags |= (int)ActorStateFlags.Crouch;
             if (!actor.dead && actor.controller.Fire()) flags |= (int)ActorStateFlags.Fire;
             if (!actor.dead && actor.controller.HoldingSprint()) flags |= (int)ActorStateFlags.HoldingSprint;
@@ -2772,6 +2900,7 @@ namespace RavenM
 
             var scoreboard = typeof(ScoreboardUi).GetField("entriesOfTeam", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(ScoreboardUi.instance) as Dictionary<int, List<ScoreboardActorEntry>>;
             scoreboard[actor.team].Remove(actor.scoreboardEntry);
+            Destroy(actor.scoreboardEntry.gameObject);
 
             if (actor.IsSeated())
                 actor.LeaveSeat(false);
@@ -2792,6 +2921,9 @@ namespace RavenM
             int nextActorIndex = (int)nextActorIndexF.GetValue(ActorManager.instance);
             nextActorIndexF.SetValue(ActorManager.instance, nextActorIndex - 1);
 
+            UI.GameUI.instance.RemoveNameTag(actor);
+
+            actor.Deactivate();
             ActorManager.Drop(actor);
             Destroy(actor.controller);
             Destroy(actor);

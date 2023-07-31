@@ -40,16 +40,20 @@ namespace RavenM
                 {
                     if (SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, memberId, "loaded") != "yes")
                     {
-                        return false;
+                        if (!LobbySystem.instance.HasCommittedToStart) {
+                            LobbySystem.instance.IntentionToStart = true;
+                            return false;
+                        }
                     }
                 }
+                LobbySystem.instance.HasCommittedToStart = false;
             }
 
             if (LobbySystem.instance.IsLobbyOwner)
             {
                 IngameNetManager.instance.OpenRelay();
 
-                LobbySystem.instance.SetLobbyData("started", "yes");
+                LobbySystem.instance.SetLobbyDataDedup("started", "yes");
             }
 
             LobbySystem.instance.ReadyToPlay = false;
@@ -154,14 +158,14 @@ namespace RavenM
                 // FIXME: Shitty hack. The assumption is map destructibles are consistent
                 // and thus will always spawn in the same positions regardless of the
                 // client run. I have no idea how correct this assumption actually is.
-                int id = root.transform.position.GetHashCode();
+                int id = root.transform.position.GetHashCode() ^ root.name.GetHashCode();
 
                 if (root.TryGetComponent(out GuidComponent guid))
                     id = guid.guid;
                 else
                     root.AddComponent<GuidComponent>().guid = id;
 
-                IngameNetManager.instance.ClientDestructibles.Add(id, root);
+                IngameNetManager.instance.ClientDestructibles[id] = root;
 
                 Plugin.logger.LogInfo($"Registered new destructible root with name: {root.name} and id: {id}");
             }
@@ -263,7 +267,7 @@ namespace RavenM
 
             if (LobbySystem.instance.IsLobbyOwner)
             {
-                LobbySystem.instance.SetLobbyData("started", "false");
+                LobbySystem.instance.SetLobbyDataDedup("started", "false");
             }
 
             SteamMatchmaking.SetLobbyMemberData(LobbySystem.instance.ActualLobbyID, "ready", "no");
@@ -349,7 +353,15 @@ namespace RavenM
 
         public List<GameObject> sortedModdedVehicles = new List<GameObject>();
 
-        public Dictionary<string, string> LobbySetCache = new Dictionary<string, string>();
+        public Dictionary<string, Tuple<String, float>> LobbySetCache = new Dictionary<string, Tuple<String, float>>();
+
+        public Dictionary<string, Tuple<String, float>> LobbySetMemberCache = new Dictionary<string, Tuple<String, float>>();
+
+        public static readonly float SET_DEADLINE = 5f; // Seconds
+
+        public bool IntentionToStart = false;
+
+        public bool HasCommittedToStart = false;
 
         private void Awake()
         {
@@ -385,16 +397,28 @@ namespace RavenM
             return ret;
         }
 
-        public void SetLobbyData(string key, string value) {
+        public void SetLobbyDataDedup(string key, string value) {
             if (!InLobby || !LobbyDataReady || !IsLobbyOwner)
                 return;
 
             // De-dup any lobby values since apparently Steam doesn't do that for you.
-            if (LobbySetCache.TryGetValue(key, out string oldValue) && oldValue == value)
+            if (LobbySetCache.TryGetValue(key, out Tuple<String, float> oldValue) && oldValue.Item1 == value && Time.time < oldValue.Item2)
                 return;
 
             SteamMatchmaking.SetLobbyData(ActualLobbyID, key, value);
-            LobbySetCache[key] = value;
+            LobbySetCache[key] = new Tuple<String, float>(value, Time.time + SET_DEADLINE);
+        }
+
+        public void SetLobbyMemberDataDedup(string key, string value) {
+            if (!InLobby || !LobbyDataReady)
+                return;
+
+            // De-dup any lobby values since apparently Steam doesn't do that for you.
+            if (LobbySetMemberCache.TryGetValue(key, out Tuple<String, float> oldValue) && oldValue.Item1 == value && Time.time < oldValue.Item2)
+                return;
+
+            SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, key, value);
+            LobbySetMemberCache[key] = new Tuple<String, float>(value, Time.time + SET_DEADLINE);
         }
 
         private void OnLobbyData(LobbyDataUpdate_t pCallback)
@@ -423,21 +447,21 @@ namespace RavenM
             LobbyDataReady = true;
             ActualLobbyID = new CSteamID(pCallback.m_ulSteamIDLobby);
 
-            ChatManager.instance.PushLobbyChatMessage($"Welcome to the lobby! Press {ChatManager.instance.GlobalChatKeybind} to chat.\n");
+            ChatManager.instance.PushLobbyChatMessage($"Welcome to the lobby! Press {ChatManager.instance.GlobalChatKeybind} to chat.");
 
             if (IsLobbyOwner)
             {
                 OwnerID = SteamUser.GetSteamID();
-                SetLobbyData("owner", OwnerID.ToString());
-                SetLobbyData("build_id", Plugin.BuildGUID);
+                SetLobbyDataDedup("owner", OwnerID.ToString());
+                SetLobbyDataDedup("build_id", Plugin.BuildGUID);
                 if (!ShowOnList)
-                    SetLobbyData("hidden", "true");
+                    SetLobbyDataDedup("hidden", "true");
                 if (MidgameJoin)
-                    SetLobbyData("hotjoin", "true");
+                    SetLobbyDataDedup("hotjoin", "true");
                 if (nameTagsEnabled)
-                    SetLobbyData("nameTags","true");
+                    SetLobbyDataDedup("nameTags","true");
                 if (nameTagsForTeamOnly)
-                    SetLobbyData("nameTagsForTeamOnly", "true");
+                    SetLobbyDataDedup("nameTagsForTeamOnly", "true");
 
                 bool needsToReload = false;
                 List<PublishedFileId_t> mods = new List<PublishedFileId_t>();
@@ -455,10 +479,10 @@ namespace RavenM
 
                 if (needsToReload)
                     ModManager.instance.ReloadModContent();
-                SetLobbyData("owner", OwnerID.ToString());
-                SetLobbyData("mods", string.Join(",", mods.ToArray()));
+                SetLobbyDataDedup("owner", OwnerID.ToString());
+                SetLobbyDataDedup("mods", string.Join(",", mods.ToArray()));
                 SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "loaded", "yes");
-                SetLobbyData("started", "false");
+                SetLobbyDataDedup("started", "false");
             }
             else
             {
@@ -504,6 +528,7 @@ namespace RavenM
                         ModsToDownload.Add(mod_id);
                     }
                 }
+                SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ModsToDownload.Count).ToString());
                 TriggerModRefresh();
                 bool nameTagsConverted = bool.TryParse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nameTags"),out bool nameTagsOn);
                 if (nameTagsConverted)
@@ -531,14 +556,6 @@ namespace RavenM
                     return;
                 }
             }
-
-            InstantActionMaps.instance.teamDropdown.onValueChanged.AddListener(delegate
-            {
-                OnTeamChange(InstantActionMaps.instance.teamDropdown);
-            });
-
-            // Initialize currently selected team
-            OnTeamChange(InstantActionMaps.instance.teamDropdown);
         }
 
         private void OnItemDownload(DownloadItemResult_t pCallback)
@@ -551,6 +568,9 @@ namespace RavenM
                 mod.enabled = false;
 
                 ModsToDownload.Remove(pCallback.m_nPublishedFileId);
+
+                if (InLobby && LobbyDataReady)
+                    SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ModsToDownload.Count).ToString());
 
                 TriggerModRefresh();
             }
@@ -610,11 +630,6 @@ namespace RavenM
             }
         }
 
-        private void OnTeamChange(UnityEngine.UI.Dropdown dropdown)
-        {
-            SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "team", dropdown.value == 0 ? "<color=blue>E</color>" : "<color=red>R</color>");
-        }
-
         private void Update()
         {
             if (GameManager.instance == null || GameManager.IsIngame() || GameManager.IsInLoadingScreen())
@@ -658,27 +673,28 @@ namespace RavenM
             {
                 InstantActionMaps.instance.teamDropdown.value = 0;
             }
+            SetLobbyMemberDataDedup("team", InstantActionMaps.instance.teamDropdown.value == 0 ? "<color=blue>E</color>" : "<color=red>R</color>");
             
             if (IsLobbyOwner)
             {
-                SetLobbyData("gameMode", InstantActionMaps.instance.gameModeDropdown.value.ToString());
-                SetLobbyData("nightMode", InstantActionMaps.instance.nightToggle.isOn.ToString());
-                SetLobbyData("playerHasAllWeapons", InstantActionMaps.instance.playerHasAllWeaponsToggle.isOn.ToString());
-                SetLobbyData("reverseMode", InstantActionMaps.instance.reverseToggle.isOn.ToString());
-                SetLobbyData("botNumberField", InstantActionMaps.instance.botNumberField.text);
-                SetLobbyData("balance", InstantActionMaps.instance.balanceSlider.value.ToString(CultureInfo.InvariantCulture));
-                SetLobbyData("respawnTime", InstantActionMaps.instance.respawnTimeField.text);
-                SetLobbyData("gameLength", InstantActionMaps.instance.gameLengthDropdown.value.ToString());
-                SetLobbyData("loadedLevelEntry", InstantActionMaps.instance.mapDropdown.value.ToString());
+                SetLobbyDataDedup("gameMode", InstantActionMaps.instance.gameModeDropdown.value.ToString());
+                SetLobbyDataDedup("nightMode", InstantActionMaps.instance.nightToggle.isOn.ToString());
+                SetLobbyDataDedup("playerHasAllWeapons", InstantActionMaps.instance.playerHasAllWeaponsToggle.isOn.ToString());
+                SetLobbyDataDedup("reverseMode", InstantActionMaps.instance.reverseToggle.isOn.ToString());
+                SetLobbyDataDedup("botNumberField", InstantActionMaps.instance.botNumberField.text);
+                SetLobbyDataDedup("balance", InstantActionMaps.instance.balanceSlider.value.ToString(CultureInfo.InvariantCulture));
+                SetLobbyDataDedup("respawnTime", InstantActionMaps.instance.respawnTimeField.text);
+                SetLobbyDataDedup("gameLength", InstantActionMaps.instance.gameLengthDropdown.value.ToString());
+                SetLobbyDataDedup("loadedLevelEntry", InstantActionMaps.instance.mapDropdown.value.ToString());
                 // For SpecOps.
                 if (InstantActionMaps.instance.gameModeDropdown.value == 1)
                 {
-                    SetLobbyData("team", InstantActionMaps.instance.teamDropdown.value.ToString());
+                    SetLobbyDataDedup("team", InstantActionMaps.instance.teamDropdown.value.ToString());
                 }
 
                 if (InstantActionMaps.instance.mapDropdown.value == customMapOptionIndex)
                 {
-                    SetLobbyData("customMap", entries[customMapOptionIndex].name);
+                    SetLobbyDataDedup("customMap", entries[customMapOptionIndex].name);
                 }
 
                 for (int i = 0; i < 2; i++)
@@ -691,7 +707,7 @@ namespace RavenM
                         weapons.Add(weapon.nameHash);
                     }
                     string weaponString = string.Join(",", weapons.ToArray());
-                    SetLobbyData(i + "weapons", weaponString);
+                    SetLobbyDataDedup(i + "weapons", weaponString);
 
                     foreach (var vehiclePrefab in teamInfo.vehiclePrefab)
                     {
@@ -707,7 +723,7 @@ namespace RavenM
                             idx = sortedModdedVehicles.IndexOf(prefab);
                         }
 
-                        SetLobbyData(i + "vehicle_" + type, prefab == null ? "NULL" : isDefault + "," + idx);
+                        SetLobbyDataDedup(i + "vehicle_" + type, prefab == null ? "NULL" : isDefault + "," + idx);
                     }
 
                     foreach (var turretPrefab in teamInfo.turretPrefab)
@@ -726,10 +742,10 @@ namespace RavenM
                             idx = moddedTurrets.IndexOf(prefab);
                         }
 
-                        SetLobbyData(i + "turret_" + type, prefab == null ? "NULL" : isDefault + "," + idx);
+                        SetLobbyDataDedup(i + "turret_" + type, prefab == null ? "NULL" : isDefault + "," + idx);
                     }
 
-                    SetLobbyData(i + "skin", InstantActionMaps.instance.skinDropdowns[i].value.ToString());
+                    SetLobbyDataDedup(i + "skin", InstantActionMaps.instance.skinDropdowns[i].value.ToString());
                 }
 
                 var enabledMutators = new List<int>();
@@ -753,9 +769,9 @@ namespace RavenM
                         serializedMutators.Add(node);
                     }
                     
-                    SetLobbyData(id + "config", serializedMutators.ToString());
+                    SetLobbyDataDedup(id + "config", serializedMutators.ToString());
                 }
-                SetLobbyData("mutators", string.Join(",", enabledMutators.ToArray()));
+                SetLobbyDataDedup("mutators", string.Join(",", enabledMutators.ToArray()));
             }
             else if (SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, SteamUser.GetSteamID(), "loaded") == "yes")
             {
@@ -786,6 +802,10 @@ namespace RavenM
                         {
                             foreach (var mod in ModManager.instance.GetActiveMods())
                             {
+                                // TODO: What scenario is this possible?
+                                if (mod == null || mod.content == null)
+                                    continue;
+                                
                                 foreach (var map in mod.content.GetMaps())
                                 {
                                     string currentName = string.Empty;
@@ -997,6 +1017,44 @@ namespace RavenM
                 GUILayout.EndArea();
             }
 
+            if (GameManager.IsInMainMenu() && IntentionToStart)
+            {
+                GUILayout.BeginArea(new Rect((Screen.width - 250f) / 2f, (Screen.height - 200f) / 2f, 250f, 200f), string.Empty);
+                GUILayout.BeginVertical(lobbyStyle);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("<color=red>RavenM WARNING:</color>");
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.Space(7f);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("Starting the match before all members have loaded is experimental and may cause inconsistencies. Are you sure?");
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.Space(15f);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("<color=green>CONTINUE</color>")) {
+                    HasCommittedToStart = true;
+                    IntentionToStart = false;
+                    InstantActionMaps.instance.StartGame();
+                }
+                if (GUILayout.Button("ABORT")) {
+                    IntentionToStart = false;
+                }
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                GUILayout.EndVertical();
+                GUILayout.EndArea();
+            }
+
             if (!InLobby && GUIStack.Count != 0 && GameManager.IsInMainMenu())
             {
                 GUILayout.BeginArea(new Rect(10f, 10f, 150f, 10000f), string.Empty);
@@ -1052,7 +1110,15 @@ namespace RavenM
 
                     MidgameJoin = GUILayout.Toggle(MidgameJoin, "JOINABLE\nMIDGAME");
 
-                    nameTagsEnabled = GUILayout.Toggle(nameTagsEnabled, "NAMETAGS");
+
+                    GUILayout.Space(7f);
+                    GUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"NAMETAGS");
+                    GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    nameTagsEnabled = GUILayout.Toggle(nameTagsEnabled, "ENABLED");
 
                     nameTagsForTeamOnly = GUILayout.Toggle(nameTagsForTeamOnly, "FOR TEAM ONLY");
 
@@ -1270,7 +1336,14 @@ namespace RavenM
             {
                 if (!IngameNetManager.instance.IsClient)
                 {
-                    ChatManager.instance.CreateChatArea(true, 300f, 400f, 570f);
+                    if (ChatManager.instance.SelectedChatPosition == 1) // Position to the right
+                    {
+                        ChatManager.instance.CreateChatArea(true, 300f, 400f, 570f, Screen.width - 310f);
+                    }
+                    else
+                    {
+                        ChatManager.instance.CreateChatArea(true, 300f, 400f, 570f);
+                    }
                 }
 
                 GUILayout.BeginArea(new Rect(10f, 10f, 150f, 10000f), string.Empty);
@@ -1321,6 +1394,10 @@ namespace RavenM
                     string team = SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "team");
                     string name = SteamFriends.GetFriendPersonaName(memberId);
 
+                    string modsDownloaded = SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "modsDownloaded");
+                    // Can't use ServerMods.Count for the lobby owner.
+                    string totalMods = SteamMatchmaking.GetLobbyData(ActualLobbyID, "mods").Split(',').Length.ToString();
+
                     var readyColor = (GameManager.IsInMainMenu() ? SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "loaded") == "yes" 
                                                                     : SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "ready") == "yes") 
                                                                     ? "green" : "red";
@@ -1328,7 +1405,10 @@ namespace RavenM
                     if (memberId != KickPrompt)
                     {
                         GUILayout.BeginHorizontal();
-                        GUILayout.Box(team);
+                        if (SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "loaded") == "yes")
+                            GUILayout.Box(team);
+                        else
+                            GUILayout.Box($"({modsDownloaded}/{totalMods})");
                         GUILayout.FlexibleSpace();
                         GUILayout.Box($"<color={readyColor}>{name}</color>");
                         GUILayout.FlexibleSpace();

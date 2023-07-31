@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Collections;
 using System.IO;
+using System.Linq;
 using Steamworks;
 
 namespace RavenM
@@ -70,6 +71,78 @@ namespace RavenM
         }
     }
 
+    [HarmonyPatch(typeof(Actor), nameof(Actor.SpawnAt))]
+    public class GiveAttackersHeroArmorPatch
+    {
+        static void Postfix(Actor __instance) 
+        {
+            if (!LobbySystem.instance.InLobby)
+                return;
+
+            if (GameModeBase.instance.gameModeType != GameModeType.SpecOps)
+                return;
+
+            if (__instance.team != (GameModeBase.instance as SpecOpsMode).attackingTeam)
+                return;
+
+            __instance.hasHeroArmor = true;
+        }
+    }
+
+    [HarmonyPatch(typeof(ExfilHelicopter), "AllAttackersPickedUp")]
+    public class AllPlayersPickedUpPatch
+    {
+        static bool Prefix(ExfilHelicopter __instance, ref bool __result) 
+        {
+            if (!LobbySystem.instance.InLobby)
+                return true;
+
+            if (FpsActorController.instance.playerSquad == null)
+            {
+                __result = false;
+                return false;
+            }
+
+            var helicopter = typeof(ExfilHelicopter).GetField("helicopter", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance) as Helicopter;
+            foreach (Actor actor in IngameNetManager.instance.GetPlayers())
+            {
+                if (actor.dead)
+                    continue;
+
+                if (!actor.IsSeated() || actor.seat.vehicle != helicopter)
+                {
+                    __result = false;
+                    return false;
+                }
+            }
+            __result = true;
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(ExfilHelicopter), "Update")]
+    public class HostExfilWhenDeadPatch
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var codes = new List<CodeInstruction>(instructions);
+            for (int i = 0; i < codes.Count; i++) 
+            {
+                // IL_02c2: ldfld bool Vehicle::playerIsInside
+                if (codes[i].opcode == OpCodes.Ldfld && (FieldInfo)codes[i].operand == typeof(Vehicle).GetField(nameof(Vehicle.playerIsInside), BindingFlags.Instance | BindingFlags.Public)) 
+                {
+                    // IL_02c7: brfalse.s IL_02f2 -> IL_02c7: brfalse.s IL_02e4
+                    Label label = generator.DefineLabel();
+                    codes[i + 1].operand = label;
+                    // FIXME: Very brittle.
+                    codes[i + 9].labels = new List<Label>() { label };
+                }
+            }
+
+            return codes.AsEnumerable();
+        }
+    }
+
     [HarmonyPatch(typeof(SpecOpsMode), "Update")]
     public class NoEndPatch
     {
@@ -81,7 +154,7 @@ namespace RavenM
             {
                 if (first && instruction.opcode == OpCodes.Call)
                 {
-                    instruction.operand = typeof(NoEndPatch).GetMethod("IsSpectatingOrClient", BindingFlags.NonPublic | BindingFlags.Static);
+                    instruction.operand = typeof(NoEndPatch).GetMethod("IsSpectatingOrDefeatControl", BindingFlags.NonPublic | BindingFlags.Static);
                     first = false;
                 }
 
@@ -95,16 +168,16 @@ namespace RavenM
             }
         }
 
-        static bool IsSpectatingOrClient()
+        static bool IsSpectatingOrDefeatControl()
         {
             if (!LobbySystem.instance.InLobby)
                 return GameManager.IsSpectating();
 
-            if (IngameNetManager.instance.IsHost)
-                return false;
-
             if (FpsActorController.instance.actor.dead && !FpsActorController.instance.inPhotoMode)
                 typeof(FpsActorController).GetMethod("TogglePhotoMode", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(FpsActorController.instance, null);
+
+            if (IngameNetManager.instance.IsHost)
+                return !IngameNetManager.instance.GetPlayers().All(actor => actor.dead);
 
             return true;
         }
@@ -306,6 +379,7 @@ namespace RavenM
             __instance.specOps = specOps;
 
             var target = (Vehicle)typeof(DestroyScenario).GetField("targetVehicle", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance);
+            target.isLocked = true;
 
             __instance.objective = ObjectiveUi.CreateObjective("Destroy " + target.name, target.targetLockPoint);
 

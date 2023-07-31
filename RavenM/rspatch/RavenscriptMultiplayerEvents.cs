@@ -22,7 +22,7 @@ namespace RavenM.RSPatch
             "data",
 
         })]
-        public ScriptEvent<Actor,int, string> onReceivePacket { get; protected set; }
+        public ScriptEvent<int, string> onReceivePacket { get; protected set; }
 
 
         [CallbackSignature(new string[]
@@ -30,7 +30,7 @@ namespace RavenM.RSPatch
             "data",
             "packetType"
         })]
-        public ScriptEvent<string, string> onSendPacket { get; protected set; }
+        public ScriptEvent<int, string> onSendPacket { get; protected set; }
 
         public ScriptEvent<Actor> onPlayerDisconnect { get; protected set; }
 
@@ -46,7 +46,7 @@ namespace RavenM.RSPatch
         {
             "actor",
             "commandWithArgs",
-            "flags {hasCommandPermission,hasRequiredArgs,local}"
+            "flags {hasCommandPermission,hasRequiredArgs,global}"
         })]
         [Doc("Invoked when a registered Command is received. The Command has to be registered in the Start function of the script first by using CommandManager.AddCustomCommand().")]
         public ScriptEvent<Actor, string[], bool[]> onReceiveCommand { get; protected set; }

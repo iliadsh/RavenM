@@ -1,4 +1,5 @@
 ﻿using MoonSharp.Interpreter;
+using RavenM.UI;
 using Steamworks;
 using System;
 using System.Collections.Generic;
@@ -40,7 +41,16 @@ namespace RavenM.RSPatch.Wrapper
             byte[] data2 = memoryStream.ToArray();
             Plugin.logger.LogInfo("data " + data + " packetID " + packetType);
             IngameNetManager.instance.SendPacketToServer(data2, PacketType.ScriptedPacket, flag);
+            RavenscriptEventsManagerPatch.events.onSendPacket.Invoke(scriptedPacket.Id, scriptedPacket.Data);
             return true;
+        }
+        public static Actor GetPlayerFromName(string name)
+        {
+            if (name != null)
+                foreach (Actor actor in WLobby.GetPlayers())
+                    if (actor.name == name)
+                        return actor;
+            return null;
         }
         [Lua.Getter]
         public static string GetOwnGUID()

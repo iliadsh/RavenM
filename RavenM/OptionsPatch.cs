@@ -14,6 +14,7 @@ namespace RavenM
     {
         private static Dictionary<string, RavenMOption<Toggle, bool>> _toggles = new Dictionary<string, RavenMOption<Toggle, bool>>();
         private static Dictionary<string, RavenMOption<Slider, float>> _sliders = new Dictionary<string, RavenMOption<Slider, float>>();
+        private static Dictionary<string, RavenMOption<Dropdown, int>> _dropdowns = new Dictionary<string, RavenMOption<Dropdown, int>>();
         private static ConfigFile keybindConfig;
 
         public static bool showHUD = false;
@@ -32,6 +33,7 @@ namespace RavenM
                 keybindConfig = new ConfigFile(System.IO.Path.Combine(Paths.ConfigPath, "RavenMSettings.cfg"), false);
                 CreateToggleOption("Show RavenM HUD", true, RavenMOptions.ShowRavenMHUD);
                 CreateSliderOption("Voice Chat Volume", 1f, RavenMOptions.VoiceChatVolume,false,0f,1f);
+                CreateDropdownOption("Chat Position", RavenMOptions.ChatPosition, ChatManager.instance.ChatPositionOptions, 0);
                 CreateSpacer();
                 CreateOptionLabel("NAME TAGS",true);
                 CreateSliderOption("Nametag Size", 32f, RavenMOptions.NameTagScaleMultiplier,true,12f,60f);
@@ -101,12 +103,18 @@ namespace RavenM
                 if (saveValue)
                     UISlider.Save();
             }
+            foreach (RavenMOption<Dropdown, int> UIDropdown in _dropdowns.Values)
+            {
+                if (saveValue)
+                    UIDropdown.Save();
+            }
             showHUD = GetOptionWithName<bool>(RavenMOptions.ShowRavenMHUD, OptionTypes.Toggle);
             IngameNetManager.instance.VoiceChatVolume = GetOptionWithName<float>(RavenMOptions.VoiceChatVolume, OptionTypes.Slider);
             IngameNetManager.instance.VoiceChatKeybind = setKeybinds[OptionKeybind.VoiceChatButton].Value;
             IngameNetManager.instance.PlaceMarkerKeybind = setKeybinds[OptionKeybind.PlaceMarkerButton].Value;
             ChatManager.instance.GlobalChatKeybind = setKeybinds[OptionKeybind.GlobalChatButton].Value;
             ChatManager.instance.TeamChatKeybind = setKeybinds[OptionKeybind.TeamChatButton].Value;
+            ChatManager.instance.SelectedChatPosition = GetOptionWithName<int>(RavenMOptions.ChatPosition, OptionTypes.Dropdown);
             onSettingUpdate?.Invoke();
         }
         public static T GetOptionWithName<T>(RavenMOptions option, OptionTypes type)
@@ -129,6 +137,14 @@ namespace RavenM
                         return default(T);
                     }
                     return (T)(object)sliderOption.value;
+                case OptionTypes.Dropdown:
+                    var dropdownOption = _dropdowns.FirstOrDefault(x => x.Value.id == option).Value;
+                    if (dropdownOption == null)
+                    {
+                        Plugin.logger.LogError($"Could not get Option with name {option}!");
+                        return default(T);
+                    }
+                    return (T)(object)dropdownOption.value;
             }
             return default(T);
         }
@@ -143,8 +159,8 @@ namespace RavenM
             LazyKeybindLabel,
             RebindKeyA,
             NameTagScaleMultiplier,
-            CustomNameTagColor
-
+            CustomNameTagColor,
+            ChatPosition
         }
         public enum OptionTypes
         {
@@ -175,7 +191,7 @@ namespace RavenM
                 return;
             }
             RectTransform target = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content").GetComponent<RectTransform>();
-            ConfigEntry<float> ravenMConfig = ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValue);
+            ConfigEntry<float> ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValue);
             RectTransform exampleSettingSlider = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/SFX Volume").GetComponent<RectTransform>();
             if(label)
                 exampleSettingSlider = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/Field Of View").GetComponent<RectTransform>();
@@ -205,7 +221,7 @@ namespace RavenM
                 return;
             }
             RectTransform target = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content").GetComponent<RectTransform>();
-            ConfigEntry<bool> ravenMConfig = ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValue);
+            ConfigEntry<bool> ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValue);
             RectTransform exampleSettingToggle = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/Hitmarkers").GetComponent<RectTransform>();
             GameObject newTarget = GameObject.Instantiate(exampleSettingToggle.gameObject, target);
             newTarget.GetComponent<Text>().text = name;
@@ -216,6 +232,29 @@ namespace RavenM
             ravenMToggle.id = option;
             ravenMToggle.configEntry = ravenMConfig;
             _toggles[name] = ravenMToggle;
+        }
+
+        private static void CreateDropdownOption(string name, RavenMOptions option, List<string> dropdownOptions, int defaultValueId = 0)
+        {
+            if (_dropdowns.ContainsKey(name))
+            {
+                Plugin.logger.LogError($"Dropdown with the name {name} already exists!");
+                return;
+            }
+            
+            RectTransform target = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content").GetComponent<RectTransform>();
+            ConfigEntry<int> ravenMConfig = keybindConfig.Bind("RavenMKeybinds", option.ToString(), defaultValueId);
+            RectTransform exampleSettingDropdown = Options.instance.gameOptions.transform.Find("Game Panel/Scroll View/Viewport/Content/Difficulty").GetComponent<RectTransform>();
+            GameObject newTarget = GameObject.Instantiate(exampleSettingDropdown.gameObject, target);
+            newTarget.GetComponent<Text>().text = name;
+            MonoBehaviour.Destroy(newTarget.GetComponent<OptionDropdown>());
+            RavenMOptionDropdown ravenMDropdown = newTarget.AddComponent<RavenMOptionDropdown>();
+            ravenMDropdown.name = name;
+            ravenMDropdown.defaultValue = defaultValueId;
+            ravenMDropdown.id = option;
+            ravenMDropdown.configEntry = ravenMConfig as ConfigEntry<int>;
+            ravenMDropdown.options = dropdownOptions;
+            _dropdowns[name] = ravenMDropdown;
         }
         private static void CreateOptionLabel(string name,bool header)
         {
@@ -348,6 +387,31 @@ namespace RavenM
                 this.uiElement.onValueChanged.AddListener(new UnityAction<float>(this.OnValueChange));
             }
 
+            public override void Save()
+            {
+                base.Save();
+            }
+            public override void Load()
+            {
+                base.Load();
+                this.uiElement.value = this.value;
+            }
+        }
+
+        public class RavenMOptionDropdown : RavenMOption<Dropdown, int>
+        {
+            public List<string> options;
+            public override void Start()
+            {
+                base.Start();
+                this.uiElement.options.Clear();
+                foreach (string option in options)
+                {
+                    this.uiElement.options.Add(new Dropdown.OptionData() { text = option });
+                }
+                this.uiElement.RefreshShownValue();
+                this.uiElement.onValueChanged.AddListener(new UnityAction<int>(this.OnValueChange));
+            }
             public override void Save()
             {
                 base.Save();

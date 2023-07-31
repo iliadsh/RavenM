@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Lua.Proxy;
 using MoonSharp.Interpreter;
 using RavenM.RSPatch.Wrapper;
+using RavenM.UI;
 using Steamworks;
 using UnityEngine;
 
@@ -26,27 +27,6 @@ namespace RavenM.RSPatch.Proxy
                 return WOnlinePlayer.GetOwnGUID();
             }
         }
-       
-        //public static void SendChatMessage(string input, bool global)
-        //{
-        //    IngameNetManager.instance.PushChatMessage(ActorManager.instance.player, input, global, GameManager.PlayerTeam());
-
-        //    using MemoryStream memoryStream = new MemoryStream();
-        //    var chatPacket = new ChatPacket
-        //    {
-        //        Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
-        //        Message = input,
-        //        TeamOnly = !global,
-        //    };
-
-        //    using (var writer = new ProtocolWriter(memoryStream))
-        //    {
-        //        writer.Write(chatPacket);
-        //    }
-        //    byte[] data = memoryStream.ToArray();
-
-        //    IngameNetManager.instance.SendPacketToServer(data, PacketType.Chat, Constants.k_nSteamNetworkingSend_Reliable);
-        //}
 
         public static void PushChatMessage(string message)
         {
@@ -55,6 +35,18 @@ namespace RavenM.RSPatch.Proxy
         public static void PushCommandChatMessage(string message,Color color,bool teamOnly,bool sendToAll)
         {
             ChatManager.instance.PushCommandChatMessage(message, color, teamOnly, sendToAll);
+        }
+        public static void SetNameTagForActor(Actor actor, string newName)
+        {
+            GameUI.instance.SetNameTagForActor(actor, newName);
+        }
+        public static void ResetNameTags()
+        {
+            GameUI.instance.ResetNameTagsToOriginal();
+        }
+        public static Actor GetPlayerFromName(string name)
+        {
+            return WOnlinePlayer.GetPlayerFromName(name);
         }
         [MoonSharpHidden]
         public object GetValue()

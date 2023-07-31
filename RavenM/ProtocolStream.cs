@@ -3,6 +3,7 @@ using System.IO;
 using UnityEngine;
 using System.Collections.Generic;
 using System.Collections;
+using RavenM.rspatch;
 
 namespace RavenM
 {
@@ -298,6 +299,7 @@ namespace RavenM
         public void Write(SpawnCustomGameObjectPacket value)
         {
             Write(value.SourceID);
+            Write(value.GameObjectID);
             Write(value.PrefabHash);
             Write(value.Position);
             Write(value.Rotation);
@@ -479,6 +481,25 @@ namespace RavenM
             Write(value.SteamID);
             Write(value.Command);
             Write(value.Scripted);
+        }
+        public void Write(NetworkGameObjectPacket value)
+        {
+            Write(value.SourceID);
+            Write(value.GameObjectID);
+            Write(value.Position);
+            Write(value.Rotation);
+            Write(value.Scale);
+            Write(value.Speed);
+        }
+
+        public void Write(CountermeasuresPacket value) 
+        {
+            Write(value.VehicleId);
+        }
+
+        public void Write(RemoveActorPacket value)
+        {
+            Write(value.Id);
         }
     }
 
@@ -843,9 +864,10 @@ namespace RavenM
             return new SpawnCustomGameObjectPacket
             {
                 SourceID = ReadInt32(),
+                GameObjectID = ReadInt32(),
                 PrefabHash = ReadString(),
                 Position = ReadVector3(),
-                Rotation = ReadVector3()
+                Rotation = ReadQuaternion()
             };
         }
         public NetworkGameObjectsHashesPacket ReadSyncNetworkGameObjectsPacket()
@@ -1096,6 +1118,33 @@ namespace RavenM
                 Scripted = ReadBoolean(),
             };
         }
-        
+        public NetworkGameObjectPacket ReadNetworkGameObjectPacket()
+        {
+            return new NetworkGameObjectPacket
+            {
+                SourceID = ReadInt32(),
+                GameObjectID = ReadInt32(),
+                Position = ReadVector3(),
+                Rotation = ReadQuaternion(),
+                Scale = ReadVector3(),
+                Speed = ReadSingle()
+            };
+        }
+
+        public CountermeasuresPacket ReadCountermeasuresPacket()
+        {
+            return new CountermeasuresPacket
+            {
+                VehicleId = ReadInt32(),
+            };
+        }
+
+        public RemoveActorPacket ReadRemoveActorPacket()
+        {
+            return new RemoveActorPacket
+            {
+                Id = ReadInt32(),
+            };
+        }
     }
 }

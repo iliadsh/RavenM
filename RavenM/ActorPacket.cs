@@ -65,16 +65,15 @@ namespace RavenM
         IsAlert                     = 1 << 8,
         HoldingSprint               = 1 << 9,
         IsSprinting                 = 1 << 10,
-        Countermeasures             = 1 << 11,
-        Crouch                      = 1 << 12,
-        IsAirborne                  = 1 << 13,
-        IsOnPlayerSquad             = 1 << 14,
-        IsReadyToPickUpPassengers   = 1 << 15,
-        IsTakingFire                = 1 << 16,
-        Jump                        = 1 << 17,
-        Prone                       = 1 << 18,
-        Reload                      = 1 << 19,
-        Dead                        = 1 << 20,
+        Crouch                      = 1 << 11,
+        IsAirborne                  = 1 << 12,
+        IsOnPlayerSquad             = 1 << 13,
+        IsReadyToPickUpPassengers   = 1 << 14,
+        IsTakingFire                = 1 << 15,
+        Jump                        = 1 << 16,
+        Prone                       = 1 << 17,
+        Reload                      = 1 << 18,
+        Dead                        = 1 << 19,
     }
 
     public class ActorFlagsPacket
@@ -92,5 +91,10 @@ namespace RavenM
     public class BulkFlagsUpdate
     {
         public List<ActorFlagsPacket> Updates;
+    }
+
+    public class RemoveActorPacket
+    {
+        public int Id;
     }
 }

@@ -29,22 +29,7 @@ namespace RavenM.RSPatch.Wrapper
         }
         public static IList<Actor> GetPlayers()
         {
-            List<Actor> actors = new List<Actor>();
-            foreach (var kv in IngameNetManager.instance.ClientActors)
-            {
-                var id = kv.Key;
-                var actor = kv.Value;
-
-                if (IngameNetManager.instance.OwnedActors.Contains(id))
-                    continue;
-
-                var controller = actor.controller as NetActorController;
-
-                if ((controller.Flags & (int)ActorStateFlags.AiControlled) != 0)
-                    continue;
-                actors.Add(actor);
-            }
-            return actors;
+            return IngameNetManager.instance.GetPlayers();
         }
         public static void SendServerChatMessage(string message, Color color)
         {
@@ -58,7 +43,7 @@ namespace RavenM.RSPatch.Wrapper
             using MemoryStream memoryStream = new MemoryStream();
             var chatPacket = new ChatPacket
             {
-                Id = ActorManager.instance.player.GetComponent<GuidComponent>().guid,
+                Id = -1,
                 Message = input,
                 TeamOnly = false,
             };
@@ -98,11 +83,17 @@ namespace RavenM.RSPatch.Wrapper
             {
                 tempList.Add(pair.Value);
             }
-            networkGameObjects.Clear();
-            for(int i = 0; i < hashes.Length; i++)
+            try
             {
-                Plugin.logger.LogInfo("Hash for " + hashes[i] + " and GO " + tempList[i].name);
-                networkGameObjects.Add(hashes[i], tempList[i]);
+                networkGameObjects.Clear();
+                for (int i = 0; i < hashes.Length; i++)
+                {
+                    Plugin.logger.LogInfo("Hash for " + hashes[i] + " and GO " + tempList[i].name);
+                    networkGameObjects.Add(hashes[i], tempList[i]);
+                }
+            }catch(IndexOutOfRangeException exception)
+            {
+                Plugin.logger.LogError("IndexOutOfRangeException in RefreshHashes(): " + exception.Message);
             }
             tempList.Clear();
         }
@@ -128,7 +119,7 @@ namespace RavenM.RSPatch.Wrapper
             using MemoryStream memoryStream = new MemoryStream();
             NetworkGameObjectsHashesPacket networkGameObjectsHashesPacket = new NetworkGameObjectsHashesPacket
             {
-                Id = IngameNetManager.instance.RandomGen.Next(0,256),
+                Id = IngameNetManager.instance.RandomGen.Next(0,65565),
                 NetworkGameObjectHashes = hashes
             };
             using (var writer = new ProtocolWriter(memoryStream))
@@ -175,8 +166,6 @@ namespace RavenM.RSPatch.Wrapper
             {
                 Plugin.logger.LogError("GetNetworkPrefabByValue no value found in dictionary for prefab name " + prefab.name);
             }
-            //KeyValuePair<string, GameObject> dictionaryPrefab = networkGameObjects
-                  //.FirstOrDefault(c => c.Value == prefab);
             return output;
         }
         public static void AddVehiclesToNetworkPrefab()
@@ -186,7 +175,6 @@ namespace RavenM.RSPatch.Wrapper
                 GameObject vehiclePrefab = VehicleSpawner.GetPrefab(0, vehicleType);
                 networkGameObjects.Add(vehiclePrefab.GetHashCode().ToString(), vehiclePrefab);
             }
-            SendNetworkGameObjectsHashesPacket();
             setupVehicles = true;
         }
     }
