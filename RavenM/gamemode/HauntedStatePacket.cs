@@ -4,7 +4,7 @@ using System.Reflection;
 namespace RavenM
 {
     // TODO: Haunted Skeleton Altars.
-    [HarmonyPatch(typeof(SpookOpsMode), "Awake")]
+    [HarmonyPatch(typeof(SpookOpsMode), "ActivateGameMode")]
     public class NoAltarPatch
     {
         static void Prefix(SpookOpsMode __instance)
@@ -51,7 +51,7 @@ namespace RavenM
             // TODO: Some of the StartGame() code requires a valid target spawn, but we only get the correct spawn
             //       once the host sends it. This will at least avoid breaking the start routine but it's bad because
             //       the initial intro-cutscene-thing will point to some random position.
-            typeof(SpookOpsMode).GetField("currentSpawnPoint", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(GameModeBase.instance, ActorManager.instance.spawnPoints[0]);
+            typeof(SpookOpsMode).GetField("currentSpawnPoint", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(GameModeBase.activeGameMode, ActorManager.instance.spawnPoints[0]);
 
             return false;
         }
@@ -76,10 +76,10 @@ namespace RavenM
 
         public static void CheckLoseCondition()
         {
-            if ((bool)typeof(SpookOpsMode).GetField("gameOver", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(GameModeBase.instance))
+            if ((bool)typeof(SpookOpsMode).GetField("gameOver", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(GameModeBase.activeGameMode))
                 return;
 
-            if (((TimedAction)typeof(SpookOpsMode).GetField("introAction", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(GameModeBase.instance)).TrueDone())
+            if (((TimedAction)typeof(SpookOpsMode).GetField("introAction", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(GameModeBase.activeGameMode)).TrueDone())
             {
                 bool anyPlayerAlive = false;
                 foreach (var actor in IngameNetManager.instance.ClientActors.Values)
@@ -98,7 +98,7 @@ namespace RavenM
                 if (!anyPlayerAlive)
                 {
                     HauntedEndPatch.CanPerform = true;
-                    typeof(SpookOpsMode).GetMethod("EndGame", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(GameModeBase.instance, null);
+                    typeof(SpookOpsMode).GetMethod("EndGame", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(GameModeBase.activeGameMode, null);
                     HauntedEndPatch.CanPerform = false;
                 }
             }

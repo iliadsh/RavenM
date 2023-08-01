@@ -64,7 +64,7 @@ namespace RavenM
                     FpsActorController.instance.playerSquad.AddMember(actor.controller);
                 }
             }
-            var specOpsObj = (GameModeBase.instance as SpecOpsMode);
+            var specOpsObj = (GameModeBase.activeGameMode as SpecOpsMode);
             specOpsObj.attackerActors = attackers.ToArray();
             specOpsObj.attackerSquad = FpsActorController.instance.playerSquad;
             return false;
@@ -79,10 +79,10 @@ namespace RavenM
             if (!LobbySystem.instance.InLobby)
                 return;
 
-            if (GameModeBase.instance.gameModeType != GameModeType.SpecOps)
+            if (GameModeBase.activeGameMode.gameModeType != GameModeType.SpecOps)
                 return;
 
-            if (__instance.team != (GameModeBase.instance as SpecOpsMode).attackingTeam)
+            if (__instance.team != (GameModeBase.activeGameMode as SpecOpsMode).attackingTeam)
                 return;
 
             __instance.hasHeroArmor = true;

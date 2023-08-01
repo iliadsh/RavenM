@@ -358,7 +358,7 @@ namespace RavenM
             return false;
         }
 
-        public override bool Fire()
+        public override bool WantsToFire()
         {
             return (Flags & (int)ActorStateFlags.Fire) != 0;
         }
