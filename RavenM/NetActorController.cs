@@ -110,9 +110,16 @@ namespace RavenM
             if (!SpawnedOnce)
                 return;
 
+            // Update target position to real value when we are riding a platform.
+            if (Targets.MovingPlatformVehicleId != 0 && IngameNetManager.instance.ClientVehicles.TryGetValue(Targets.MovingPlatformVehicleId, out Vehicle platform)) 
+            {
+                var new_pos = platform.transform.position + Vector3.Lerp(actor.transform.position - platform.transform.position, Targets.Position, 100f * Time.deltaTime);
+                
+                actor.SetPositionAndRotation(new_pos, actor.transform.rotation);
+            }
             // *tiny* slack. We don't want de-sync, but we also don't want the actor
             // to glitch out with its colliders and such.
-            if ((actor.transform.position - Targets.Position).magnitude > 0.005)
+            else if ((actor.transform.position - Targets.Position).magnitude > 0.005)
             {
                 // Let the vehicle move the actor in this case, otherwise there is
                 // a very noticible de-sync between actor and vehicle.
@@ -217,6 +224,15 @@ namespace RavenM
                 if (entry.name.GetHashCode() == hash)
                     return entry;
             return null;
+        }
+
+        public override bool CanBeRammedBy(Vehicle vehicle)
+        {
+            if (Targets.MovingPlatformVehicleId != 0 && IngameNetManager.instance.ClientVehicles.TryGetValue(Targets.MovingPlatformVehicleId, out Vehicle platform) && platform == vehicle) 
+            {
+                return vehicle.Velocity().sqrMagnitude > 400f;
+            }
+            return true;
         }
 
         public override bool Aiming()

@@ -50,6 +50,8 @@ namespace RavenM
         public int VehicleId;
 
         public int Seat;
+
+        public int MovingPlatformVehicleId;
     }
 
     public enum ActorStateFlags

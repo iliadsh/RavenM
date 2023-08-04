@@ -2645,7 +2645,12 @@ namespace RavenM
                 {
                     Id = owned_actor,
                     Name = actor.name,
-                    Position = actor.Position(),
+                    // If the player is on a moving platform, we send the delta to
+                    // the vehicle instead of the actual position. This is so that
+                    // we can stay on the vehicle even though there is a delay in position updates.
+                    Position =  actor.controller is FpsActorController fpsActorController && fpsActorController.movingPlatformVehicle != null 
+                                && fpsActorController.movingPlatformVehicle.TryGetComponent(out GuidComponent _) 
+                                ? actor.Position() - fpsActorController.movingPlatformVehicle.transform.position : actor.Position(),
                     Lean = actor.dead ? 0f : actor.controller.Lean(),
                     AirplaneInput = actor.seat != null ? (Vector4?)actor.controller.AirplaneInput() : null,
                     BoatInput = actor.seat != null ? (Vector2?)actor.controller.BoatInput() : null,
@@ -2679,6 +2684,9 @@ namespace RavenM
                     Health = actor.health,
                     VehicleId = actor.IsSeated() && actor.seat.vehicle.TryGetComponent(out GuidComponent vguid) ? vguid.guid : 0,
                     Seat = actor.IsSeated() ? actor.seat.vehicle.seats.IndexOf(actor.seat) : -1,
+                    MovingPlatformVehicleId = actor.controller is FpsActorController fpsActorController2 && fpsActorController2.movingPlatformVehicle != null 
+                                             && fpsActorController2.movingPlatformVehicle.TryGetComponent(out GuidComponent pguid) 
+                                             ? pguid.guid : 0,
                 };
 
                 bulkActorUpdate.Updates.Add(net_actor);

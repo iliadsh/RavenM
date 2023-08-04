@@ -163,6 +163,7 @@ namespace RavenM
             Write(value.Health);
             Write(value.VehicleId);
             Write(value.Seat);
+            Write(value.MovingPlatformVehicleId);
         }
 
         public void Write(ActorFlagsPacket value)
@@ -673,6 +674,7 @@ namespace RavenM
                 Health = ReadSingle(),
                 VehicleId = ReadInt32(),
                 Seat = ReadInt32(),
+                MovingPlatformVehicleId = ReadInt32(),
             };
         }
 
