@@ -408,6 +408,18 @@ namespace RavenM
         }
     }
 
+    [HarmonyPatch(typeof(GameManager), nameof(GameManager.PauseGame))]
+    public class DisablePauseGame
+    {
+        static bool Prefix() 
+        {
+            if (!IngameNetManager.instance.IsClient)
+                return true;
+
+            return false;
+        }
+    }
+
     public class PrefabTag : MonoBehaviour
     {
         public int NameHash;
