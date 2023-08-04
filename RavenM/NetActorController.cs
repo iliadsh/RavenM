@@ -179,7 +179,7 @@ namespace RavenM
             }
 
             // For normal hand-held weapons.
-            if (!actor.dead && !actor.IsSeated() && Targets.ActiveWeaponHash != 0 && (actor.activeWeapon == null || actor.activeWeapon.name.GetHashCode() != Targets.ActiveWeaponHash))
+            if (!actor.dead && !actor.IsSeated() && Targets.ActiveWeaponHash != 0 && (actor.activeWeapon == null || actor.activeWeapon.weaponEntry?.name.GetHashCode() != Targets.ActiveWeaponHash))
             {
                 var weaponWithName = GetWeaponEntryByHash(Targets.ActiveWeaponHash);
 
