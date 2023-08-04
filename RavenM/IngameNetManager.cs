@@ -2658,7 +2658,7 @@ namespace RavenM
                     ActiveWeaponHash = actor.activeWeapon != null
                                         ? actor.IsSeated()
                                             ? actor.seat.ActiveWeaponSlot()
-                                            : actor.activeWeapon.name.GetHashCode()
+                                            : actor.activeWeapon.weaponEntry?.name.GetHashCode() ?? 0
                                         : 0,
                     Team = actor.team,
                     MarkerPosition = actor.aiControlled ? null : (Vector3?)MarkerPosition,
