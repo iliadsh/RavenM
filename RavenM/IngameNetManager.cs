@@ -1351,6 +1351,7 @@ namespace RavenM
                                         }
 
                                         var controller = actor.controller as NetActorController;
+                                        (actor.controller as AiActorController).targetDetectionProgress = actor_packet.TargetDetectionProgress;
 
                                         // Delay any possible race on the health value as much as possible.
                                         if (controller.DamageCooldown.TrueDone())
@@ -2268,6 +2269,22 @@ namespace RavenM
                                     OwnedActors.Remove(removeActorPacket.Id);
                                 }
                                 break;
+                            case PacketType.StartDetection:
+                                {
+                                    var startDetectionPacket = dataStream.ReadStartDetectionPacket();
+
+                                    if (!ClientActors.ContainsKey(startDetectionPacket.Actor) || OwnedActors.Contains(startDetectionPacket.Actor))
+                                        break;
+
+                                    Actor actor = ClientActors[startDetectionPacket.Actor];
+                                    if (actor == null)
+                                        break;
+
+                                    var controller = (AiActorController)actor.controller;
+                                    controller.targetDetectionProgress = 0f;
+                                    typeof(DetectionUi).GetMethod("StartDetection", BindingFlags.Static | BindingFlags.Public).Invoke(null, new object[] { controller });
+                                }
+                                break;
                             default:
                                 RSPatch.RSPatch.FixedUpdate(packet, dataStream);
                                 break;
@@ -2687,6 +2704,8 @@ namespace RavenM
                     MovingPlatformVehicleId = actor.controller is FpsActorController fpsActorController2 && fpsActorController2.movingPlatformVehicle != null 
                                              && fpsActorController2.movingPlatformVehicle.TryGetComponent(out GuidComponent pguid) 
                                              ? pguid.guid : 0,
+                    TargetDetectionProgress = actor.controller is AiActorController aiActorController && aiActorController.slowTargetDetection && aiActorController.HasTarget()
+                                             ? aiActorController.targetDetectionProgress : -1f,
                 };
 
                 bulkActorUpdate.Updates.Add(net_actor);

@@ -32,6 +32,7 @@
         ChatCommand,
         Countermeasures,
         NetworkGameObject,
-        RemoveActor
+        RemoveActor,
+        StartDetection
     }
 }

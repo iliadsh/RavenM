@@ -529,6 +529,101 @@ namespace RavenM
         }
     }
 
+    /// <summary>
+    /// Just before we make the OnSeesEnemy call, let the game know if we are an AI or not.
+    /// </summary>
+    [HarmonyPatch(typeof(ActorManager), "UpdateSight")]
+    public class UpdateSightPatch
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+        {
+            var codes = new List<CodeInstruction>(instructions);
+
+            for (int i = 0; i < codes.Count; i++) 
+            {
+                // IL_007b: callvirt instance void AiActorController::OnSeesEnemy(bool, float32)
+                if (codes[i].opcode == OpCodes.Callvirt && (MethodInfo)codes[i].operand == typeof(AiActorController).GetMethod(nameof(AiActorController.OnSeesEnemy), BindingFlags.Instance | BindingFlags.Public)) 
+                {
+                    // IL_0071: ldarg.2
+                    // IL_0072: ldfld bool Actor::aiControlled -> call bool UpdateSightPatch::PreCallPatch(class Actor)
+                    codes[i - 4] = new CodeInstruction(OpCodes.Call, typeof(UpdateSightPatch).GetMethod(nameof(PreCallPatch), BindingFlags.NonPublic | BindingFlags.Static));
+                }
+            }
+
+            return codes.AsEnumerable();
+        }
+
+        static bool PreCallPatch(Actor actor)
+        {
+            if (!IngameNetManager.instance.IsClient || !LobbySystem.instance.InLobby || !IngameNetManager.instance.IsHost)
+                return actor.aiControlled;
+
+            var guid = actor.GetComponent<GuidComponent>().guid;
+
+            if (IngameNetManager.instance.OwnedActors.Contains(guid))
+                return actor.aiControlled;
+
+            var controller = actor.controller as NetActorController;
+
+            if ((controller.Flags & (int)ActorStateFlags.AiControlled) != 0)
+                return actor.aiControlled;
+
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(DetectionUi), nameof(DetectionUi.StartDetection))]
+    public class StartDetectionPatch
+    {
+        static void Prefix(AiActorController ai)
+        {
+            if (!IngameNetManager.instance.IsClient || !LobbySystem.instance.InLobby || !IngameNetManager.instance.IsHost)
+                return;
+
+            var actor = ai.actor;
+
+            using MemoryStream memoryStream = new MemoryStream();
+            var detectionPacket = new StartDetectionPacket
+            {
+                Actor = actor.GetComponent<GuidComponent>().guid,
+            };
+
+            using (var writer = new ProtocolWriter(memoryStream))
+            {
+                writer.Write(detectionPacket);
+            }
+
+            byte[] data = memoryStream.ToArray();
+            IngameNetManager.instance.SendPacketToServer(data, PacketType.StartDetection, Constants.k_nSteamNetworkingSend_Reliable);
+        }
+    }
+
+    [HarmonyPatch(typeof(DetectionIndicator), "LateUpdate")]
+    public class DetectionIndicatorPatch
+    {
+        static bool Prefix(DetectionIndicator __instance) 
+        {
+            if (!IngameNetManager.instance.IsClient || IngameNetManager.instance.IsHost)
+                return true;
+
+            if (__instance.target == null || __instance.target.actor.dead || __instance.target.targetDetectionProgress < 0f)
+            {
+                __instance.gameObject.SetActive(value: false);
+                __instance.target = null;
+                return false;
+            }
+            var setProgress = typeof(DetectionIndicator).GetMethod("SetProgress", BindingFlags.Instance | BindingFlags.NonPublic);
+            setProgress.Invoke(__instance, new object[] { __instance.target.targetDetectionProgress });
+            Vector3 vector = FpsActorController.instance.GetActiveCamera().transform.worldToLocalMatrix.MultiplyPoint(__instance.target.actor.Position());
+            float z = (0f - Mathf.Atan2(vector.x, vector.z)) * 57.29578f;
+            var rectTransform = typeof(DetectionIndicator).GetField("rectTransform", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance) as RectTransform;
+            rectTransform.localEulerAngles = new Vector3(0f, 0f, z);
+            typeof(DetectionIndicator).GetField("rectTransform", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(__instance, rectTransform);
+            
+            return false;
+        }
+    }
+
     public class SpecOpsStatePacket
     {
         public Vector3 AttackerSpawn;
@@ -589,5 +684,10 @@ namespace RavenM
         public int Actor;
 
         public int Spawn;
+    }
+
+    public class StartDetectionPacket
+    {
+        public int Actor;
     }
 }

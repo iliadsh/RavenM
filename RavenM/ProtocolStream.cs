@@ -164,6 +164,7 @@ namespace RavenM
             Write(value.VehicleId);
             Write(value.Seat);
             Write(value.MovingPlatformVehicleId);
+            Write(value.TargetDetectionProgress);
         }
 
         public void Write(ActorFlagsPacket value)
@@ -502,6 +503,11 @@ namespace RavenM
         {
             Write(value.Id);
         }
+
+        public void Write(StartDetectionPacket value)
+        {
+            Write(value.Actor);
+        }
     }
 
     public class ProtocolReader : BinaryReader
@@ -675,6 +681,7 @@ namespace RavenM
                 VehicleId = ReadInt32(),
                 Seat = ReadInt32(),
                 MovingPlatformVehicleId = ReadInt32(),
+                TargetDetectionProgress = ReadSingle(),
             };
         }
 
@@ -1146,6 +1153,14 @@ namespace RavenM
             return new RemoveActorPacket
             {
                 Id = ReadInt32(),
+            };
+        }
+
+        public StartDetectionPacket ReadStartDetectionPacket()
+        {
+            return new StartDetectionPacket
+            {
+                Actor = ReadInt32(),
             };
         }
     }
