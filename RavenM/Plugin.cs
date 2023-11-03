@@ -69,6 +69,9 @@ namespace RavenM
                 }
             }
         }
+
+        public static readonly int EXPECTED_BUILD_NUMBER = 27;
+
         private ConfigEntry<bool> configRavenMDevMod;
         private ConfigEntry<bool> configRavenMAddToBuiltInMutators;
         private ConfigEntry<string> configRavenMBuiltInMutatorsDirectory;
@@ -98,15 +101,19 @@ namespace RavenM
             customBuildInMutators = configRavenMBuiltInMutatorsDirectory.Value;
             if (System.IO.Directory.Exists(customBuildInMutators))
             {
-                Plugin.logger.LogInfo("Added Custom Build In Mutator Directory " + customBuildInMutators);
+                Logger.LogInfo("Added Custom Build In Mutator Directory " + customBuildInMutators);
             }
             else
             {
                 customBuildInMutators = "NOT_REAL";
-                Plugin.logger.LogError($"Directory {customBuildInMutators} could not be found.");
+                Logger.LogError($"Directory {customBuildInMutators} could not be found.");
             }
             var harmony = new Harmony("patch.ravenm");
-            harmony.PatchAll();
+            try {
+                harmony.PatchAll();
+            } catch (Exception e) {
+                Logger.LogError($"Failed to patch: {e}");
+            }
             
             string[] args = Environment.GetCommandLineArgs();
             foreach (var argument in args)
@@ -123,12 +130,15 @@ namespace RavenM
                     Arguments.Add(argument, "");
                 }
             }
-            
-            // Test code
         }
         private void OnGUI()
         {
             GUI.Label(new Rect(10, Screen.height - 20, 400, 40), $"RavenM ID: {BuildGUID}");
+
+            if (GameManager.instance != null && GameManager.instance.buildNumber != EXPECTED_BUILD_NUMBER) 
+            {
+                GUI.Label(new Rect(10, Screen.height - 60, 300, 40), $"<color=red>RavenM is not compatible with this version of the game. Expected EA{EXPECTED_BUILD_NUMBER}, got EA{GameManager.instance.buildNumber}.</color>");
+            }
         }
         public void printConsole(string message)
         {
