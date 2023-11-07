@@ -11,6 +11,8 @@ using System.Text.RegularExpressions;
 using Ravenfield.Mutator.Configuration;
 using SimpleJSON;
 using System.Globalization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace RavenM
 {
@@ -329,6 +331,10 @@ namespace RavenM
 
         public List<PublishedFileId_t> ModsToDownload = new List<PublishedFileId_t>();
 
+        public List<PublishedFileId_t> ModDownloadBatch = new List<PublishedFileId_t>();
+
+        public int ModBatchLimit = 4;
+
         public bool LoadedServerMods = false;
 
         public bool RequestModReload = false;
@@ -502,6 +508,7 @@ namespace RavenM
 
                 ServerMods.Clear();
                 ModsToDownload.Clear();
+                ModDownloadBatch.Clear();
                 string[] mods = SteamMatchmaking.GetLobbyData(ActualLobbyID, "mods").Split(',');
                 foreach (string mod_str in mods)
                 {
@@ -525,11 +532,43 @@ namespace RavenM
 
                     if (!alreadyHasMod)
                     {
-                        ModsToDownload.Add(mod_id);
+                        // Check if the workshop item was already downloaded. This may happen if a user downloads the mod
+                        // then rejoins a lobby later on using the same mod.
+                        // Saves a lot of headache when downloading mods later on...
+                        EItemState itemState = (EItemState)SteamUGC.GetItemState(mod_id);
+                        if (itemState != EItemState.k_EItemStateInstalled)
+                        {
+                            ModsToDownload.Add(mod_id);
+                        }
+                        else
+                        {
+                            var mod = (ModInformation)typeof(ModManager).GetMethod("AddWorkshopItemAsMod", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ModManager.instance, new object[] { mod_id });
+                            mod.hideInModList = true;
+                            mod.enabled = false;
+                        }
                     }
                 }
-                SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ModsToDownload.Count).ToString());
+                SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ( ModsToDownload.Count + ModDownloadBatch.Count )).ToString());
+
+                Plugin.logger.LogInfo($"We have {ModsToDownload.Count} mods to download.. Let's get cracking!");
+
+                if (ModsToDownload.Count > 0)
+                {
+                    for (int i = 0; i < ModsToDownload.Count; i++)
+                    {
+                        if (i < ModBatchLimit)
+                        {
+                            AddModToBatch();
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                }
+                
                 TriggerModRefresh();
+                StartProcessingBatch();
                 bool nameTagsConverted = bool.TryParse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nameTags"),out bool nameTagsOn);
                 if (nameTagsConverted)
                 {
@@ -561,51 +600,143 @@ namespace RavenM
         private void OnItemDownload(DownloadItemResult_t pCallback)
         {
             Plugin.logger.LogInfo($"Downloaded mod! {pCallback.m_nPublishedFileId}");
-            if (ModsToDownload.Contains(pCallback.m_nPublishedFileId))
+            if (ModDownloadBatch.Contains(pCallback.m_nPublishedFileId))
             {
                 var mod = (ModInformation)typeof(ModManager).GetMethod("AddWorkshopItemAsMod", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ModManager.instance, new object[] { pCallback.m_nPublishedFileId });
                 mod.hideInModList = true;
                 mod.enabled = false;
 
-                ModsToDownload.Remove(pCallback.m_nPublishedFileId);
-
+                ModDownloadBatch.Remove(pCallback.m_nPublishedFileId);
+                
                 if (InLobby && LobbyDataReady)
-                    SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ModsToDownload.Count).ToString());
-
+                    SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ( ModsToDownload.Count + ModDownloadBatch.Count )).ToString());
+                
                 TriggerModRefresh();
             }
         }
 
+        private async void DownloadMod(PublishedFileId_t modToDownload)
+        {
+            try
+            {
+                await DownloadAsync(modToDownload);
+            }
+            catch (Exception ex)
+            {
+                Plugin.logger.LogError($"Caught error downloading mod with id {modToDownload}: {ex}");
+            }
+        }
+        
+        /// <summary>
+        /// Method stolen from https://github.com/Yukinii/Async-Await-Steamworks.NET/blob/master/Plugins/Steamworks.NET/autogen/isteamugc.cs#L493
+        /// </summary>
+        /// <param name="downloadItem"></param>
+        /// <returns></returns>
+        public static Task DownloadAsync(PublishedFileId_t downloadItem)
+        {
+            return Task.Run(() =>
+            {
+                if (!SteamUGC.DownloadItem(downloadItem, true))
+                    return;
+                Plugin.logger.LogInfo($"Starting download for mod with id: {downloadItem}");
+                ulong lastProgress = 0;
+                while (true)
+                {
+                    ulong downloaded;
+                    ulong total;
+
+                    if (!SteamUGC.GetItemDownloadInfo(downloadItem, out downloaded, out total))
+                        break;
+
+                    if (downloaded > 0 && total > 0 && downloaded == total)
+                        break;
+                    
+                    Thread.Sleep(10);
+                }
+            });
+        }
+        
         public void TriggerModRefresh()
         {
-            if (ModsToDownload.Count == 0)
+            Plugin.logger.LogInfo($"Mods to download: {ModsToDownload.Count} -- Mods in batch: {ModDownloadBatch.Count}");
+            if (ModsToDownload.Count == 0 && ModDownloadBatch.Count == 0)
             {
-                Plugin.logger.LogInfo($"All server mods downloaded.");
-
-                if (InLobby && LobbyDataReady && !IsLobbyOwner)
-                {
-                    List<bool> oldState = new List<bool>();
-
-                    foreach (var mod in ModManager.instance.mods)
-                    {
-                        oldState.Add(mod.enabled);
-
-                        mod.enabled = ServerMods.Contains(mod.workshopItemId);
-                    }
-
-                    // Clones the list of enabled mods.
-                    ModManager.instance.ReloadModContent();
-                    LoadedServerMods = true;
-
-                    for (int i = 0; i < ModManager.instance.mods.Count; i++)
-                        ModManager.instance.mods[i].enabled = oldState[i];
-                }
+                FinalizeModDownloads();
             }
             else
             {
-                var mod_id = ModsToDownload[0];
-                bool isDownloading = SteamUGC.DownloadItem(mod_id, true);
-                Plugin.logger.LogInfo($"Downloading mod with id: {mod_id} -- {isDownloading}");
+                if (ModDownloadBatch.Count < ModBatchLimit && ModsToDownload.Count != 0)
+                {
+                    AddModToBatch();
+                }
+            }
+        }
+
+        private async void StartProcessingBatch()
+        {
+            await ProcessBatch();
+        }
+        
+        private Task ProcessBatch()
+        {
+            return Task.Run(() =>
+            {
+                while (true)
+                {
+                    for (int i = 0; i < ModDownloadBatch.Count; i++)
+                    {
+                        var modId = ModDownloadBatch[i];
+
+                        if (ModDownloadBatch.Count > 0)
+                        {
+                            if (ModDownloadBatch.ElementAtOrDefault(i) != null)
+                            {
+                                DownloadMod(modId);
+                            }
+                        }
+                        else if (ModsToDownload.Count == 0)
+                        {
+                            FinalizeModDownloads();
+                            break;
+                        }
+                        Thread.Sleep(5000);
+                    }
+                }
+            });
+        }
+
+        private void AddModToBatch(int index = 0)
+        {
+            if (ModsToDownload.Count > 0)
+            {
+                ModDownloadBatch.Add(ModsToDownload[index]);
+                ModsToDownload.RemoveAt(index);
+            }
+        }
+
+        /// <summary>
+        /// Run once mods have completed downloading
+        /// </summary>
+        private void FinalizeModDownloads()
+        {
+            Plugin.logger.LogInfo($"All server mods downloaded.");
+            if (InLobby && LobbyDataReady && !IsLobbyOwner)
+            {
+                List<bool> oldState = new List<bool>();
+
+                foreach (var mod in ModManager.instance.mods)
+                {
+                    oldState.Add(mod.enabled);
+
+                    mod.enabled = ServerMods.Contains(mod.workshopItemId);
+                }
+
+                // Clones the list of enabled mods.
+                ModManager.instance.ReloadModContent();
+                LoadedServerMods = true;
+
+                for (int i = 0; i < ModManager.instance.mods.Count; i++)
+                    ModManager.instance.mods[i].enabled = oldState[i];
             }
         }
 
@@ -1451,12 +1582,12 @@ namespace RavenM
 
             }
 
-            if (ModsToDownload.Count > 0)
+            if (ModDownloadBatch.Count != 0)
             {
                 GUILayout.BeginArea(new Rect(160f, 10f, 150f, 10000f), string.Empty);
                 GUILayout.BeginVertical(lobbyStyle);
 
-                int hasDownloaded = ServerMods.Count - ModsToDownload.Count;
+                int hasDownloaded = ServerMods.Count - ( ModsToDownload.Count + ModDownloadBatch.Count);
 
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
@@ -1478,29 +1609,33 @@ namespace RavenM
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
 
-                if (SteamUGC.GetItemDownloadInfo(new PublishedFileId_t(ModsToDownload[0].m_PublishedFileId), out ulong punBytesDownloaded, out ulong punBytesTotal))
+                GUILayout.Space(5f);
+                
+                foreach (var modID in ModDownloadBatch)
                 {
-                    GUILayout.Space(5f);
+                    if (SteamUGC.GetItemDownloadInfo(new PublishedFileId_t(modID.m_PublishedFileId), 
+                            out ulong punBytesDownloaded, out ulong punBytesTotal))
+                    {
+                        GUILayout.BeginHorizontal();
+                        GUILayout.FlexibleSpace();
+                        GUILayout.Label($"{Math.Round( punBytesDownloaded / Math.Pow(1024, 2), 2 )}MB/{Math.Round( punBytesTotal / Math.Pow(1024, 2), 2)}MB");
+                        GUILayout.FlexibleSpace();
+                        GUILayout.EndHorizontal();
 
-                    GUILayout.BeginHorizontal();
-                    GUILayout.FlexibleSpace();
-                    GUILayout.Label($"{Math.Round( punBytesDownloaded / Math.Pow(1024, 2), 2 )}MB/{Math.Round( punBytesTotal / Math.Pow(1024, 2), 2)}MB");
-                    GUILayout.FlexibleSpace();
-                    GUILayout.EndHorizontal();
+                        GUILayout.Space(5f);
 
-                    GUILayout.Space(5f);
+                        GUIStyle progressStyle = new GUIStyle();
+                        progressStyle.normal.background = ProgressTexture;
 
-                    GUIStyle progressStyle = new GUIStyle();
-                    progressStyle.normal.background = ProgressTexture;
-
-                    GUILayout.BeginHorizontal();
-                    GUILayout.BeginVertical(progressStyle);
-                    GUILayout.Box(ProgressTexture);
-                    GUILayout.EndVertical();
-                    GUILayout.Space((float)(punBytesTotal - punBytesDownloaded) / punBytesTotal * 150f);
-                    GUILayout.EndHorizontal();
+                        GUILayout.BeginHorizontal();
+                        GUILayout.BeginVertical(progressStyle);
+                        GUILayout.Box(ProgressTexture);
+                        GUILayout.EndVertical();
+                        GUILayout.Space((float)(punBytesTotal - punBytesDownloaded) / punBytesTotal * 150f);
+                        GUILayout.EndHorizontal();
+                    }
                 }
-
+                
                 GUILayout.Space(15f);
 
                 if (GUILayout.Button("<color=red>CANCEL</color>"))
@@ -1512,6 +1647,7 @@ namespace RavenM
                         InLobby = false;
                     }
                     ModsToDownload.Clear();
+                    ModDownloadBatch.Clear();
                 }
 
                 GUILayout.EndVertical();
