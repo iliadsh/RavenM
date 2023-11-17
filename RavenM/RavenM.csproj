@@ -4,7 +4,7 @@
     <TargetFramework>net46</TargetFramework>
     <AssemblyName>RavenM</AssemblyName>
     <Description>A Ravenfield multiplayer mod.</Description>
-    <Version>0.5</Version>
+    <Version>0.6</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <BaseIntermediateOutputPath>obj\</BaseIntermediateOutputPath>
