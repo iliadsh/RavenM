@@ -800,7 +800,7 @@ namespace RavenM
 
                         if (InstantActionMaps.instance.mapDropdown.value != customMapOptionIndex || entries[customMapOptionIndex].metaData.displayName != mapName)
                         {
-                            foreach (Transform item in CustomMapsBrowser.instance.contentPanel) 
+                            foreach (Transform item in InstantActionMaps.instance.customMapsBrowser.contentPanel) 
                             {
                                 var entry = item.gameObject.GetComponent<CustomMapEntry>();
                                 if (entry.entry.metaData.displayName == mapName)
