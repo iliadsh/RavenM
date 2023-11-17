@@ -566,7 +566,7 @@ namespace RavenM
             imageBytes = resourceMemory.ToArray();
 
             RightMarker.LoadImage(imageBytes);
-            Steamworks_NativeMethods = Type.GetType("Steamworks.NativeMethods, Assembly-CSharp-firstpass, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
+            Steamworks_NativeMethods = Type.GetType("Steamworks.NativeMethods, com.rlabrecque.steamworks.net, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
             SteamAPI_SteamNetworkingMessage_t_Release = Steamworks_NativeMethods.GetMethod("SteamAPI_SteamNetworkingMessage_t_Release", BindingFlags.Static | BindingFlags.Public);
 
             var kickAnimationBundleStream =
