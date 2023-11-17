@@ -113,11 +113,11 @@ namespace RavenM
             {
                 if (!vehicle.TryGetComponent(out PrefabTag _) && !Array.Exists(ignore, x => x == vehicle))
                 {
-                    Plugin.logger.LogInfo($"Detected map vehicle with name: {vehicle.name}, and from map: {map.name}.");
+                    Plugin.logger.LogInfo($"Detected map vehicle with name: {vehicle.name}, and from map: {map.metaData.displayName}.");
 
                     var tag = vehicle.gameObject.AddComponent<PrefabTag>();
                     tag.NameHash = vehicle.name.GetHashCode();
-                    tag.Mod = (ulong)map.name.GetHashCode();
+                    tag.Mod = (ulong)map.metaData.displayName.GetHashCode();
                     IngameNetManager.PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = vehicle.gameObject;
                 }
             }
@@ -126,11 +126,11 @@ namespace RavenM
             {
                 if (!projectile.TryGetComponent(out PrefabTag _))
                 {
-                    Plugin.logger.LogInfo($"Detected map projectile with name: {projectile.name}, and from map: {map.name}.");
+                    Plugin.logger.LogInfo($"Detected map projectile with name: {projectile.name}, and from map: {map.metaData.displayName}.");
 
                     var tag = projectile.gameObject.AddComponent<PrefabTag>();
                     tag.NameHash = projectile.name.GetHashCode();
-                    tag.Mod = (ulong)map.name.GetHashCode();
+                    tag.Mod = (ulong)map.metaData.displayName.GetHashCode();
                     IngameNetManager.PrefabCache[new Tuple<int, ulong>(tag.NameHash, tag.Mod)] = projectile.gameObject;
                 }
             }
@@ -141,9 +141,9 @@ namespace RavenM
 
                 if (!prefab.TryGetComponent(out PrefabTag _))
                 {
-                    Plugin.logger.LogInfo($"Detected map destructible with name: {prefab.name}, and from map: {map.name}.");
+                    Plugin.logger.LogInfo($"Detected map destructible with name: {prefab.name}, and from map: {map.metaData.displayName}.");
 
-                    IngameNetManager.TagPrefab(prefab, (ulong)map.name.GetHashCode());
+                    IngameNetManager.TagPrefab(prefab, (ulong)map.metaData.displayName.GetHashCode());
                 }
             }
 
@@ -694,7 +694,7 @@ namespace RavenM
 
                 if (InstantActionMaps.instance.mapDropdown.value == customMapOptionIndex)
                 {
-                    SetLobbyDataDedup("customMap", entries[customMapOptionIndex].name);
+                    SetLobbyDataDedup("customMap", entries[customMapOptionIndex].metaData.displayName);
                 }
 
                 for (int i = 0; i < 2; i++)
@@ -798,37 +798,14 @@ namespace RavenM
                     {
                         string mapName = SteamMatchmaking.GetLobbyData(ActualLobbyID, "customMap");
 
-                        if (InstantActionMaps.instance.mapDropdown.value != customMapOptionIndex || entries[customMapOptionIndex].name != mapName)
+                        if (InstantActionMaps.instance.mapDropdown.value != customMapOptionIndex || entries[customMapOptionIndex].metaData.displayName != mapName)
                         {
-                            foreach (var mod in ModManager.instance.GetActiveMods())
+                            foreach (Transform item in CustomMapsBrowser.instance.contentPanel) 
                             {
-                                // TODO: What scenario is this possible?
-                                if (mod == null || mod.content == null)
-                                    continue;
-                                
-                                foreach (var map in mod.content.GetMaps())
+                                var entry = item.gameObject.GetComponent<CustomMapEntry>();
+                                if (entry.entry.metaData.displayName == mapName)
                                 {
-                                    string currentName = string.Empty;
-                                    string[] parts = map.Name.Split('.');
-                                    for (int i = 0; i < parts.Length - 1; i++)
-                                    {
-                                        currentName += parts[i];
-                                    }
-                                    if (currentName == mapName)
-                                    {
-                                        InstantActionMaps.MapEntry entry = new InstantActionMaps.MapEntry
-                                        {
-                                            name = currentName,
-                                            sceneName = map.FullName,
-                                            isCustomMap = true,
-                                            hasLoadedMetaData = true,
-                                            image = mod.content.HasIconImage()
-                                                    ? Sprite.Create(mod.iconTexture, new Rect(0f, 0f, mod.iconTexture.width, mod.iconTexture.height), Vector2.zero, 100f)
-                                                    : null,
-                                            suggestedBots = 0,
-                                        };
-                                        InstantActionMaps.SelectedCustomMapEntry(entry);
-                                    }
+                                    entry.Select();
                                 }
                             }
                         }
