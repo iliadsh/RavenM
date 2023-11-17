@@ -743,7 +743,9 @@ namespace RavenM
             GUI.Label(new Rect(10, 30, 200, 40), $"Inbound: {_pps} PPS");
             GUI.Label(new Rect(10, 50, 200, 40), $"Outbound: {_ppsOut} PPS -- {_bytesOut} Bytes");
 
-            SteamNetworkingSockets.GetQuickConnectionStatus(C2SConnection, out SteamNetworkingQuickConnectionStatus pStats);
+            SteamNetConnectionRealTimeStatus_t pStats = new SteamNetConnectionRealTimeStatus_t();
+            SteamNetConnectionRealTimeLaneStatus_t pLanes = new SteamNetConnectionRealTimeLaneStatus_t();
+            SteamNetworkingSockets.GetConnectionRealTimeStatus(C2SConnection, ref pStats, 0, ref pLanes);
             GUI.Label(new Rect(10, 80, 200, 40), $"Ping: {pStats.m_nPing} ms");
 
             if (_showSpecificOutbound)
