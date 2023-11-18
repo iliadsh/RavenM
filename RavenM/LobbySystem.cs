@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using Ravenfield.Mutator.Configuration;
 using SimpleJSON;
 using System.Globalization;
+using Ravenfield.Trigger;
 
 namespace RavenM
 {
@@ -168,6 +169,19 @@ namespace RavenM
                 IngameNetManager.instance.ClientDestructibles[id] = root;
 
                 Plugin.logger.LogInfo($"Registered new destructible root with name: {root.name} and id: {id}");
+            }
+
+            IngameNetManager.instance.MapWeapons.Clear();
+            foreach (var triggerEquipWeapon in Resources.FindObjectsOfTypeAll<TriggerEquipWeapon>())
+            {
+                if (triggerEquipWeapon.weaponType == TriggerEquipWeapon.WeaponType.FromWeaponEntry
+                    && triggerEquipWeapon.weaponEntry != null
+                    && !WeaponManager.instance.allWeapons.Contains(triggerEquipWeapon.weaponEntry))
+                {
+                    var entry = triggerEquipWeapon.weaponEntry;
+                    Plugin.logger.LogInfo($"Detected map weapon with name: {entry.name}, and from map: {map.metaData.displayName}.");
+                    IngameNetManager.instance.MapWeapons.Add(entry);
+                }
             }
         }
 

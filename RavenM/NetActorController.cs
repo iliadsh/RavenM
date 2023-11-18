@@ -223,6 +223,10 @@ namespace RavenM
             foreach (var entry in WeaponManager.instance.allWeapons)
                 if (entry.name.GetHashCode() == hash)
                     return entry;
+
+            foreach (var entry in IngameNetManager.instance.MapWeapons)
+                if (entry.name.GetHashCode() == hash)
+                    return entry;
             return null;
         }
 

@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 using Ravenfield.SpecOps;
 using RavenM.Commands;
+using Ravenfield.Mods.Data;
 
 namespace RavenM
 {
@@ -532,6 +533,8 @@ namespace RavenM
 
         public KeyCode PlaceMarkerKeybind = KeyCode.BackQuote;
 
+        public List<WeaponManager.WeaponEntry> MapWeapons = new List<WeaponManager.WeaponEntry>();
+
         private void Awake()
         {
             instance = this;
@@ -821,6 +824,7 @@ namespace RavenM
             OwnedProjectiles.Clear();
             ClientProjectiles.Clear();
             ClientDestructibles.Clear();
+            MapWeapons.Clear();
 
             ClientCanSpawnBot = false;
 
