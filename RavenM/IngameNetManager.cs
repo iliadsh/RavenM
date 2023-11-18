@@ -11,6 +11,7 @@ using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using Ravenfield.SpecOps;
+using Ravenfield.Trigger;
 using RavenM.Commands;
 using Ravenfield.Mods.Data;
 
@@ -2289,6 +2290,50 @@ namespace RavenM
                                     var controller = (AiActorController)actor.controller;
                                     controller.targetDetectionProgress = 0f;
                                     typeof(DetectionUi).GetMethod("StartDetection", BindingFlags.Static | BindingFlags.Public).Invoke(null, new object[] { controller });
+                                }
+                                break;
+                            case PacketType.Trigger:
+                                {
+                                    var triggerPacket = dataStream.ReadTriggerPacket();
+                                    Plugin.logger.LogDebug($"Receiving Trigger Packet with ID: {triggerPacket.Id}");
+                                    List<TriggerBaseComponent> baseComponents = GameObject.FindObjectsOfType<TriggerBaseComponent>().ToList();
+
+                                    TriggerBaseComponent source = null;
+                                    foreach (TriggerBaseComponent component in baseComponents)
+                                        if (component.GetHashCode() == triggerPacket.SourceId)
+                                        {
+                                            source = component;
+                                            break;
+                                        }
+                                    if(source == null)
+                                    {
+                                        Plugin.logger.LogWarning($"Failed to find source for trigger packet! : {triggerPacket.SourceId}");
+                                        return;
+                                    }
+                                    TriggerReceiver targetReceiver = null;
+                                    foreach (TriggerReceiver receiver in baseComponents)
+                                        if(receiver.GetHashCode() == triggerPacket.Id)
+                                        {
+                                            targetReceiver = receiver;
+                                            break;
+                                        }
+                                    if(targetReceiver == null)
+                                    {
+                                        Plugin.logger.LogWarning($"Failed to find target receiver for trigger packet!! : {triggerPacket.Id}");
+                                        return;
+                                    }
+                                   
+                                    TriggerSignal signal = new TriggerSignal(source);
+                                    signal.context.actor = triggerPacket.ActorId != -1 ? ClientActors[triggerPacket.ActorId] : null;
+                                    signal.context.vehicle = triggerPacket.VehicleId != -1 ? ClientVehicles[triggerPacket.VehicleId] : null;
+                                    try
+                                    {
+                                        targetReceiver.ReceiveSignal(signal);
+                                    }
+                                    catch(Exception e)
+                                    {
+                                        Plugin.logger.LogWarning($"Something went wrong with trigger packets somewhere: {e}");
+                                    }
                                 }
                                 break;
                             default:

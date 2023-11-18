@@ -114,7 +114,7 @@ namespace RavenM
             } catch (Exception e) {
                 Logger.LogError($"Failed to patch: {e}");
             }
-            
+
             string[] args = Environment.GetCommandLineArgs();
             foreach (var argument in args)
             {
