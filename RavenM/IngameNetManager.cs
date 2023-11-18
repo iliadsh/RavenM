@@ -2363,6 +2363,9 @@ namespace RavenM
             if (!IsHost)
                 return;
 
+            if (GameModeBase.activeGameMode is ScriptedGameMode)
+                return;
+
             byte[] data = null;
 
             switch (GameModeBase.activeGameMode.gameModeType)
