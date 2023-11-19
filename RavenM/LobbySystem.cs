@@ -20,8 +20,8 @@ namespace RavenM
     {
         static void Prefix(ModManager __instance)
         {
-            //if (__instance.noContentMods)
-                //__instance.noWorkshopMods = true;
+            if (__instance.noContentMods)
+                __instance.noWorkshopMods = true;
         }
     }
 

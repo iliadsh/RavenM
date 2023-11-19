@@ -33,18 +33,6 @@ namespace RavenM
         }
     }
 
-    //to prevent more bugs, disable clients hitting destructibles. makes the host the vvip even more
-    [HarmonyPatch(typeof(Destructible), "Damage")]
-    public class PreventClientDamageDestructible
-    {
-        static bool Prefix(TriggerOnDestructibleDamage __instance)
-        {
-            if (IngameNetManager.instance.IsClient && !IngameNetManager.instance.IsHost)
-                return false;
-            return true;
-        }
-    }
-
     //just teleport all the clients to the host without killing them. should align with what most modders intend
     [HarmonyPatch(typeof(TriggerPlayerTakeOverActor), "OnTriggered")]
     public class TriggerPlayerTakeOver
