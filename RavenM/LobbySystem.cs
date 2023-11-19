@@ -20,11 +20,11 @@ namespace RavenM
     {
         static void Prefix(ModManager __instance)
         {
-            if (__instance.noContentMods)
-                __instance.noWorkshopMods = true;
+            //if (__instance.noContentMods)
+                //__instance.noWorkshopMods = true;
         }
     }
-    
+
     [HarmonyPatch(typeof(GameManager), nameof(GameManager.StartLevel))]
     public class OnStartPatch
     {
@@ -41,7 +41,8 @@ namespace RavenM
                 {
                     if (SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, memberId, "loaded") != "yes")
                     {
-                        if (!LobbySystem.instance.HasCommittedToStart) {
+                        if (!LobbySystem.instance.HasCommittedToStart)
+                        {
                             LobbySystem.instance.IntentionToStart = true;
                             return false;
                         }
@@ -193,7 +194,7 @@ namespace RavenM
             if (LobbySystem.instance.IsLobbyOwner)
                 IngameNetManager.instance.StartAsServer();
             else
-                IngameNetManager.instance.StartAsClient(LobbySystem.instance.OwnerID); 
+                IngameNetManager.instance.StartAsClient(LobbySystem.instance.OwnerID);
 
             SteamMatchmaking.SetLobbyMemberData(LobbySystem.instance.ActualLobbyID, "ready", "yes");
         }
@@ -411,7 +412,8 @@ namespace RavenM
             return ret;
         }
 
-        public void SetLobbyDataDedup(string key, string value) {
+        public void SetLobbyDataDedup(string key, string value)
+        {
             if (!InLobby || !LobbyDataReady || !IsLobbyOwner)
                 return;
 
@@ -423,7 +425,8 @@ namespace RavenM
             LobbySetCache[key] = new Tuple<String, float>(value, Time.time + SET_DEADLINE);
         }
 
-        public void SetLobbyMemberDataDedup(string key, string value) {
+        public void SetLobbyMemberDataDedup(string key, string value)
+        {
             if (!InLobby || !LobbyDataReady)
                 return;
 
@@ -473,7 +476,7 @@ namespace RavenM
                 if (MidgameJoin)
                     SetLobbyDataDedup("hotjoin", "true");
                 if (nameTagsEnabled)
-                    SetLobbyDataDedup("nameTags","true");
+                    SetLobbyDataDedup("nameTags", "true");
                 if (nameTagsForTeamOnly)
                     SetLobbyDataDedup("nameTagsForTeamOnly", "true");
 
@@ -544,7 +547,7 @@ namespace RavenM
                 }
                 SteamMatchmaking.SetLobbyMemberData(ActualLobbyID, "modsDownloaded", (ServerMods.Count - ModsToDownload.Count).ToString());
                 TriggerModRefresh();
-                bool nameTagsConverted = bool.TryParse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nameTags"),out bool nameTagsOn);
+                bool nameTagsConverted = bool.TryParse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "nameTags"), out bool nameTagsOn);
                 if (nameTagsConverted)
                 {
                     nameTagsEnabled = nameTagsOn;
@@ -688,7 +691,7 @@ namespace RavenM
                 InstantActionMaps.instance.teamDropdown.value = 0;
             }
             SetLobbyMemberDataDedup("team", InstantActionMaps.instance.teamDropdown.value == 0 ? "<color=blue>E</color>" : "<color=red>R</color>");
-            
+
             if (IsLobbyOwner)
             {
                 SetLobbyDataDedup("gameMode", InstantActionMaps.instance.gameModeDropdown.value.ToString());
@@ -782,7 +785,7 @@ namespace RavenM
                         JSONNode node = new JSONString(item.SerializeValue());
                         serializedMutators.Add(node);
                     }
-                    
+
                     SetLobbyDataDedup(id + "config", serializedMutators.ToString());
                 }
                 SetLobbyDataDedup("mutators", string.Join(",", enabledMutators.ToArray()));
@@ -814,7 +817,7 @@ namespace RavenM
 
                         if (InstantActionMaps.instance.mapDropdown.value != customMapOptionIndex || entries[customMapOptionIndex].metaData.displayName != mapName)
                         {
-                            foreach (Transform item in InstantActionMaps.instance.customMapsBrowser.contentPanel) 
+                            foreach (Transform item in InstantActionMaps.instance.customMapsBrowser.contentPanel)
                             {
                                 var entry = item.gameObject.GetComponent<CustomMapEntry>();
                                 if (entry.entry.metaData.displayName == mapName)
@@ -866,7 +869,7 @@ namespace RavenM
                                 newPrefab = ActorManager.instance.defaultVehiclePrefabs[idx];
                             }
                             else
-                            {    
+                            {
                                 newPrefab = sortedModdedVehicles[idx];
                             }
                         }
@@ -1031,12 +1034,14 @@ namespace RavenM
 
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
-                if (GUILayout.Button("<color=green>CONTINUE</color>")) {
+                if (GUILayout.Button("<color=green>CONTINUE</color>"))
+                {
                     HasCommittedToStart = true;
                     IntentionToStart = false;
                     InstantActionMaps.instance.StartGame();
                 }
-                if (GUILayout.Button("ABORT")) {
+                if (GUILayout.Button("ABORT"))
+                {
                     IntentionToStart = false;
                 }
                 GUILayout.FlexibleSpace();
@@ -1080,10 +1085,10 @@ namespace RavenM
                     GUILayout.Space(5f);
 
                     GUILayout.BeginHorizontal();
-                        GUILayout.FlexibleSpace();
-                            GUILayout.Label($"MEMBER LIMIT: ");
-                            LobbyMemberCap = GUILayout.TextField(LobbyMemberCap);
-                        GUILayout.FlexibleSpace();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"MEMBER LIMIT: ");
+                    LobbyMemberCap = GUILayout.TextField(LobbyMemberCap);
+                    GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
                     // Ensure we are working with a valid (positive) integer.
@@ -1167,9 +1172,9 @@ namespace RavenM
                 else if (GUIStack.Peek() == "Direct")
                 {
                     GUILayout.BeginHorizontal();
-                        GUILayout.FlexibleSpace();
-                            GUILayout.Label($"DIRECT CONNECT");
-                        GUILayout.FlexibleSpace();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"DIRECT CONNECT");
+                    GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
                     GUILayout.Space(10f);
@@ -1204,9 +1209,9 @@ namespace RavenM
                 else if (GUIStack.Peek() == "Browse")
                 {
                     GUILayout.BeginHorizontal();
-                        GUILayout.FlexibleSpace();
-                            GUILayout.Label($"BROWSE");
-                        GUILayout.FlexibleSpace();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"BROWSE");
+                    GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
                     GUILayout.Space(10f);
@@ -1220,9 +1225,9 @@ namespace RavenM
                     GUILayout.Space(10f);
 
                     GUILayout.BeginHorizontal();
-                        GUILayout.FlexibleSpace();
-                            GUILayout.Label($"LOBBIES - ({OpenLobbies.Count})");
-                        GUILayout.FlexibleSpace();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"LOBBIES - ({OpenLobbies.Count})");
+                    GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
                     foreach (var lobby in OpenLobbies)
@@ -1243,7 +1248,7 @@ namespace RavenM
                                     name = name.Substring(0, 10) + "...";
                                 }
                                 name += $" - ({SteamMatchmaking.GetNumLobbyMembers(lobby)}/{SteamMatchmaking.GetLobbyMemberLimit(lobby)})";
-                            }  
+                            }
                         }
 
                         if (GUILayout.Button($"{name}") && hasData)
@@ -1264,15 +1269,15 @@ namespace RavenM
                     var name = SteamFriends.GetFriendPersonaName(owner);
 
                     GUILayout.BeginHorizontal();
-                        GUILayout.FlexibleSpace();
-                            GUILayout.Label($"{name}'s");
-                        GUILayout.FlexibleSpace();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"{name}'s");
+                    GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
                     GUILayout.BeginHorizontal();
-                        GUILayout.FlexibleSpace();
-                            GUILayout.Label($"LOBBY");
-                        GUILayout.FlexibleSpace();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"LOBBY");
+                    GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
                     GUILayout.Space(10f);
@@ -1352,9 +1357,9 @@ namespace RavenM
                 }
 
                 GUILayout.BeginHorizontal();
-                    GUILayout.FlexibleSpace();
-                        GUILayout.Label($"LOBBY - {len}/{SteamMatchmaking.GetLobbyMemberLimit(ActualLobbyID)}");
-                    GUILayout.FlexibleSpace();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label($"LOBBY - {len}/{SteamMatchmaking.GetLobbyMemberLimit(ActualLobbyID)}");
+                GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
 
                 GUILayout.Space(5f);
@@ -1389,8 +1394,8 @@ namespace RavenM
                     // Can't use ServerMods.Count for the lobby owner.
                     string totalMods = SteamMatchmaking.GetLobbyData(ActualLobbyID, "mods").Split(',').Length.ToString();
 
-                    var readyColor = (GameManager.IsInMainMenu() ? SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "loaded") == "yes" 
-                                                                    : SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "ready") == "yes") 
+                    var readyColor = (GameManager.IsInMainMenu() ? SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "loaded") == "yes"
+                                                                    : SteamMatchmaking.GetLobbyMemberData(ActualLobbyID, memberId, "ready") == "yes")
                                                                     ? "green" : "red";
 
                     if (memberId != KickPrompt)
@@ -1475,7 +1480,7 @@ namespace RavenM
 
                     GUILayout.BeginHorizontal();
                     GUILayout.FlexibleSpace();
-                    GUILayout.Label($"{Math.Round( punBytesDownloaded / Math.Pow(1024, 2), 2 )}MB/{Math.Round( punBytesTotal / Math.Pow(1024, 2), 2)}MB");
+                    GUILayout.Label($"{Math.Round(punBytesDownloaded / Math.Pow(1024, 2), 2)}MB/{Math.Round(punBytesTotal / Math.Pow(1024, 2), 2)}MB");
                     GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 

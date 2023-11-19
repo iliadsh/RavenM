@@ -2296,27 +2296,32 @@ namespace RavenM
                                 {
                                     var triggerPacket = dataStream.ReadTriggerPacket();
                                     Plugin.logger.LogDebug($"Receiving Trigger Packet with ID: {triggerPacket.Id}");
-                                    List<TriggerBaseComponent> baseComponents = GameObject.FindObjectsOfType<TriggerBaseComponent>().ToList();
-
+                                    List<TriggerBaseComponent> baseComponents = FindObjectsOfType<TriggerBaseComponent>().ToList();
+                                    List<TriggerReceiver> baseReceivers = FindObjectsOfType<TriggerReceiver>().ToList();
+                                    Plugin.logger.LogDebug(baseComponents.Count);
                                     TriggerBaseComponent source = null;
                                     foreach (TriggerBaseComponent component in baseComponents)
-                                        if (component.GetHashCode() == triggerPacket.SourceId)
+                                    {
+                                        if (TriggerReceivePatch.GetTriggerComponentHash(component) == triggerPacket.SourceId)
                                         {
                                             source = component;
                                             break;
                                         }
+                                    }
                                     if(source == null)
                                     {
-                                        Plugin.logger.LogWarning($"Failed to find source for trigger packet! : {triggerPacket.SourceId}");
+                                        Plugin.logger.LogWarning($"Failed to find source for trigger packet! packetID: {triggerPacket.Id}, sourceId: {triggerPacket.SourceId}");
                                         return;
                                     }
                                     TriggerReceiver targetReceiver = null;
-                                    foreach (TriggerReceiver receiver in baseComponents)
-                                        if(receiver.GetHashCode() == triggerPacket.Id)
+                                    foreach (TriggerReceiver receiver in baseReceivers)
+                                    {
+                                        if (TriggerReceivePatch.GetTriggerComponentHash(receiver) == triggerPacket.Id)
                                         {
                                             targetReceiver = receiver;
                                             break;
                                         }
+                                    }
                                     if(targetReceiver == null)
                                     {
                                         Plugin.logger.LogWarning($"Failed to find target receiver for trigger packet!! : {triggerPacket.Id}");
