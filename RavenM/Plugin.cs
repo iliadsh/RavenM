@@ -109,15 +109,12 @@ namespace RavenM
                 Logger.LogError($"Directory {customBuildInMutators} could not be found.");
             }
             var harmony = new Harmony("patch.ravenm");
-            try
-            {
+            try {
                 harmony.PatchAll();
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 Logger.LogError($"Failed to patch: {e}");
             }
-
+            
             string[] args = Environment.GetCommandLineArgs();
             foreach (var argument in args)
             {
@@ -138,7 +135,7 @@ namespace RavenM
         {
             GUI.Label(new Rect(10, Screen.height - 20, 400, 40), $"RavenM ID: {BuildGUID}");
 
-            if (GameManager.instance != null && GameManager.instance.buildNumber != EXPECTED_BUILD_NUMBER)
+            if (GameManager.instance != null && GameManager.instance.buildNumber != EXPECTED_BUILD_NUMBER) 
             {
                 GUI.Label(new Rect(10, Screen.height - 60, 300, 40), $"<color=red>RavenM is not compatible with this version of the game. Expected EA{EXPECTED_BUILD_NUMBER}, got EA{GameManager.instance.buildNumber}.</color>");
             }
