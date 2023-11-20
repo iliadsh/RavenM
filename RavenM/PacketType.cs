@@ -33,6 +33,7 @@
         Countermeasures,
         NetworkGameObject,
         RemoveActor,
-        StartDetection
+        StartDetection,
+        Trigger,
     }
 }

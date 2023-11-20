@@ -508,6 +508,13 @@ namespace RavenM
         {
             Write(value.Actor);
         }
+        public void Write(TriggerPacket value)
+        {
+            Write(value.Id);
+            Write(value.SourceId);
+            Write(value.ActorId);
+            Write(value.VehicleId);
+        }
     }
 
     public class ProtocolReader : BinaryReader
@@ -1161,6 +1168,16 @@ namespace RavenM
             return new StartDetectionPacket
             {
                 Actor = ReadInt32(),
+            };
+        }
+        public TriggerPacket ReadTriggerPacket()
+        {
+            return new TriggerPacket
+            {
+                Id = ReadInt32(),
+                SourceId = ReadInt32(),
+                ActorId = ReadInt32(),
+                VehicleId = ReadInt32(),
             };
         }
     }
