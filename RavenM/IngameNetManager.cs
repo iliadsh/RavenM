@@ -82,23 +82,33 @@ namespace RavenM
     [HarmonyPatch(typeof(Mortar), "GetTargetPosition")]
     public class MortarTargetPatch
     {
-        // Patch the first conditional jump to an unconditional one. This will skip the
-        // block which assumes the Actor is a bot and has an Actor target.
-        // FIXME: This means the bots will have garbage aim with the mortar.
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
-            bool first = true;
-
             foreach (var instruction in instructions)
             {
-                if (first && instruction.opcode == OpCodes.Brtrue)
+                if (instruction.opcode == OpCodes.Call && (MethodInfo)instruction.operand == typeof(Weapon).GetMethod(nameof(Weapon.UserIsPlayer), BindingFlags.Instance | BindingFlags.Public))
                 {
-                    instruction.opcode = OpCodes.Brfalse;
-                    first = false;
+                    // IL_0001: call instance bool Weapon::UserIsPlayer() -> call bool MortarTargetPatch::UserIsPlayerPatch(Weapon)
+                    yield return new CodeInstruction(OpCodes.Call, typeof(MortarTargetPatch).GetMethod(nameof(UserIsPlayerPatch), BindingFlags.Static | BindingFlags.NonPublic));
                 }
-
-                yield return instruction;
+                else
+                {
+                    yield return instruction;
+                }
             }
+        }
+
+        static bool UserIsPlayerPatch(Weapon weapon)
+        {
+            if (!IngameNetManager.instance.IsClient)
+                return weapon.UserIsPlayer();
+
+            var guid = weapon.user.GetComponent<GuidComponent>();
+
+            if (guid != null && IngameNetManager.instance.OwnedActors.Contains(guid.guid))
+                return weapon.UserIsPlayer();
+
+            return true;
         }
     }
 
