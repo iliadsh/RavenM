@@ -29,6 +29,7 @@ namespace RavenM
                     }
                 }
                 triggerOnStart.Clear();
+                ready = false;
                 return true;
             }
             __instance.StartCoroutine(WaitForPlayers(__instance));

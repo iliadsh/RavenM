@@ -61,7 +61,7 @@ namespace RavenM
             {
                 if (!changeGUID)
                 {
-                    return $"STABLE-0-7-{Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString().Split('-').Last()}";
+                    return $"INDEV-0-7-{Assembly.GetExecutingAssembly().ManifestModule.ModuleVersionId.ToString().Split('-').Last()}";
                 }
                 else
                 {
