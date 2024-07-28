@@ -822,11 +822,13 @@ namespace RavenM
                                     entry.Select();
                                 }
                             }
+                            return; //just to be safe
                         }
                     }
                     else
                     {
                         InstantActionMaps.instance.mapDropdown.value = givenEntry;
+                        return; //just to be safe: the sequel
                     }
                 }
 
