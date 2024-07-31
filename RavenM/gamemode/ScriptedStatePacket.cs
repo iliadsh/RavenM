@@ -57,6 +57,8 @@ namespace RavenM
     {
         static bool Prefix(TriggerOnStart __instance)
         {
+            if (!IngameNetManager.instance.IsHost && IngameNetManager.instance.IsClient)
+                return false;
             if (IngameNetManager.instance.IsHost)
             {
                 if (GameModeBase.activeGameMode is ScriptedGameMode && __instance.type == TriggerOnStart.Type.OnStart)
@@ -68,6 +70,7 @@ namespace RavenM
                     else
                     {
                         ScriptedMissionPlayerCheckPatch.triggerOnStart.Add(__instance);
+                        return false;
                     }
                 }
             }
