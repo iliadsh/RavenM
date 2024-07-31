@@ -314,6 +314,8 @@ namespace RavenM
     {
         public static LobbySystem instance;
 
+        public string LobbyName = "My Lobby";
+
         public bool PrivateLobby = false;
 
         public bool ShowOnList = true;
@@ -468,6 +470,7 @@ namespace RavenM
                 OwnerID = SteamUser.GetSteamID();
                 SetLobbyDataDedup("owner", OwnerID.ToString());
                 SetLobbyDataDedup("build_id", Plugin.BuildGUID);
+                SetLobbyDataDedup("lobbyname", LobbyName);
                 if (!ShowOnList)
                     SetLobbyDataDedup("hidden", "true");
                 if (MidgameJoin)
@@ -1086,6 +1089,20 @@ namespace RavenM
                     GUILayout.Space(5f);
 
                     GUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"LOBBY NAME: ");
+                    LobbyName = GUILayout.TextField(LobbyName);
+                    GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+
+                    if(LobbyName.Length == 0)
+                    {
+                        LobbyName = "My Lobby";
+                    }
+
+                    GUILayout.Space(5f);
+
+                    GUILayout.BeginHorizontal();
                         GUILayout.FlexibleSpace();
                             GUILayout.Label($"MEMBER LIMIT: ");
                             LobbyMemberCap = GUILayout.TextField(LobbyMemberCap);
@@ -1235,7 +1252,10 @@ namespace RavenM
                     {
                         var owner = SteamMatchmaking.GetLobbyData(lobby, "owner");
 
+                        var lobbyname = SteamMatchmaking.GetLobbyData(lobby, "lobbyname");
+
                         bool hasData = false;
+
                         string name = "<color=#777777>Loading...</color>";
                         if (owner != string.Empty)
                         {
@@ -1249,8 +1269,17 @@ namespace RavenM
                                     name = name.Substring(0, 10) + "...";
                                 }
                                 name += $" - ({SteamMatchmaking.GetNumLobbyMembers(lobby)}/{SteamMatchmaking.GetLobbyMemberLimit(lobby)})";
-                            }  
+                            }
+                            if (lobbyname != string.Empty)
+                            {
+                                if (lobbyname.Length > 10)
+                                {
+                                    lobbyname = lobbyname.Substring(0, 10) + "...";
+                                }
+                                name += $" \n" + lobbyname; 
+                            }
                         }
+                        
 
                         if (GUILayout.Button($"{name}") && hasData)
                         {
