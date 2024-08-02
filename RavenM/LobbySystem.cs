@@ -804,6 +804,8 @@ namespace RavenM
                     InstantActionMaps.instance.teamDropdown.value = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "team"));
                 }
 
+                bool doubleCheck = false; //fix for entering into the wrong map with midgame joining
+
                 if (instance.LoadedServerMods)
                 {
                     int givenEntry = int.Parse(SteamMatchmaking.GetLobbyData(ActualLobbyID, "loadedLevelEntry"));
@@ -822,6 +824,7 @@ namespace RavenM
                                     entry.Select();
                                 }
                             }
+                            doubleCheck = true; //just to be safe
                         }
                     }
                     else
@@ -955,6 +958,9 @@ namespace RavenM
                         }
                     }
                 }
+
+                if (doubleCheck)
+                    return;
 
                 if (SteamMatchmaking.GetLobbyData(ActualLobbyID, "started") == "yes")
                 {
