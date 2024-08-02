@@ -6,6 +6,23 @@ using System.Reflection.Emit;
 
 namespace RavenM
 {
+
+    [HarmonyPatch(typeof(SkirmishMode), "PlayerAcceptedLoadoutFirstTime")]
+    public class SkirmishWaitForHostPatch
+    {
+        static bool Prefix()
+        {
+            if (!IngameNetManager.instance.IsClient || IngameNetManager.instance.IsHost)
+                return true;
+            if(!LobbySystem.instance.HostLoaded())
+            {
+                IngameUI.ShowOverlayText("WAIT FOR HOST TO SPAWN", 1f);
+                return true;
+            }
+            return false;
+        }
+    }
+
     [HarmonyPatch(typeof(SkirmishMode), "SpawnReinforcementWave")]
     public class SkirmishWavePatch
     {

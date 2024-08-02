@@ -413,6 +413,11 @@ namespace RavenM
             return ret;
         }
 
+        public bool HostLoaded()
+        {
+            return SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, OwnerID, "loaded") == "true";
+        }
+
         public void SetLobbyDataDedup(string key, string value) {
             if (!InLobby || !LobbyDataReady || !IsLobbyOwner)
                 return;
@@ -1087,18 +1092,16 @@ namespace RavenM
                     GUILayout.EndHorizontal();
 
                     GUILayout.Space(5f);
-
-                    GUILayout.BeginHorizontal();
+                    GUILayout.Label($"LOBBY NAME");
+                    GUILayout.BeginHorizontal(); 
                     GUILayout.FlexibleSpace();
-                    GUILayout.Label($"LOBBY NAME: ");
+                    
                     LobbyName = GUILayout.TextField(LobbyName);
                     GUILayout.FlexibleSpace();
                     GUILayout.EndHorizontal();
 
-                    if(LobbyName.Length == 0)
-                    {
-                        LobbyName = "My Lobby";
-                    }
+                    if(LobbyName.Length > 20)
+                        LobbyName = LobbyName.Substring(0, 20);
 
                     GUILayout.Space(5f);
 
@@ -1404,6 +1407,16 @@ namespace RavenM
                 {
                     GUIUtility.systemCopyBuffer = ActualLobbyID.GetAccountID().ToString();
                 }
+
+                GUILayout.Space(5f);
+
+                GUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                GUILayout.Label($"{SteamMatchmaking.GetLobbyData(ActualLobbyID, "lobbyname")}");
+                GUILayout.FlexibleSpace();
+                GUILayout.EndHorizontal();
+
+                
 
                 GUILayout.Space(15f);
 
