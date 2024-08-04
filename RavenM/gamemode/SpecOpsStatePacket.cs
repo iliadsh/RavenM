@@ -22,7 +22,7 @@ namespace RavenM
                 return true;
             if (!LobbySystem.instance.HostLoaded())
             {
-                IngameUI.ShowOverlayText("WAIT FOR HOST TO SPAWN", 1f);
+                IngameUI.ShowOverlayText("WAIT FOR HOST TO LOAD", 1f);
                 return true;
             }
             return false;
@@ -138,18 +138,30 @@ namespace RavenM
                 return false;
             }
 
-            var helicopter = typeof(ExfilHelicopter).GetField("helicopter", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance) as Helicopter;
+            var helicopterField = typeof(ExfilHelicopter).GetField("helicopter", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Helicopter helicopter = null;
+            if (helicopterField == null)
+            {
+                __result = false;
+                return false;
+            }
+            if(helicopterField.GetValue(__instance) != null)
+                helicopter = helicopterField.GetValue(__instance) as Helicopter;
             if(helicopter == null)
             {
                 __result = false;
                 return false;
             }
+            helicopter.isInvulnerable = false;
+            helicopter.health = 100000000;
+            helicopter.maxHealth = 100000000;
             foreach (Actor actor in IngameNetManager.instance.GetPlayers())
             {
                 if (actor.dead)
                     continue;
 
-                if (!actor.IsSeated() || actor.seat.vehicle != helicopter)
+                if (!actor.IsSeated() || actor.seat.vehicle != (helicopter))
                 {
                     __result = false;
                     return false;

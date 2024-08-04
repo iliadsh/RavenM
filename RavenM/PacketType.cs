@@ -35,5 +35,6 @@
         RemoveActor,
         StartDetection,
         Trigger,
+        TriggerSpawnActor,
     }
 }

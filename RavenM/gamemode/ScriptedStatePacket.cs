@@ -20,7 +20,6 @@ namespace RavenM
                 return false;
             if (ready)
             {
-                ChatManager.instance.PushCommandChatMessage("Starting Scripted Mission!", UnityEngine.Color.white, false, true);
                 foreach (TriggerOnStart triggerOnStart in triggerOnStart)
                 {
                     if (triggerOnStart != null)
@@ -39,7 +38,8 @@ namespace RavenM
         public static IEnumerator WaitForPlayers(ScriptedGameMode gamemode)
         {
             ready = false;
-            while (LobbySystem.instance.GetLobbyMembers().Any(x => SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, x, "loaded") != "yes")) //wait until everyone is in the scene
+            while (LobbySystem.instance.GetLobbyMembers().Any(x => SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, x, "loaded") != "yes") ||
+                LobbySystem.instance.GetLobbyMembers().Count > IngameNetManager.instance.GetPlayers().Count) //wait until everyone is in the scene
             {
                 yield return null;
             }            

@@ -2321,7 +2321,7 @@ namespace RavenM
                                     if(source == null)
                                     {
                                         Plugin.logger.LogWarning($"Failed to find source for trigger packet! packetID: {triggerPacket.Id}, sourceId: {triggerPacket.SourceId}");
-                                        return;
+                                        break;
                                     }
                                     TriggerReceiver targetReceiver = null;
                                     foreach (TriggerReceiver receiver in baseReceivers)
@@ -2335,7 +2335,7 @@ namespace RavenM
                                     if(targetReceiver == null)
                                     {
                                         Plugin.logger.LogWarning($"Failed to find target receiver for trigger packet!! : {triggerPacket.Id}");
-                                        return;
+                                        break;
                                     }
                                    
                                     TriggerSignal signal = new TriggerSignal(source);
@@ -2349,6 +2349,37 @@ namespace RavenM
                                     {
                                         Plugin.logger.LogWarning($"Something went wrong with trigger packets somewhere: {e}");
                                     }
+                                }
+                                break;
+                            case PacketType.TriggerSpawnActor:
+                                {
+                                    
+                                    var triggerPacket = dataStream.ReadTriggerSpawnActorPacket();
+                                    Plugin.logger.LogDebug($"Receiving Trigger Packet with ID: {triggerPacket.Id}");
+                                    List<TriggerSpawnSquad> spawnSquadTriggers = FindObjectsOfType<TriggerSpawnSquad>().ToList();
+                                    TriggerSpawnSquad targetReceiver = null;
+                                    foreach (TriggerSpawnSquad receiver in spawnSquadTriggers)
+                                    {
+                                        if (TriggerReceivePatch.GetTriggerComponentHash(receiver) == triggerPacket.Id)
+                                        {
+                                            targetReceiver = receiver;
+                                            break;
+                                        }
+                                    }
+                                    if (targetReceiver == null)
+                                    {
+                                        Plugin.logger.LogWarning($"Failed to find target receiver for trigger packet!! : {triggerPacket.Id}");
+                                        break;
+                                    }
+
+                                    if (triggerPacket.SpawnInfo == -1)
+                                        break;
+                                    TriggerSpawnSquad.SpawnInfo info = targetReceiver.squadMemberInfo[triggerPacket.SpawnInfo];
+
+                                    if (ClientActors.ContainsKey(triggerPacket.ActorId))
+                                        targetReceiver.SpawnActor(ClientActors[triggerPacket.ActorId], info);
+
+
                                 }
                                 break;
                             default:

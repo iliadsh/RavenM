@@ -16,7 +16,7 @@ namespace RavenM
                 return true;
             if(!LobbySystem.instance.HostLoaded())
             {
-                IngameUI.ShowOverlayText("WAIT FOR HOST TO SPAWN", 1f);
+                IngameUI.ShowOverlayText("WAIT FOR HOST TO LOAD", 1f);
                 return true;
             }
             return false;
