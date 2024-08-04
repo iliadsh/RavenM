@@ -124,7 +124,7 @@ namespace RavenM
     [HarmonyPatch(typeof(ExfilHelicopter), "AllAttackersPickedUp")]
     public class AllPlayersPickedUpPatch
     {
-        static bool Prefix(ExfilHelicopter __instance, ref bool __result) 
+        static bool Prefix(ExfilHelicopter __instance, ref bool __result)
         {
             if (!LobbySystem.instance.InLobby)
                 return true;
@@ -134,31 +134,14 @@ namespace RavenM
                 __result = false;
                 return false;
             }
-
-            var helicopterField = typeof(ExfilHelicopter).GetField("helicopter", BindingFlags.Instance | BindingFlags.NonPublic);
-
-            Helicopter helicopter = null;
-            if (helicopterField == null)
-            {
-                __result = false;
-                return false;
-            }
-            if(helicopterField.GetValue(__instance) != null)
-                helicopter = helicopterField.GetValue(__instance) as Helicopter;
-            if(helicopter == null)
-            {
-                __result = false;
-                return false;
-            }
-            helicopter.isInvulnerable = false;
-            helicopter.health = 100000000;
-            helicopter.maxHealth = 100000000;
+            //absolutely no idea why this doesn't work. reflection just isn't helping
+            var helicopter = typeof(ExfilHelicopter).GetField("helicopter", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance) as Helicopter; 
             foreach (Actor actor in IngameNetManager.instance.GetPlayers())
             {
                 if (actor.dead)
                     continue;
 
-                if (!actor.IsSeated() || actor.seat.vehicle != (helicopter))
+                if (!actor.IsSeated() || actor.seat.vehicle != helicopter)
                 {
                     __result = false;
                     return false;
