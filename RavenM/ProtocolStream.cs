@@ -515,6 +515,13 @@ namespace RavenM
             Write(value.ActorId);
             Write(value.VehicleId);
         }
+
+        public void Write(TriggerSpawnActorPacket value)
+        {
+            Write(value.Id);
+            Write(value.ActorId);
+            Write(value.SpawnInfo);
+        }
     }
 
     public class ProtocolReader : BinaryReader
@@ -1178,6 +1185,16 @@ namespace RavenM
                 SourceId = ReadInt32(),
                 ActorId = ReadInt32(),
                 VehicleId = ReadInt32(),
+            };
+        }
+
+        public TriggerSpawnActorPacket ReadTriggerSpawnActorPacket()
+        {
+            return new TriggerSpawnActorPacket
+            {
+                Id = ReadInt32(),
+                ActorId = ReadInt32(),
+                SpawnInfo = ReadInt32()
             };
         }
     }

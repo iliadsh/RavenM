@@ -20,7 +20,6 @@ namespace RavenM
                 return false;
             if (ready)
             {
-                ChatManager.instance.PushCommandChatMessage("Starting Scripted Mission!", UnityEngine.Color.white, false, true);
                 foreach (TriggerOnStart triggerOnStart in triggerOnStart)
                 {
                     if (triggerOnStart != null)
@@ -39,8 +38,16 @@ namespace RavenM
         public static IEnumerator WaitForPlayers(ScriptedGameMode gamemode)
         {
             ready = false;
-            while (LobbySystem.instance.GetLobbyMembers().Any(x => SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, x, "loaded") != "yes")) //wait until everyone is in the scene
+
+
+
+
+            while (LobbySystem.instance.GetLobbyMembers().Any(x => SteamMatchmaking.GetLobbyMemberData(LobbySystem.instance.ActualLobbyID, x, "loaded") != "yes") ||
+                LobbySystem.instance.GetLobbyMembers().Count > IngameNetManager.instance.GetPlayers().Count)
             {
+                //wait until everyone is in the scene
+                //just checking if all players have "loaded" set to true won't 100% work because the other lobby members could still be in the previous scene and are technically still loaded
+                //we can also check if the players are inside the host's scene just to be extra sure
                 yield return null;
             }            
             ready = true;

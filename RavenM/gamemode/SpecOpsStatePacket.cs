@@ -12,6 +12,25 @@ using Steamworks;
 
 namespace RavenM
 {
+
+    [HarmonyPatch(typeof(SpecOpsMode), "PlayerAcceptedLoadoutFirstTime")]
+    public class SpecOpsWaitForHost
+    {
+        static bool Prefix()
+        {
+            if (!IngameNetManager.instance.IsClient || IngameNetManager.instance.IsHost)
+                return true;
+            if (!LobbySystem.instance.HostLoaded())
+            {
+                IngameUI.ShowOverlayText("WAIT FOR HOST TO LOAD", 1f);
+                return false;
+            }
+            return true;
+        }
+
+        //players who load in earlier than the host and spawn in will be teleported to what i'm assuming is the origin point
+    }
+
     /// <summary>
     /// We have to use InLobby rather than IsClient here because the following patches
     /// are ran before we even open the client connection.
@@ -67,6 +86,19 @@ namespace RavenM
             var specOpsObj = (GameModeBase.activeGameMode as SpecOpsMode);
             specOpsObj.attackerActors = attackers.ToArray();
             specOpsObj.attackerSquad = FpsActorController.instance.playerSquad;
+
+            __instance.StopAllCoroutines();
+
+            //make sure to stop all coroutines that might have played over from a premature restart
+            //this might stop the coroutine this method is in, so do the stuff the coroutine would have done
+
+            typeof(SpecOpsMode).GetField("gameIsRunning", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(__instance, true);
+            __instance.dialog.OnPlayerAssumesControl();
+
+            var introAction = (TimedAction)typeof(SpecOpsMode).GetField("gameIsRunning", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance);
+
+            introAction.Start(); //seems to work.
+
             return false;
         }
     }
@@ -92,7 +124,7 @@ namespace RavenM
     [HarmonyPatch(typeof(ExfilHelicopter), "AllAttackersPickedUp")]
     public class AllPlayersPickedUpPatch
     {
-        static bool Prefix(ExfilHelicopter __instance, ref bool __result) 
+        static bool Prefix(ExfilHelicopter __instance, ref bool __result)
         {
             if (!LobbySystem.instance.InLobby)
                 return true;
@@ -102,8 +134,8 @@ namespace RavenM
                 __result = false;
                 return false;
             }
-
-            var helicopter = typeof(ExfilHelicopter).GetField("helicopter", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance) as Helicopter;
+            //absolutely no idea why this doesn't work. reflection just isn't helping
+            var helicopter = typeof(ExfilHelicopter).GetField("helicopter", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance) as Helicopter; 
             foreach (Actor actor in IngameNetManager.instance.GetPlayers())
             {
                 if (actor.dead)
