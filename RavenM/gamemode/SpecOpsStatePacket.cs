@@ -23,9 +23,9 @@ namespace RavenM
             if (!LobbySystem.instance.HostLoaded())
             {
                 IngameUI.ShowOverlayText("WAIT FOR HOST TO LOAD", 1f);
-                return true;
+                return false;
             }
-            return false;
+            return true;
         }
 
         //players who load in earlier than the host and spawn in will be teleported to what i'm assuming is the origin point

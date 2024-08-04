@@ -17,9 +17,9 @@ namespace RavenM
             if(!LobbySystem.instance.HostLoaded())
             {
                 IngameUI.ShowOverlayText("WAIT FOR HOST TO LOAD", 1f);
-                return true;
+                return false;
             }
-            return false;
+            return true;
         }
 
         //players who load in early and spawn in will be stuck in purgatory
