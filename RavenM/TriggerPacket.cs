@@ -25,6 +25,9 @@ namespace RavenM
     [HarmonyPatch(typeof(TriggerSpawnSquad), "SpawnBot")]
     public class TriggerSpawnBot
     {
+        //syncs spawn squad triggers so that the bots have the right spawninfo and skin
+
+
         static void Postfix(TriggerSpawnSquad __instance, AiActorController __result, TriggerSpawnSquad.SpawnInfo info, TriggerSpawnSquad.AiInfo aiInfo)
         {
             if (IngameNetManager.instance.IsClient && !IngameNetManager.instance.IsHost)
@@ -36,6 +39,9 @@ namespace RavenM
         static IEnumerator SendTrigger(TriggerSpawnSquad __instance, AiActorController __result, TriggerSpawnSquad.SpawnInfo info, TriggerSpawnSquad.AiInfo aiInfo)
         {
             yield return new WaitForSeconds(2);
+
+            //wait for an arbitrary time. clients might not have the actors spawned in on their side yet
+
             using MemoryStream memoryStream = new MemoryStream();
             var packet = new TriggerSpawnActorPacket
             {
@@ -73,6 +79,8 @@ namespace RavenM
         {
             LoadoutUi.Hide();
         }
+        // fixes some maps that open the loadoutui
+        // clients will be unable to close it without pressing respawn :/
     }
 
     //just teleport all the clients to the host without killing them. should align with what most modders intend

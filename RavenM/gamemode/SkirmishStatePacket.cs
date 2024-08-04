@@ -21,6 +21,9 @@ namespace RavenM
             }
             return false;
         }
+
+        //players who load in early and spawn in will be stuck in purgatory
+
     }
 
     [HarmonyPatch(typeof(SkirmishMode), "SpawnReinforcementWave")]

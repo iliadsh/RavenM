@@ -1299,16 +1299,16 @@ namespace RavenM
                             }
                             if (!String.IsNullOrEmpty(lobbyname))
                             {
-                                if (lobbyname.Length > 20)
+                                if (lobbyname.Length > 15)
                                 {
-                                    lobbyname = lobbyname.Substring(0, 20) + "...";
+                                    lobbyname = lobbyname.Substring(0, 15) + "...";
                                 }
-                                name += $" \n <b>" + lobbyname + "</b>";
+                                name += $" \n <b>" + lobbyname + "</b>"; // looks nice bold, but it might stretch too large for the ui box. limit the length a little more than the owner name
                             }
                             name += $" \n({SteamMatchmaking.GetNumLobbyMembers(lobby)}/{SteamMatchmaking.GetLobbyMemberLimit(lobby)})";
-                            if (modtotalsize != string.Empty)
+                            if (!String.IsNullOrEmpty(modtotalsize))
                             {
-                                if (modList != string.Empty)
+                                if (!String.IsNullOrEmpty(modList))
                                 {
                                     var modCount = modList != string.Empty ? modList.Split(',').Length : 0;
                                     name += $" \n{modCount} mods | {modtotalsize}";
@@ -1321,8 +1321,8 @@ namespace RavenM
                             
                         }
 
-
-                        if (GUILayout.Button($"{name}", GUILayout.Height(90)) && hasData)
+                        //making the button large might make the lobby browser list take too much space (shouldn't be too much of a problem). maybe make it a scrollable box?
+                        if (GUILayout.Button($"{name}", GUILayout.Height(90)) && hasData) 
                         {
                             LobbyView = lobby;
                             GUIStack.Push("Lobby View");
@@ -1457,12 +1457,16 @@ namespace RavenM
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
 
-                var modList = SteamMatchmaking.GetLobbyData(LobbyView, "mods");
-                var modCount = modList != string.Empty ? modList.Split(',').Length : 0;
 
-                var modSize = SteamMatchmaking.GetLobbyData(LobbyView, "modtotalsize");
+                if (!IsLobbyOwner) //stuff doesn't work as the host, so we can hide it :)
+                {
+                    var modList = SteamMatchmaking.GetLobbyData(LobbyView, "mods");
+                    var modCount = modList != string.Empty ? modList.Split(',').Length : 0;
 
-                GUILayout.Label($"MODS: {modCount} | {modSize}");
+                    var modSize = SteamMatchmaking.GetLobbyData(LobbyView, "modtotalsize");
+
+                    GUILayout.Label($"MODS: {modCount} | {modSize}");
+                }
 
                 GUILayout.Space(10f);
 

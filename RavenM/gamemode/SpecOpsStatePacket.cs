@@ -27,6 +27,8 @@ namespace RavenM
             }
             return false;
         }
+
+        //players who load in earlier than the host and spawn in will be teleported to what i'm assuming is the origin point
     }
 
     /// <summary>
