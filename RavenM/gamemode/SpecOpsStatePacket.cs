@@ -97,12 +97,7 @@ namespace RavenM
 
             var introAction = (TimedAction)typeof(SpecOpsMode).GetField("gameIsRunning", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance);
 
-            introAction.Start(); //i have no idea if this works or not. if GetValue returns a new instance, this is fucked
-
-            if (__instance.IntroIsDone())
-            {
-                Plugin.logger.LogDebug($"god damnit reflection");
-            }
+            introAction.Start(); //seems to work.
 
             return false;
         }
