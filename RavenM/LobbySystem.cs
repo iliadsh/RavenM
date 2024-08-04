@@ -524,7 +524,7 @@ namespace RavenM
                 }
                 else
                 {
-                    SetLobbyDataDedup("modtotalsize", "Vanilla");
+                    SetLobbyDataDedup("modtotalsize", " Vanilla");
                 }
                 
             }
