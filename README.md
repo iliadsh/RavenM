@@ -45,7 +45,7 @@ Press `P` to open/hide the chat field, press `Y` to type a global message (press
 
 Pressing `Enter` to open the Loadout UI also open the Lobby menu
 
-Pressing `CapsLock` can use voice chat (Discord required?)
+Pressing `CapsLock` can use voice chat (don't need Discord. based on Steam)
 
 Pressing `F7` can open a tset ui (only for test).
 
