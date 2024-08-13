@@ -19,39 +19,33 @@ Next, Download RavenM [here](https://github.com/iliadsh/RavenM/releases/latest) 
 
 Run the game and RavenM should now be installed.
 
-Or join the [Discord server](https://discord.gg/63zE4gY), you can get the windows installer on `#mod-installation` channel.
+Or join the [Discord server](https://discord.gg/63zE4gY), you can get the Windows installer on `#mod-installation` channel.
 
 # Playing
 
-When starting game, the RavenM Updater may install the new update from server first.
+When starting the game, the RavenM Updater may first install a new update from the server.
 
 **Please be aware pirated/non-official copies of Ravenfield may encounter issues when using RavenM.</b> The mod relies entirely on Steam to transfer game data and mods securely between players.**
 
 To play together, one player must be the host. This player will control the behaviour of all the bots, the game parameters, and the current game state. All other players will connect to the host during the match. Despite this, no port-forwarding is required! All data is routed through the Steam relay servers, which means fast, easy and encrypted connections with DDoS protection and Steam authentication.
 
-Now, press `M` button to open connection menu.
+Now, press `M` button to open the connection menu.
 
 ## Hosting
-Press `Host` and choose whether the lobby is friends only or not. After pressing `Start`, you will be put into a lobby. At this point, you cannot exit the `Instant Action` page without leaving the lobby. Other players can connect with the `Lobby ID`.
-
-Starting the game will put everyone in the lobby in a match and terminate the lobby.
+Press `Host` and choose whether the lobby is friends only or not. After pressing `Start`, you will be put into a lobby. At this point, you cannot exit the `Instant Action` page without leaving the lobby. Other players can connect with the `Lobby ID` or through the server browser.
 
 ## Joining
 Press `Join` and paste the `Lobby ID` of an existing lobby. At this point, you cannot edit any of the options in the `Instant Action` page except for your team. You also cannot start the match. The settings chosen by the host will reflect on your own options.
 
 ## On Gaming
 
-Press `P` to open/hide the chat field, press `Y` to type a global message (press `Enter` to send, `Esc` to close the textbox), press `U` to type a message to your team (Eagle\Raven. the keybind is same) 
+Press `Y` to type a global message (press `Enter` to send, `Esc` to close the textbox), press `U` to type a message to your team.
 
-Pressing `Enter` to open the Loadout UI also open the Lobby menu
+Press `Enter` to open the Loadout UI.
 
-Pressing `CapsLock` can use voice chat (don't need Discord. based on Steam)
+Press `CapsLock` to use voice chat (positional).
 
-Pressing `F7` can open a tset ui (only for test).
-
-Pressing `~` can open the player coordinate display
-
-Squad leader controls (`G`, `B` keys) are available to direct other players in your squad
+Press `~` to place a marker.
 
 Have fun!
 
