@@ -980,6 +980,10 @@ namespace RavenM
                             for (int i = 0; i < mutator.configuration.GetAllFields().Count(); i++)
                             {
                                 var item = mutator.configuration.GetAllFields().ElementAt(i);
+
+                                if (item == null)
+                                    continue;
+
                                 if (item.SerializeValue() != "")
                                 {
                                     item?.DeserializeValue(config[i]);

@@ -13,24 +13,6 @@ using Steamworks;
 namespace RavenM
 {
 
-    [HarmonyPatch(typeof(SpecOpsMode), "PlayerAcceptedLoadoutFirstTime")]
-    public class SpecOpsWaitForHost
-    {
-        static bool Prefix()
-        {
-            if (!IngameNetManager.instance.IsClient || IngameNetManager.instance.IsHost)
-                return true;
-            if (!LobbySystem.instance.HostLoaded())
-            {
-                IngameUI.ShowOverlayText("WAIT FOR HOST TO LOAD", 1f);
-                return false;
-            }
-            return true;
-        }
-
-        //players who load in earlier than the host and spawn in will be teleported to what i'm assuming is the origin point
-    }
-
     /// <summary>
     /// We have to use InLobby rather than IsClient here because the following patches
     /// are ran before we even open the client connection.

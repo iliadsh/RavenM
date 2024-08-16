@@ -7,25 +7,6 @@ using System.Reflection.Emit;
 namespace RavenM
 {
 
-    [HarmonyPatch(typeof(SkirmishMode), "PlayerAcceptedLoadoutFirstTime")]
-    public class SkirmishWaitForHostPatch
-    {
-        static bool Prefix()
-        {
-            if (!IngameNetManager.instance.IsClient || IngameNetManager.instance.IsHost)
-                return true;
-            if(!LobbySystem.instance.HostLoaded())
-            {
-                IngameUI.ShowOverlayText("WAIT FOR HOST TO LOAD", 1f);
-                return false;
-            }
-            return true;
-        }
-
-        //players who load in early and spawn in will be stuck in purgatory
-
-    }
-
     [HarmonyPatch(typeof(SkirmishMode), "SpawnReinforcementWave")]
     public class SkirmishWavePatch
     {
