@@ -96,7 +96,7 @@ namespace RavenM
         public TimedAction SeatResolverCooldown = new TimedAction(1.5f);
         public TimedAction DamageCooldown = new TimedAction(1.0f);
 
-        public TimedAction KillCreditCooldown = new TimedAction(5.0f);
+        public TimedAction KillCreditCooldown = new TimedAction(5.0f); //experimental
 
         public bool SpawnedOnce = false;
 
@@ -252,9 +252,9 @@ namespace RavenM
 
         public override bool CanBeRammedBy(Vehicle vehicle)
         {
-            if (Targets.MovingPlatformVehicleId != 0 && IngameNetManager.instance.ClientVehicles.TryGetValue(Targets.MovingPlatformVehicleId, out Vehicle platform) && platform == vehicle) 
+            if (Targets.MovingPlatformVehicleId != 0/* && IngameNetManager.instance.ClientVehicles.TryGetValue(Targets.MovingPlatformVehicleId, out Vehicle platform) && platform == vehicle*/) 
             {
-                return vehicle.Velocity().sqrMagnitude > 400f;
+                return IngameNetManager.instance.TargetVehicleStates[Targets.MovingPlatformVehicleId].RamActive;
             }
             return true;
         }

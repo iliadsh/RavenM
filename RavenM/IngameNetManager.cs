@@ -1452,12 +1452,14 @@ namespace RavenM
                                             ClientVehicles.Remove(vehiclePacket.Id);
                                             continue;
                                         }
-
+                                        
                                         vehicle.gameObject.SetActive(vehiclePacket.Active);
 
                                         TargetVehicleStates[vehiclePacket.Id] = vehiclePacket;
 
                                         vehicle.health = vehiclePacket.Health;
+
+                                        vehicle.isInvulnerable = vehiclePacket.Invulnerable;
 
                                         if (vehiclePacket.Dead)
                                         {
@@ -1465,6 +1467,7 @@ namespace RavenM
                                             if (!vehicle.dead)
                                                 vehicle.Die(DamageInfo.Default);
                                         }
+
                                         else if (vehicle.health <= 0)
                                             vehicle.Damage(DamageInfo.Default);
                                         else if (vehicle.burning)
@@ -2865,6 +2868,9 @@ public void SendVehicleStates()
             Dead = vehicle.dead,
             IsTurret = vehicle.isTurret,
             Active = vehicle.gameObject.activeSelf,
+            RamActive = vehicle.Velocity().sqrMagnitude > 400f, //what if we check according to the server?
+            Invulnerable = vehicle.isInvulnerable //massive problems with anything invulnerable is made. 
+
         };
 
         bulkVehicleUpdate.Updates.Add(net_vehicle);

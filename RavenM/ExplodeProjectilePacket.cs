@@ -33,8 +33,9 @@ namespace RavenM
             var explodePacket = new ExplodeProjectilePacket
             {
                 Id = id,
-                SourceId = sourceId,
-                Position = position,
+                SourceId = sourceId, //we can also store the actor responsible to 100% ensure credit
+                Position = position, //some weapons spawn things at the impact location
+                //if the thing spawned wasn't a vehicle, stuff might desync. 
             };
 
             using (var writer = new ProtocolWriter(memoryStream))
