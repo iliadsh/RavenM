@@ -325,6 +325,8 @@ namespace RavenM
         public void Write(ExplodeProjectilePacket value)
         {
             Write(value.Id);
+            Write(value.SourceId);
+            Write(value.Position);
         }
 
         public void Write(DominationStatePacket value)

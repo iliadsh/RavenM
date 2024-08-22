@@ -24,10 +24,17 @@ namespace RavenM
             if (!IngameNetManager.instance.OwnedProjectiles.Contains(id))
                 return;
 
+            int sourceId = -1;
+            if (__instance.killCredit.TryGetComponent(out GuidComponent aguid))
+                sourceId = aguid.guid; 
+
+
             using MemoryStream memoryStream = new MemoryStream();
             var explodePacket = new ExplodeProjectilePacket
             {
                 Id = id,
+                SourceId = sourceId,
+                Position = position,
             };
 
             using (var writer = new ProtocolWriter(memoryStream))
@@ -39,9 +46,14 @@ namespace RavenM
             IngameNetManager.instance.SendPacketToServer(data, PacketType.Explode, Constants.k_nSteamNetworkingSend_Reliable);
         }
     }
+    
 
     public class ExplodeProjectilePacket
     {
         public int Id;
+
+        public int SourceId;
+
+        public Vector3 Position;
     }
 }

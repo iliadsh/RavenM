@@ -78,6 +78,7 @@ namespace RavenM
         Prone                       = 1 << 17,
         Reload                      = 1 << 18,
         Dead                        = 1 << 19,
+        Knockdown                   = 1 << 20,
     }
 
     public class ActorFlagsPacket

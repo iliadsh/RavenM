@@ -87,12 +87,16 @@ namespace RavenM
         public ActorPacket Targets;
         public int Flags;
 
+        public int actorKillCredit = -1;
+
         public Transform FakeWeaponParent;
         public WeaponManager.LoadoutSet FakeLoadout;
 
         public TimedAction RespawnCooldown = new TimedAction(3.0f);
         public TimedAction SeatResolverCooldown = new TimedAction(1.5f);
         public TimedAction DamageCooldown = new TimedAction(1.0f);
+
+        public TimedAction KillCreditCooldown = new TimedAction(5.0f);
 
         public bool SpawnedOnce = false;
 
@@ -101,11 +105,27 @@ namespace RavenM
             if (RespawnCooldown.TrueDone())
             {
                 if ((Flags & (int)ActorStateFlags.Dead) != 0 && !actor.dead)
-                    actor.Kill(DamageInfo.Default);
+                {
+                    DamageInfo info = DamageInfo.Default;
+
+                    if (actorKillCredit != -1)
+                        info.sourceActor = IngameNetManager.instance.ClientActors[actorKillCredit];
+
+                    actor.Kill(info);
+                    actorKillCredit = -1;
+                }
 
                 if (!((Flags & (int)ActorStateFlags.Dead) != 0) && actor.dead)
                     actor.SpawnAt(Targets.Position, Quaternion.identity);
             }
+
+            if ((Flags & (int)ActorStateFlags.Knockdown) != 0 && !actor.dead && !actor.fallenOver)
+                actor.FallOver();
+            if (!((Flags & (int)ActorStateFlags.Knockdown) != 0) && !actor.dead && actor.fallenOver)
+                actor.InstantGetUp();
+
+            if (KillCreditCooldown.TrueDone())
+                actorKillCredit = -1;
 
             if (!SpawnedOnce)
                 return;
@@ -576,6 +596,7 @@ namespace RavenM
         public override void ReceivedDamage(bool friendlyFire, float damage, float balanceDamage, Vector3 point, Vector3 direction, Vector3 force)
         {
             DamageCooldown.Start();
+            KillCreditCooldown.Start();
         }
 
         public override bool Reload()
