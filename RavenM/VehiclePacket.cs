@@ -54,6 +54,10 @@ namespace RavenM
         public bool IsTurret;
 
         public bool Active;
+
+        public bool Invulnerable;
+
+        public bool RamActive;
     }
 
     public class BulkVehicleUpdate
