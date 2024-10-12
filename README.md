@@ -9,6 +9,8 @@ A Ravenfield multiplayer mod.
 
 # Installing
 
+> 中国玩家请前往 [RavenfieldCommunity](https://ravenfieldcommunity.github.io/docs/cn/Project/ravenm.html) 安装联机插件!
+
 <b>Important Note:</b> RavenM does not support BepInEx version 6. Please ensure to install the latest version of BepInEx 5.x.x to complete the installation.
 
 This mod depends on [BepInEx](https://github.com/BepInEx/BepInEx), a cross-platform Unity modding framework. 
@@ -24,6 +26,8 @@ Or join the [Discord server](https://discord.gg/63zE4gY), you can get the Window
 # Playing
 
 When starting the game, the RavenM Updater may first install a new update from the server.
+
+You can add a startup argument `-noravenm` on Steam to temporarily unload RavenM plugin
 
 **Please be aware pirated/non-official copies of Ravenfield may encounter issues when using RavenM.</b> The mod relies entirely on Steam to transfer game data and mods securely between players.**
 
