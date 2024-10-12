@@ -121,7 +121,7 @@ namespace RavenM
             }
             var harmony = new Harmony("patch.ravenm");
             try {
-                harmony.PatchAll();
+                harmony.PatchAll( Assembly.GetAssembly( typeof(LobbySystem) ) );
             } catch (Exception e) {
                 Logger.LogError($"Failed to patch: {e}");
             }
