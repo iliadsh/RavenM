@@ -80,6 +80,17 @@ namespace RavenM
             instance = this;
             logger = Logger;
 
+            string[] commandLineArgs = Environment.GetCommandLineArgs();
+
+            for (int i = 0; i < commandLineArgs.Length; i++)
+            {
+                if (commandLineArgs[i] == "-noravenm") 
+                { 
+                    Logger.LogWarning($"Plugin {PluginInfo.PLUGIN_GUID} is canceled to load!");
+                    throw new Exception("Cancel load");
+                }
+            }
+
             Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
 
             configRavenMDevMod = Config.Bind("General.Toggles",
